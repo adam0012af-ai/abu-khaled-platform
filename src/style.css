@@ -327,3 +327,110 @@ html.mobile-capable .modalBack{padding:8px!important}
 html.mobile-capable .productModal,html.mobile-capable .checkoutModal{border-radius:17px!important}
 html.mobile-capable .cartItem{grid-template-columns:52px 1fr auto!important}
 html.mobile-capable .cartItem img{width:52px!important;height:52px!important}
+
+
+/* v12 final flagship polish */
+.brand{
+  color:#0F172A;
+  font-weight:700;
+  letter-spacing:-.35px;
+}
+.brand span,footer span{color:inherit}
+
+/* Hero identity */
+.hero h1{color:#0F172A}
+.hero h1 em{
+  font-style:normal;
+  background:linear-gradient(90deg,#0F172A 0%,#334155 48%,#0F172A 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  -webkit-text-fill-color:transparent;
+}
+.pill{
+  padding:4px 12px;
+  border:0;
+  border-radius:999px;
+  background:#F1F5F9;
+  color:#475569;
+  font-size:12px;
+  font-weight:500;
+  line-height:1.5;
+}
+
+/* Hero CTA */
+.promoText button{
+  border-radius:999px!important;
+  background:#09090B!important;
+  color:#FFFFFF!important;
+  padding:11px 20px;
+  box-shadow:0 8px 22px rgba(9,9,11,.18);
+}
+.promoText button:hover{background:#18181B!important}
+.promoText button:active{background:#27272A!important;transform:scale(.985)}
+
+/* Clean header icon buttons on mobile */
+@media(max-width:640px){
+  .actions .authHeader,
+  .actions .cartBtn,
+  .actions .hamb{
+    border:0!important;
+    background:transparent!important;
+    color:#0F172A!important;
+    box-shadow:none!important;
+    border-radius:999px!important;
+  }
+  .actions .authHeader:hover,
+  .actions .cartBtn:hover,
+  .actions .hamb:hover{
+    background:transparent!important;
+    transform:none!important;
+  }
+  .actions .authHeader:active,
+  .actions .cartBtn:active,
+  .actions .hamb:active{
+    background:#F1F5F9!important;
+    transform:scale(.96)!important;
+  }
+  .cartBtn b{
+    border:2px solid #fff!important;
+    background:#0F172A!important;
+    color:#fff!important;
+  }
+  .brand{font-size:21px;font-weight:700}
+  .pill{font-size:11px;padding:4px 10px}
+  .hero h1{color:#0F172A!important}
+}
+
+/* Same treatment after OAuth/browser restore */
+html.mobile-capable .actions .authHeader,
+html.mobile-capable .actions .cartBtn,
+html.mobile-capable .actions .hamb{
+  border:0!important;
+  background:transparent!important;
+  color:#0F172A!important;
+  box-shadow:none!important;
+  border-radius:999px!important;
+}
+html.mobile-capable .actions .authHeader:hover,
+html.mobile-capable .actions .cartBtn:hover,
+html.mobile-capable .actions .hamb:hover{
+  background:transparent!important;
+  transform:none!important;
+}
+html.mobile-capable .actions .authHeader:active,
+html.mobile-capable .actions .cartBtn:active,
+html.mobile-capable .actions .hamb:active{
+  background:#F1F5F9!important;
+  transform:scale(.96)!important;
+}
+html.mobile-capable .brand{font-weight:700}
+html.mobile-capable .hero h1{color:#0F172A!important}
+html.mobile-capable .pill{
+  padding:4px 10px!important;
+  border:0!important;
+  border-radius:999px!important;
+  background:#F1F5F9!important;
+  color:#475569!important;
+  font-size:11px!important;
+}
