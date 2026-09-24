@@ -125,9 +125,8 @@ function App(){
   const[lang,setLang]=useState<Lang>("ar");
   const[country,setCountry]=useState("الكل");
   const[storeFilter,setStoreFilter]=useState("الكل");
-  const[category,setCategory]=useState("الكل");
   const[searchTerm,setSearchTerm]=useState("");
-  const[sortBy,setSortBy]=useState<"featured"|"discount">("featured");
+  const[dealChip,setDealChip]=useState<"best"|"discount"|"tech"|"fashion"|"home">("best");
   const[banner,setBanner]=useState(0);
   const[touchX,setTouchX]=useState<number|null>(null);
   const[copied,setCopied]=useState("");
@@ -196,16 +195,21 @@ function App(){
     let list=coupons.filter(c=>
       (country==="الكل"||c.country===country)&&
       (storeFilter==="الكل"||c.store_id===storeFilter)&&
-      (category==="الكل"||c.category===category)&&
       (!q||c.title.toLowerCase().includes(q)||c.store_name.toLowerCase().includes(q)||c.coupon_code.toLowerCase().includes(q))
     );
-    if(sortBy==="discount"){
+
+    if(dealChip==="tech")list=list.filter(c=>c.category==="إلكترونيات");
+    if(dealChip==="fashion")list=list.filter(c=>c.category==="أزياء");
+    if(dealChip==="home")list=list.filter(c=>c.category==="منزل");
+
+    if(dealChip==="discount"){
       list=[...list].sort((a,b)=>Number(b.discount_label.replace(/\D/g,""))-Number(a.discount_label.replace(/\D/g,"")));
     }else{
       list=[...list].sort((a,b)=>Number(Boolean(b.featured))-Number(Boolean(a.featured)));
     }
+
     return list;
-  },[country,storeFilter,category,searchTerm,sortBy]);
+  },[country,storeFilter,searchTerm,dealChip]);
 
   const copyCode=(code:string)=>{
     const fallback=()=>{const ta=document.createElement("textarea");ta.value=code;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()};
@@ -259,23 +263,43 @@ function App(){
         <div className="couponStats"><span><b>{coupons.length}+</b> كوبونات وعروض</span><span><b>{partnerStores.length}</b> متاجر شريكة</span><span><b>{countries.length-1}</b> دول</span></div>
       </section>
 
-      <section id="stores" className="couponSection storesSection">
-        <div className="couponSectionHead"><div><span>PARTNER STORES</span><h2>أشهر المتاجر الشريكة</h2></div><small>اختر متجراً لعرض كوبوناته</small></div>
-        <div className="storeGrid">{partnerStores.map(store=><button key={store.id} className={storeFilter===store.id?"active":""} onClick={()=>selectStore(store.id)}><span className="storeLogoWrap"><img src={store.logo} alt={store.name}/></span><b>{store.name}</b><small>{coupons.filter(c=>c.store_id===store.id).length} عروض</small></button>)}</div>
+      <section id="stores" className="couponSection storesSection modernStores">
+        <div className="couponSectionHead"><div><span>PARTNER STORES</span><h2>متاجر تستحق المتابعة</h2></div><small>اختَر متجراً وشاهد عروضه الفعالة فوراً</small></div>
+        <div className="storeGrid modernStoreSlider">
+          <button className={storeFilter==="الكل"?"active storeAllCard":"storeAllCard"} onClick={()=>setStoreFilter("الكل")}><span className="storeLogoWrap storeAllLogo">✦</span><b>كل المتاجر</b><small>{coupons.length} عروض فعالة</small></button>
+          {partnerStores.map(store=><button key={store.id} className={storeFilter===store.id?"active":""} onClick={()=>selectStore(store.id)}><span className="storeLogoWrap"><img src={store.logo} alt={store.name}/></span><b>{store.name}</b><small>{coupons.filter(c=>c.store_id===store.id).length} عروض فعالة</small></button>)}
+        </div>
       </section>
 
-      <section className="couponFilterBar" aria-label="فلترة الكوبونات">
-        <label className="filterSearch"><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="ابحث باسم المتجر أو الكوبون"/></label>
-        <label><span>المتجر</span><select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}><option value="الكل">كل المتاجر</option>{partnerStores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-        <label><span>الدولة</span><select value={country} onChange={e=>setCountry(e.target.value)}>{countries.map(x=><option key={x}>{x}</option>)}</select></label>
-        <label><span>القسم</span><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(x=><option key={x}>{x}</option>)}</select></label>
-        <label><span>الترتيب</span><select value={sortBy} onChange={e=>setSortBy(e.target.value as "featured"|"discount")}><option value="featured">الأكثر تميزاً</option><option value="discount">أعلى خصم</option></select></label>
-        <button onClick={()=>{setSearchTerm("");setStoreFilter("الكل");setCountry("الكل");setCategory("الكل");setSortBy("featured")}}>إعادة الضبط</button>
+      <section className="dealChipsWrap" aria-label="تصنيفات سريعة">
+        <div className="dealChips">
+          <button className={dealChip==="best"?"active":""} onClick={()=>setDealChip("best")}>🔥 الأفضل</button>
+          <button className={dealChip==="discount"?"active":""} onClick={()=>setDealChip("discount")}>⚡ أقوى خصم</button>
+          <button className={dealChip==="tech"?"active":""} onClick={()=>setDealChip("tech")}>📱 تقنية</button>
+          <button className={dealChip==="fashion"?"active":""} onClick={()=>setDealChip("fashion")}>👗 أزياء</button>
+          <button className={dealChip==="home"?"active":""} onClick={()=>setDealChip("home")}>🏠 المنزل</button>
+        </div>
+        {(storeFilter!=="الكل"||country!=="الكل"||searchTerm)&&<button className="clearDealFilters" onClick={()=>{setStoreFilter("الكل");setCountry("الكل");setSearchTerm("");setDealChip("best")}}>مسح التحديد</button>}
       </section>
 
-      <section id="coupons" className="couponSection">
-        <div className="couponSectionHead"><div><span>EXCLUSIVE COUPONS</span><h2>أقوى الكوبونات الحصرية</h2></div><small>{visibleCoupons.length} نتيجة</small></div>
-        {visibleCoupons.length?<div className="couponGrid">{visibleCoupons.map(coupon=><article className="couponCard quickViewCard" key={coupon.id} onClick={()=>openQuickView(coupon)}><div className="couponCardTop"><div className="couponStore"><span><img src={coupon.store_logo} alt={coupon.store_name}/></span><div><b>{coupon.store_name}</b><small>{coupon.country} · {coupon.category}</small></div></div>{coupon.verified&&<span className="verifiedBadge">✓ موثوق</span>}</div><div className="couponDiscount">{coupon.discount_label}</div><h3>{coupon.title}</h3><p>{coupon.description}</p><div className="couponMeta"><span>{coupon.expires||"لفترة محدودة"}</span><span>كود: <b>{coupon.coupon_code}</b></span></div><button className="couponAction" onClick={e=>{e.stopPropagation();openQuickView(coupon)}}>معاينة العرض <span>↗</span></button></article>)}</div>:<div className="emptyDeals">لا توجد كوبونات مطابقة للفلاتر الحالية.</div>}
+      <section id="coupons" className="couponSection modernDealsSection">
+        <div className="couponSectionHead"><div><span>CURATED DEALS</span><h2>صفقات وكوبونات مختارة</h2></div><small>{visibleCoupons.length} عرض متاح</small></div>
+        {visibleCoupons.length?<div className="couponGrid modernVoucherGrid">{visibleCoupons.map(coupon=><article className="couponCard modernVoucherCard" key={coupon.id} onClick={()=>openQuickView(coupon)}>
+          <div className="voucherGlow"/>
+          <div className="couponCardTop">
+            <div className="couponStore"><span><img src={coupon.store_logo} alt={coupon.store_name}/></span><div><b>{coupon.store_name}</b><small className="liveToday">نشط اليوم ✓</small></div></div>
+            <span className="voucherCountry">{coupon.country}</span>
+          </div>
+          <div className="couponDiscount modernDiscount">{coupon.discount_label}</div>
+          <h3>{coupon.title}</h3>
+          <p>{coupon.description}</p>
+          <div className="voucherMetaLine"><span>{coupon.category}</span><span>{coupon.expires||"لفترة محدودة"}</span></div>
+          <div className="voucherCodeBox" onClick={e=>e.stopPropagation()}>
+            <div><small>كود الخصم</small><strong>{coupon.coupon_code}</strong></div>
+            <button className={copied===coupon.id?"copied":""} onClick={()=>copyCouponOnly(coupon)}>{copied===coupon.id?"تم النسخ ✓":"نسخ الكود"}</button>
+          </div>
+          <button className="voucherPreviewBtn" onClick={e=>{e.stopPropagation();openQuickView(coupon)}}>عرض التفاصيل <span>↗</span></button>
+        </article>)}</div>:<div className="emptyDeals">لا توجد عروض مطابقة لهذا الاختيار الآن.</div>}
       </section>
 
       <section className="couponTrust">
