@@ -77,61 +77,6 @@ function isMobileOAuthDevice(){
   return coarsePointer&&physicalShortSide<=1024;
 }
 
-function renderGoogleAuthWaitingWindow(authWindow:Window|null){
-  if(!authWindow)return;
-  try{
-    const doc=authWindow.document;
-    doc.title="أبو خالد | تسجيل الدخول";
-    doc.documentElement.lang="ar";
-    doc.documentElement.dir="rtl";
-
-    while(doc.head.firstChild)doc.head.removeChild(doc.head.firstChild);
-    while(doc.body.firstChild)doc.body.removeChild(doc.body.firstChild);
-
-    const viewport=doc.createElement("meta");
-    viewport.name="viewport";
-    viewport.content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
-    doc.head.appendChild(viewport);
-
-    const theme=doc.createElement("meta");
-    theme.name="theme-color";
-    theme.content="#F8FAFC";
-    doc.head.appendChild(theme);
-
-    const style=doc.createElement("style");
-    style.textContent=`
-      *{box-sizing:border-box}
-      html,body{margin:0;width:100%;min-height:100%;background:#F8FAFC;color:#0F172A;font-family:Arial,sans-serif}
-      body{min-height:100vh;display:grid;place-items:center;padding:24px}
-      .wrap{width:min(92vw,390px);padding:34px 26px 30px;text-align:center;border:1px solid #E2E8F0;border-radius:22px;background:#fff;box-shadow:0 18px 50px rgba(15,23,42,.10)}
-      .logo{width:54px;height:54px;margin:0 auto 16px;display:grid;place-items:center;border-radius:16px;background:#09090B;color:#fff;font-size:24px;font-weight:700}
-      h1{margin:0;color:#0F172A;font-size:24px;line-height:1.35}
-      p{margin:8px 0 0;color:#64748B;font-size:13px;line-height:1.8}
-      .loader{width:32px;height:32px;margin:22px auto 0;border:3px solid #E2E8F0;border-top-color:#0F172A;border-radius:50%;animation:spin .75s linear infinite}
-      small{display:block;margin-top:16px;color:#94A3B8;font-size:10px}
-      @keyframes spin{to{transform:rotate(360deg)}}
-    `;
-    doc.head.appendChild(style);
-
-    const wrap=doc.createElement("main");
-    wrap.className="wrap";
-    const logo=doc.createElement("div");
-    logo.className="logo";
-    logo.textContent="أ";
-    const h1=doc.createElement("h1");
-    h1.textContent="أبو خالد";
-    const p=doc.createElement("p");
-    p.textContent="جاري فتح تسجيل الدخول الآمن عبر Google…";
-    const loader=doc.createElement("div");
-    loader.className="loader";
-    const note=doc.createElement("small");
-    note.textContent="سيتم إغلاق هذه النافذة تلقائياً بعد تسجيل الدخول.";
-
-    wrap.append(logo,h1,p,loader,note);
-    doc.body.appendChild(wrap);
-  }catch{}
-}
-
 function syncMobileViewport(){
   let viewportMeta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;
   if(!viewportMeta){
@@ -145,98 +90,6 @@ function syncMobileViewport(){
 }
 
 syncMobileViewport();
-
-function AuthCallbackGate(){
-  const[status,setStatus]=useState<"working"|"success"|"error">("working");
-  const[message,setMessage]=useState("جاري إكمال تسجيل الدخول…");
-  const[closeBlocked,setCloseBlocked]=useState(false);
-
-  useEffect(()=>{
-    let finished=false;
-    let alive=true;
-
-    const notifyMainWindow=()=>{
-      try{
-        if("BroadcastChannel" in window){
-          const channel=new BroadcastChannel("abu-khaled-auth");
-          channel.postMessage({type:"auth-success"});
-          channel.close();
-        }
-      }catch{}
-      try{
-        localStorage.setItem("abu-khaled-auth-success",String(Date.now()));
-        localStorage.removeItem("abu-khaled-auth-success");
-      }catch{}
-    };
-
-    const finish=(session:any)=>{
-      if(finished||!alive||!session?.user)return;
-      finished=true;
-      try{sessionStorage.removeItem("abu-khaled-oauth-popup")}catch{}
-      notifyMainWindow();
-      setStatus("success");
-      setMessage("تم تسجيل الدخول بنجاح. جاري إعادتك للموقع…");
-
-      window.setTimeout(()=>{
-        try{window.close()}catch{}
-        window.setTimeout(()=>{
-          if(!window.closed&&alive)setCloseBlocked(true);
-        },550);
-      },220);
-    };
-
-    syncMobileViewport();
-
-    const url=new URL(window.location.href);
-    const oauthError=url.searchParams.get("error_description")||url.searchParams.get("error");
-    if(oauthError){
-      setStatus("error");
-      setMessage("تعذر إكمال تسجيل الدخول عبر Google.");
-      return()=>{alive=false};
-    }
-
-    supabase.auth.getSession().then(({data,error})=>{
-      if(!alive)return;
-      if(error){
-        setStatus("error");
-        setMessage(error.message||"تعذر إكمال تسجيل الدخول.");
-        return;
-      }
-      if(data.session)finish(data.session);
-    });
-
-    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
-      if(session?.user)finish(session);
-    });
-
-    return()=>{
-      alive=false;
-      subscription.unsubscribe();
-    };
-  },[]);
-
-  return <main className="oauthReturnPage" dir="rtl">
-    <section className="oauthReturnCard">
-      <div className={"oauthReturnIcon "+status}>{status==="success"?"✓":status==="error"?"!":"أ"}</div>
-      <h1>أبو خالد</h1>
-      <p>{message}</p>
-      {status==="working"&&<div className="oauthReturnSpinner" aria-hidden="true"/>}
-      {closeBlocked&&<><button onClick={()=>window.close()}>إغلاق نافذة تسجيل الدخول</button><small>إذا لم يغلق المتصفح النافذة تلقائيًا، أغلق هذا التبويب وارجع للتبويب الأصلي.</small></>}
-      {status==="error"&&<button onClick={()=>window.close()}>إغلاق والعودة</button>}
-    </section>
-  </main>
-}
-
-function isOAuthPopupContext(){
-  try{
-    if(sessionStorage.getItem("abu-khaled-oauth-popup")==="1")return true;
-  }catch{}
-  try{
-    return new URL(window.location.href).searchParams.get("auth_popup")==="1";
-  }catch{
-    return false;
-  }
-}
 
 function App(){
   const[user,setUser]=useState<any>(null);
@@ -264,57 +117,46 @@ function App(){
 
   useEffect(()=>{
     let alive=true;
-    let channel:BroadcastChannel|null=null;
 
     const cleanAuthUrl=()=>{
-      if(window.location.hash.includes("access_token")){
-        window.history.replaceState({},document.title,window.location.pathname);
-        return;
-      }
       const url=new URL(window.location.href);
-      if(url.searchParams.has("code")||url.searchParams.has("error")){
+      if(
+        window.location.hash.includes("access_token")||
+        url.searchParams.has("code")||
+        url.searchParams.has("error")
+      ){
         window.history.replaceState({},document.title,window.location.pathname);
       }
     };
 
     const applyAuthenticatedSession=(session:any)=>{
       if(!alive||!session?.user)return;
+
+      const oauthResetPending=sessionStorage.getItem("abu-khaled-oauth-reset")==="1";
+      if(oauthResetPending){
+        // A full top-level navigation is intentional here. Mobile Chromium can
+        // preserve Google's visual viewport scale across the OAuth redirect.
+        // Replacing the callback document once creates a fresh document/layout
+        // viewport, exactly like the manual refresh that fixes the issue.
+        sessionStorage.removeItem("abu-khaled-oauth-reset");
+        window.location.replace(window.location.origin+"/");
+        return;
+      }
+
       cleanAuthUrl();
       syncMobileViewport();
-      window.requestAnimationFrame(()=>syncMobileViewport());
       setUser(session.user);
       setAuthOpen(false);
       setAuthBusy(false);
       setAuthMsg("");
     };
 
-    const refreshSessionFromSibling=async()=>{
-      const{data}=await supabase.auth.getSession();
-      if(data.session)applyAuthenticatedSession(data.session);
-    };
-
     syncMobileViewport();
-
-    if("BroadcastChannel" in window){
-      try{
-        channel=new BroadcastChannel("abu-khaled-auth");
-        channel.onmessage=(event)=>{
-          if(event.data?.type==="auth-success")refreshSessionFromSibling();
-        };
-      }catch{}
-    }
-
-    const handleStorage=(event:StorageEvent)=>{
-      if(event.key==="abu-khaled-auth-success")refreshSessionFromSibling();
-    };
-    const handlePageShow=()=>syncMobileViewport();
-
-    window.addEventListener("storage",handleStorage);
-    window.addEventListener("pageshow",handlePageShow);
 
     supabase.auth.getSession().then(({data,error})=>{
       if(!alive)return;
       if(error){
+        sessionStorage.removeItem("abu-khaled-oauth-reset");
         setAuthMsg(error.message);
         setAuthBusy(false);
         return;
@@ -329,11 +171,12 @@ function App(){
       else setUser(null);
     });
 
+    const handlePageShow=()=>syncMobileViewport();
+    window.addEventListener("pageshow",handlePageShow);
+
     return()=>{
       alive=false;
       subscription.unsubscribe();
-      channel?.close();
-      window.removeEventListener("storage",handleStorage);
       window.removeEventListener("pageshow",handlePageShow);
     };
   },[]);
@@ -346,54 +189,19 @@ function App(){
     setAuthBusy(true);
     setAuthMsg("");
 
-    if(isMobileOAuthDevice()){
-      // Keep the main mobile page untouched. Google OAuth runs in a separate
-      // script-opened tab/window so Google's desktop-scaled consent page cannot
-      // leak its visual viewport scale back into the app.
-      const authWindow=window.open("about:blank","abu-khaled-google-auth");
-      if(!authWindow){
-        setAuthMsg("المتصفح منع نافذة Google. اسمح بالنوافذ المنبثقة ثم اضغط تسجيل الدخول مرة أخرى.");
-        setAuthBusy(false);
-        return;
-      }
-
-      try{authWindow.sessionStorage.setItem("abu-khaled-oauth-popup","1")}catch{}
-      renderGoogleAuthWaitingWindow(authWindow);
-      try{authWindow.opener=null}catch{}
-
-      const redirectTo=`${window.location.origin}/?auth_popup=1`;
-      const{data,error}=await supabase.auth.signInWithOAuth({
-        provider:"google",
-        options:{
-          redirectTo,
-          skipBrowserRedirect:true,
-          queryParams:{prompt:"select_account"}
-        }
-      });
-
-      if(error||!data?.url){
-        try{authWindow?.close()}catch{}
-        setAuthMsg(error?.message||"تعذر بدء تسجيل الدخول باستخدام Google.");
-        setAuthBusy(false);
-        return;
-      }
-
-      if(authWindow.closed){
-        setAuthMsg("تم إغلاق نافذة Google قبل بدء تسجيل الدخول. اضغط المحاولة مرة أخرى.");
-        setAuthBusy(false);
-        return;
-      }
-
-      authWindow.location.replace(data.url);
-      return;
-    }
+    // Keep the user flow native: site -> Google -> site.
+    // On the successful callback we perform one automatic clean navigation
+    // to reset the mobile visual viewport before the homepage is shown.
+    sessionStorage.setItem("abu-khaled-oauth-reset","1");
 
     const redirectTo=`${window.location.origin}/`;
     const{error}=await supabase.auth.signInWithOAuth({
       provider:"google",
       options:{redirectTo,queryParams:{prompt:"select_account"}}
     });
+
     if(error){
+      sessionStorage.removeItem("abu-khaled-oauth-reset");
       setAuthMsg(error.message);
       setAuthBusy(false);
     }
@@ -504,4 +312,4 @@ function App(){
   </div>
 }
 
-createRoot(document.getElementById("root")!).render(isOAuthPopupContext()?<AuthCallbackGate/>:<App/>);
+createRoot(document.getElementById("root")!).render(<App/>);
