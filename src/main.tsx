@@ -146,6 +146,98 @@ function syncMobileViewport(){
 
 syncMobileViewport();
 
+function AuthCallbackGate(){
+  const[status,setStatus]=useState<"working"|"success"|"error">("working");
+  const[message,setMessage]=useState("جاري إكمال تسجيل الدخول…");
+  const[closeBlocked,setCloseBlocked]=useState(false);
+
+  useEffect(()=>{
+    let finished=false;
+    let alive=true;
+
+    const notifyMainWindow=()=>{
+      try{
+        if("BroadcastChannel" in window){
+          const channel=new BroadcastChannel("abu-khaled-auth");
+          channel.postMessage({type:"auth-success"});
+          channel.close();
+        }
+      }catch{}
+      try{
+        localStorage.setItem("abu-khaled-auth-success",String(Date.now()));
+        localStorage.removeItem("abu-khaled-auth-success");
+      }catch{}
+    };
+
+    const finish=(session:any)=>{
+      if(finished||!alive||!session?.user)return;
+      finished=true;
+      try{sessionStorage.removeItem("abu-khaled-oauth-popup")}catch{}
+      notifyMainWindow();
+      setStatus("success");
+      setMessage("تم تسجيل الدخول بنجاح. جاري إعادتك للموقع…");
+
+      window.setTimeout(()=>{
+        try{window.close()}catch{}
+        window.setTimeout(()=>{
+          if(!window.closed&&alive)setCloseBlocked(true);
+        },550);
+      },220);
+    };
+
+    syncMobileViewport();
+
+    const url=new URL(window.location.href);
+    const oauthError=url.searchParams.get("error_description")||url.searchParams.get("error");
+    if(oauthError){
+      setStatus("error");
+      setMessage("تعذر إكمال تسجيل الدخول عبر Google.");
+      return()=>{alive=false};
+    }
+
+    supabase.auth.getSession().then(({data,error})=>{
+      if(!alive)return;
+      if(error){
+        setStatus("error");
+        setMessage(error.message||"تعذر إكمال تسجيل الدخول.");
+        return;
+      }
+      if(data.session)finish(data.session);
+    });
+
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      if(session?.user)finish(session);
+    });
+
+    return()=>{
+      alive=false;
+      subscription.unsubscribe();
+    };
+  },[]);
+
+  return <main className="oauthReturnPage" dir="rtl">
+    <section className="oauthReturnCard">
+      <div className={"oauthReturnIcon "+status}>{status==="success"?"✓":status==="error"?"!":"أ"}</div>
+      <h1>أبو خالد</h1>
+      <p>{message}</p>
+      {status==="working"&&<div className="oauthReturnSpinner" aria-hidden="true"/>}
+      {closeBlocked&&<><button onClick={()=>window.close()}>إغلاق نافذة تسجيل الدخول</button><small>إذا لم يغلق المتصفح النافذة تلقائيًا، أغلق هذا التبويب وارجع للتبويب الأصلي.</small></>}
+      {status==="error"&&<button onClick={()=>window.close()}>إغلاق والعودة</button>}
+    </section>
+  </main>
+}
+
+function isOAuthPopupContext(){
+  try{
+    if(sessionStorage.getItem("abu-khaled-oauth-popup")==="1")return true;
+  }catch{}
+  try{
+    return new URL(window.location.href).searchParams.get("auth_popup")==="1";
+  }catch{
+    return false;
+  }
+}
+
 function App(){
   const[user,setUser]=useState<any>(null);
   const[authOpen,setAuthOpen]=useState(false);
@@ -180,42 +272,20 @@ function App(){
         return;
       }
       const url=new URL(window.location.href);
-      if(url.searchParams.has("code")||url.searchParams.has("error")||url.searchParams.has("auth_popup")){
+      if(url.searchParams.has("code")||url.searchParams.has("error")){
         window.history.replaceState({},document.title,window.location.pathname);
       }
     };
 
-    const finishPopupAuth=()=>{
-      try{
-        if("BroadcastChannel" in window){
-          const popupChannel=new BroadcastChannel("abu-khaled-auth");
-          popupChannel.postMessage({type:"auth-success"});
-          popupChannel.close();
-        }
-      }catch{}
-      try{
-        localStorage.setItem("abu-khaled-auth-success",String(Date.now()));
-        localStorage.removeItem("abu-khaled-auth-success");
-      }catch{}
-      window.setTimeout(()=>window.close(),180);
-    };
-
     const applyAuthenticatedSession=(session:any)=>{
       if(!alive||!session?.user)return;
-
-      const callbackUrl=new URL(window.location.href);
-      const isPopupReturn=callbackUrl.searchParams.get("auth_popup")==="1";
-
       cleanAuthUrl();
       syncMobileViewport();
       window.requestAnimationFrame(()=>syncMobileViewport());
-
       setUser(session.user);
       setAuthOpen(false);
       setAuthBusy(false);
       setAuthMsg("");
-
-      if(isPopupReturn)finishPopupAuth();
     };
 
     const refreshSessionFromSibling=async()=>{
@@ -281,8 +351,15 @@ function App(){
       // script-opened tab/window so Google's desktop-scaled consent page cannot
       // leak its visual viewport scale back into the app.
       const authWindow=window.open("about:blank","abu-khaled-google-auth");
+      if(!authWindow){
+        setAuthMsg("المتصفح منع نافذة Google. اسمح بالنوافذ المنبثقة ثم اضغط تسجيل الدخول مرة أخرى.");
+        setAuthBusy(false);
+        return;
+      }
+
+      try{authWindow.sessionStorage.setItem("abu-khaled-oauth-popup","1")}catch{}
       renderGoogleAuthWaitingWindow(authWindow);
-      try{if(authWindow)authWindow.opener=null}catch{}
+      try{authWindow.opener=null}catch{}
 
       const redirectTo=`${window.location.origin}/?auth_popup=1`;
       const{data,error}=await supabase.auth.signInWithOAuth({
@@ -301,12 +378,13 @@ function App(){
         return;
       }
 
-      if(authWindow&&!authWindow.closed){
-        authWindow.location.href=data.url;
-      }else{
-        // Popup blocked: preserve a working fallback.
-        window.location.assign(data.url);
+      if(authWindow.closed){
+        setAuthMsg("تم إغلاق نافذة Google قبل بدء تسجيل الدخول. اضغط المحاولة مرة أخرى.");
+        setAuthBusy(false);
+        return;
       }
+
+      authWindow.location.replace(data.url);
       return;
     }
 
@@ -426,4 +504,4 @@ function App(){
   </div>
 }
 
-createRoot(document.getElementById("root")!).render(<App/>);
+createRoot(document.getElementById("root")!).render(isOAuthPopupContext()?<AuthCallbackGate/>:<App/>);
