@@ -3351,3 +3351,548 @@ iframe{
     min-width:0!important;
   }
 }
+
+
+/* v25 Modern Luxury Deals UI */
+:root{
+  --bg:#FAFAFA;
+  --surface:#FFFFFF;
+  --surface2:#F7F7F8;
+  --ink:#09090B;
+  --body:#52525B;
+  --muted:#71717A;
+  --line:#E4E4E7;
+  --emerald:#059669;
+  --emerald-deep:#047857;
+  --indigo:#4F46E5;
+  --indigo-deep:#3730A3;
+  --lux-shadow:0 10px 30px rgba(9,9,11,.06),0 2px 8px rgba(9,9,11,.035);
+  --lux-shadow-hover:0 22px 60px rgba(9,9,11,.11),0 8px 20px rgba(9,9,11,.06);
+}
+
+html,body,#root{
+  background:
+    radial-gradient(circle at 10% 0%,rgba(79,70,229,.045),transparent 28%),
+    radial-gradient(circle at 88% 18%,rgba(5,150,105,.045),transparent 26%),
+    #FAFAFA!important;
+}
+
+header{
+  background:rgba(250,250,250,.84)!important;
+  border-bottom:1px solid rgba(228,228,231,.75)!important;
+  box-shadow:0 1px 0 rgba(9,9,11,.02)!important;
+}
+
+.couponHero{
+  border:1px solid rgba(255,255,255,.1)!important;
+  box-shadow:0 24px 70px rgba(9,9,11,.13),0 5px 20px rgba(9,9,11,.08)!important;
+}
+.couponHero:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 76% 22%,rgba(99,102,241,.20),transparent 24%),
+    radial-gradient(circle at 70% 78%,rgba(16,185,129,.16),transparent 27%);
+}
+.couponHero .promoText{z-index:3}
+.couponHero .promoText small{
+  color:#D4D4D8!important;
+}
+.couponHero .promoText button{
+  background:#FFFFFF!important;
+  color:#09090B!important;
+  border:1px solid rgba(255,255,255,.72)!important;
+  box-shadow:0 8px 24px rgba(0,0,0,.14)!important;
+}
+
+.couponIntro{
+  position:relative;
+}
+.couponIntro .pill{
+  border:1px solid #E4E4E7!important;
+  background:rgba(255,255,255,.78)!important;
+  color:#3F3F46!important;
+  box-shadow:0 5px 16px rgba(9,9,11,.04)!important;
+}
+.couponIntro h1{
+  color:#09090B!important;
+}
+.couponIntro h1 em{
+  background:linear-gradient(90deg,#09090B 15%,#4F46E5 58%,#059669 100%)!important;
+  -webkit-background-clip:text!important;
+  background-clip:text!important;
+}
+.couponSearch{
+  border:1px solid #E4E4E7!important;
+  background:rgba(255,255,255,.9)!important;
+  box-shadow:0 12px 38px rgba(9,9,11,.06),0 2px 10px rgba(9,9,11,.03)!important;
+}
+.couponSearch:focus-within{
+  border-color:#C7D2FE!important;
+  box-shadow:0 0 0 4px rgba(99,102,241,.07),0 14px 40px rgba(9,9,11,.07)!important;
+}
+.couponSearch button{
+  background:#09090B!important;
+  color:#fff!important;
+}
+.couponStats span{
+  padding:7px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.66);
+  border:1px solid rgba(228,228,231,.72);
+}
+
+/* Stores slider */
+.modernStores{
+  border-top:0!important;
+  padding-top:34px!important;
+}
+.modernStoreSlider{
+  display:flex!important;
+  grid-template-columns:none!important;
+  gap:12px!important;
+  width:100%!important;
+  max-width:100%!important;
+  padding:3px 2px 12px!important;
+  margin:0!important;
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  scroll-snap-type:x proximity;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.modernStoreSlider::-webkit-scrollbar{display:none}
+.modernStoreSlider button{
+  flex:0 0 154px!important;
+  width:154px!important;
+  min-height:150px!important;
+  padding:18px 12px 15px!important;
+  border:1px solid #ECECEF!important;
+  border-radius:24px!important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#FCFCFD 100%)!important;
+  box-shadow:0 8px 26px rgba(9,9,11,.045),0 2px 7px rgba(9,9,11,.025)!important;
+  scroll-snap-align:start;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important;
+}
+.modernStoreSlider button:hover{
+  transform:translateY(-3px)!important;
+  border-color:#D4D4D8!important;
+  box-shadow:0 16px 38px rgba(9,9,11,.08),0 4px 12px rgba(9,9,11,.04)!important;
+}
+.modernStoreSlider button.active{
+  border-color:#18181B!important;
+  box-shadow:0 0 0 1px #18181B,0 14px 34px rgba(9,9,11,.08)!important;
+}
+.modernStoreSlider .storeLogoWrap{
+  width:66px!important;
+  height:66px!important;
+  border:1px solid #F0F0F2!important;
+  border-radius:20px!important;
+  background:#FFFFFF!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 7px 18px rgba(9,9,11,.045)!important;
+}
+.modernStoreSlider .storeLogoWrap img{
+  width:38px!important;
+  height:38px!important;
+}
+.storeAllLogo{
+  color:#4F46E5!important;
+  font-size:22px!important;
+  background:linear-gradient(135deg,#EEF2FF,#ECFDF5)!important;
+}
+.modernStoreSlider b{
+  color:#18181B!important;
+  font-size:13px!important;
+}
+.modernStoreSlider small{
+  color:#71717A!important;
+  font-size:9px!important;
+}
+
+/* Horizontal quick chips */
+.dealChipsWrap{
+  position:sticky;
+  top:64px;
+  z-index:80;
+  width:100%;
+  max-width:100%;
+  margin:8px 0 12px;
+  padding:10px 0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:linear-gradient(180deg,rgba(250,250,250,.94),rgba(250,250,250,.82));
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.dealChips{
+  flex:1;
+  min-width:0;
+  display:flex;
+  gap:8px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:2px;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.dealChips::-webkit-scrollbar{display:none}
+.dealChips button{
+  flex:0 0 auto;
+  min-height:40px;
+  padding:9px 14px;
+  border:1px solid #E4E4E7;
+  border-radius:999px;
+  background:#FFFFFF;
+  color:#3F3F46;
+  box-shadow:0 4px 12px rgba(9,9,11,.035);
+  font-size:10px;
+  font-weight:600;
+  white-space:nowrap;
+  transition:all .17s ease;
+}
+.dealChips button:hover{
+  border-color:#D4D4D8;
+  transform:translateY(-1px);
+}
+.dealChips button.active{
+  border-color:#09090B;
+  background:#09090B;
+  color:#FFFFFF;
+  box-shadow:0 9px 22px rgba(9,9,11,.16);
+}
+.clearDealFilters{
+  flex:0 0 auto;
+  min-height:38px;
+  padding:8px 12px;
+  border:0;
+  border-radius:999px;
+  background:#F4F4F5;
+  color:#71717A;
+  font-size:9px;
+  font-weight:600;
+}
+
+/* Luxury voucher cards */
+.modernDealsSection{
+  border-top:0!important;
+  padding-top:32px!important;
+}
+.modernVoucherGrid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:18px!important;
+}
+.modernVoucherCard{
+  position:relative;
+  isolation:isolate;
+  min-height:360px!important;
+  overflow:hidden;
+  padding:18px!important;
+  border:1px solid rgba(228,228,231,.9)!important;
+  border-radius:24px!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.98),rgba(255,255,255,.94))!important;
+  box-shadow:var(--lux-shadow)!important;
+  transition:transform .20s ease,box-shadow .20s ease,border-color .20s ease!important;
+}
+.modernVoucherCard:before,
+.modernVoucherCard:after{
+  content:"";
+  position:absolute;
+  top:61%;
+  z-index:3;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:#FAFAFA;
+  border:1px solid #E4E4E7;
+}
+.modernVoucherCard:before{left:-10px}
+.modernVoucherCard:after{right:-10px}
+.modernVoucherCard:hover{
+  transform:translateY(-5px)!important;
+  border-color:#D4D4D8!important;
+  box-shadow:var(--lux-shadow-hover)!important;
+}
+.voucherGlow{
+  position:absolute;
+  z-index:-1;
+  top:-90px;
+  inset-inline-end:-70px;
+  width:190px;
+  height:190px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(79,70,229,.13),rgba(16,185,129,.04) 55%,transparent 72%);
+  filter:blur(3px);
+  pointer-events:none;
+}
+.modernVoucherCard .couponStore>span{
+  width:44px!important;
+  height:44px!important;
+  border:1px solid #EEEEF0!important;
+  border-radius:14px!important;
+  background:#FFFFFF!important;
+  box-shadow:0 5px 14px rgba(9,9,11,.045)!important;
+}
+.modernVoucherCard .couponStore img{
+  width:26px!important;
+  height:26px!important;
+}
+.liveToday{
+  color:#059669!important;
+  font-weight:700!important;
+}
+.voucherCountry{
+  padding:5px 8px;
+  border:1px solid #E4E4E7;
+  border-radius:999px;
+  background:#FAFAFA;
+  color:#71717A;
+  font-size:8px;
+  font-weight:600;
+}
+.modernDiscount{
+  margin-top:24px!important;
+  display:inline-flex!important;
+  align-self:flex-start;
+  width:max-content;
+  padding:7px 11px;
+  border-radius:12px;
+  background:linear-gradient(135deg,#047857 0%,#10B981 58%,#34D399 100%);
+  color:#FFFFFF!important;
+  box-shadow:0 9px 22px rgba(5,150,105,.18);
+  font-size:24px!important;
+  letter-spacing:-.35px!important;
+}
+.modernVoucherCard h3{
+  margin-top:14px!important;
+  color:#18181B!important;
+  font-size:17px!important;
+  line-height:1.5!important;
+}
+.modernVoucherCard p{
+  color:#71717A!important;
+  font-size:10px!important;
+  line-height:1.8!important;
+}
+.voucherMetaLine{
+  margin-top:auto;
+  padding:16px 0 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:#A1A1AA;
+  font-size:8px;
+}
+.voucherCodeBox{
+  position:relative;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+  align-items:center;
+  padding:12px 12px;
+  border:1px dashed #C4C4CB;
+  border-radius:15px;
+  background:linear-gradient(180deg,#FAFAFA,#F7F7F8);
+}
+.voucherCodeBox:before,
+.voucherCodeBox:after{
+  content:"";
+  position:absolute;
+  top:50%;
+  width:12px;
+  height:12px;
+  margin-top:-6px;
+  border-radius:50%;
+  background:#FFFFFF;
+  border:1px solid #E4E4E7;
+}
+.voucherCodeBox:before{left:-7px}
+.voucherCodeBox:after{right:-7px}
+.voucherCodeBox>div{
+  min-width:0;
+  display:grid;
+  gap:2px;
+}
+.voucherCodeBox small{
+  color:#A1A1AA;
+  font-size:8px;
+}
+.voucherCodeBox strong{
+  overflow:hidden;
+  color:#18181B;
+  font-size:16px;
+  letter-spacing:1px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.voucherCodeBox button{
+  min-height:38px;
+  padding:8px 13px;
+  border:0;
+  border-radius:10px;
+  background:#09090B;
+  color:#FFFFFF;
+  box-shadow:0 7px 17px rgba(9,9,11,.14);
+  font-size:9px;
+  font-weight:700;
+  white-space:nowrap;
+  transition:transform .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.voucherCodeBox button:hover{
+  background:#18181B;
+  box-shadow:0 10px 22px rgba(9,9,11,.19);
+}
+.voucherCodeBox button:active{transform:scale(.97)}
+.voucherCodeBox button.copied{
+  background:linear-gradient(135deg,#047857,#10B981);
+}
+.voucherPreviewBtn{
+  width:100%;
+  min-height:42px;
+  margin-top:10px;
+  padding:9px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border:1px solid #E4E4E7;
+  border-radius:11px;
+  background:#FFFFFF;
+  color:#3F3F46;
+  font-size:9px;
+  font-weight:600;
+  transition:background .16s ease,border-color .16s ease;
+}
+.voucherPreviewBtn:hover{
+  background:#FAFAFA;
+  border-color:#D4D4D8;
+}
+
+/* Trust strip */
+.couponTrust>div{
+  border:1px solid #ECECEF!important;
+  background:rgba(255,255,255,.84)!important;
+  box-shadow:0 8px 24px rgba(9,9,11,.035)!important;
+}
+.couponTrust i{
+  background:linear-gradient(135deg,#F4F4F5,#EEF2FF)!important;
+  color:#4F46E5!important;
+}
+
+/* Quick view palette alignment */
+.quickViewModal{
+  border:1px solid #E4E4E7!important;
+  background:#FFFFFF!important;
+  box-shadow:0 32px 90px rgba(9,9,11,.24)!important;
+}
+.quickPrice span{
+  background:#ECFDF5!important;
+  color:#047857!important;
+}
+.smartCouponBox{
+  border-color:#C4C4CB!important;
+  background:#FAFAFA!important;
+}
+.smartCouponBox>button,
+.quickPrimaryCta{
+  background:#09090B!important;
+}
+
+@media(max-width:1050px){
+  .modernVoucherGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+}
+
+@media(max-width:640px){
+  html,body,#root{
+    background:
+      radial-gradient(circle at 8% 0%,rgba(79,70,229,.035),transparent 22%),
+      #FAFAFA!important;
+  }
+
+  .couponIntro{
+    padding-top:36px!important;
+  }
+
+  .couponStats{
+    gap:6px!important;
+  }
+  .couponStats span{
+    flex:1;
+    padding:7px 5px;
+    text-align:center;
+  }
+
+  .modernStores{
+    padding-top:26px!important;
+  }
+  .modernStoreSlider{
+    gap:10px!important;
+    padding:3px 0 10px!important;
+  }
+  .modernStoreSlider button{
+    flex-basis:132px!important;
+    width:132px!important;
+    min-height:136px!important;
+    border-radius:20px!important;
+  }
+  .modernStoreSlider .storeLogoWrap{
+    width:58px!important;
+    height:58px!important;
+  }
+
+  .dealChipsWrap{
+    top:64px;
+    margin:2px 0 6px;
+    padding:9px 0;
+  }
+  .dealChips{
+    margin-inline-end:-14px;
+    padding-inline-end:14px;
+  }
+  .dealChips button{
+    min-height:38px;
+    padding:8px 13px;
+    font-size:9px;
+  }
+  .clearDealFilters{
+    display:none;
+  }
+
+  .modernDealsSection{
+    padding-top:28px!important;
+  }
+  .modernVoucherGrid{
+    grid-template-columns:minmax(0,1fr)!important;
+    gap:12px!important;
+  }
+  .modernVoucherCard{
+    min-height:0!important;
+    padding:16px!important;
+    border-radius:20px!important;
+  }
+  .modernDiscount{
+    margin-top:19px!important;
+    font-size:22px!important;
+  }
+  .modernVoucherCard h3{
+    font-size:15px!important;
+  }
+  .voucherCodeBox{
+    grid-template-columns:minmax(0,1fr) auto;
+    padding:11px;
+  }
+  .voucherCodeBox strong{
+    font-size:14px;
+  }
+  .voucherCodeBox button{
+    min-height:36px;
+    padding:8px 11px;
+  }
+}
