@@ -3140,3 +3140,177 @@ html.mobile-capable .authSwitch button,
 html.mobile-capable .authSecure{
   width:100%!important;
 }
+
+
+/* v22 Root mobile viewport / overflow hardening */
+html,
+body{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  overflow-x:hidden!important;
+  position:relative;
+  -webkit-text-size-adjust:100%!important;
+  text-size-adjust:100%!important;
+}
+
+#root,
+#app{
+  width:100%!important;
+  max-width:100vw!important;
+  min-width:0!important;
+  overflow-x:hidden!important;
+}
+
+body,
+#root,
+#app,
+main,
+header,
+footer,
+section,
+aside,
+nav{
+  min-width:0;
+}
+
+main,
+header,
+footer,
+.topbar,
+.couponHero,
+.couponIntro,
+.couponSection,
+.storesSection,
+.couponFilterBar,
+.couponGrid,
+.storeGrid,
+.couponTrust,
+.siteFooter,
+.footerTop,
+.footerBottom,
+.sideDrawer,
+.authExperience,
+.quickViewModal{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+
+.couponFilterBar,
+.couponFilterBar>*,
+.couponFilterBar label,
+.couponFilterBar input,
+.couponFilterBar select,
+.storeGrid,
+.storeGrid>*,
+.couponGrid,
+.couponGrid>*,
+.couponCard,
+.couponCard>*,
+.footerTop>*,
+.actions,
+.actions>*{
+  min-width:0!important;
+  max-width:100%;
+}
+
+.couponFilterBar{
+  overflow:hidden;
+}
+
+.storeGrid{
+  overflow-x:hidden;
+}
+
+.storeGrid button,
+.couponCard{
+  width:100%;
+  max-width:100%;
+}
+
+img,
+svg,
+video,
+canvas,
+iframe{
+  max-width:100%;
+}
+
+@media(max-width:640px){
+  html,
+  body,
+  #root,
+  #app{
+    width:100%!important;
+    max-width:100vw!important;
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+
+  main{
+    width:100%!important;
+    max-width:100vw!important;
+    padding-inline:14px!important;
+    overflow-x:hidden!important;
+  }
+
+  header{
+    width:100%!important;
+    max-width:100vw!important;
+    padding-inline:16px!important;
+    overflow:hidden!important;
+  }
+
+  .actions{
+    flex:0 1 auto!important;
+    max-width:calc(100vw - 120px)!important;
+    overflow:visible!important;
+  }
+
+  .couponFilterBar{
+    width:100%!important;
+    max-width:100%!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    overflow:hidden!important;
+  }
+
+  .couponFilterBar .filterSearch,
+  .couponFilterBar label:last-of-type,
+  .couponFilterBar>button{
+    grid-column:1/-1!important;
+  }
+
+  .storeGrid{
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-inline:contain;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .storeGrid::-webkit-scrollbar{
+    display:none;
+  }
+
+  .storeGrid button{
+    width:auto!important;
+    max-width:none!important;
+    flex:0 0 122px!important;
+  }
+
+  .couponGrid{
+    width:100%!important;
+    max-width:100%!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    overflow:hidden!important;
+  }
+
+  .couponCard{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+}
