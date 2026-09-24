@@ -77,6 +77,61 @@ function isMobileOAuthDevice(){
   return coarsePointer&&physicalShortSide<=1024;
 }
 
+function renderGoogleAuthWaitingWindow(authWindow:Window|null){
+  if(!authWindow)return;
+  try{
+    const doc=authWindow.document;
+    doc.title="أبو خالد | تسجيل الدخول";
+    doc.documentElement.lang="ar";
+    doc.documentElement.dir="rtl";
+
+    while(doc.head.firstChild)doc.head.removeChild(doc.head.firstChild);
+    while(doc.body.firstChild)doc.body.removeChild(doc.body.firstChild);
+
+    const viewport=doc.createElement("meta");
+    viewport.name="viewport";
+    viewport.content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover";
+    doc.head.appendChild(viewport);
+
+    const theme=doc.createElement("meta");
+    theme.name="theme-color";
+    theme.content="#F8FAFC";
+    doc.head.appendChild(theme);
+
+    const style=doc.createElement("style");
+    style.textContent=`
+      *{box-sizing:border-box}
+      html,body{margin:0;width:100%;min-height:100%;background:#F8FAFC;color:#0F172A;font-family:Arial,sans-serif}
+      body{min-height:100vh;display:grid;place-items:center;padding:24px}
+      .wrap{width:min(92vw,390px);padding:34px 26px 30px;text-align:center;border:1px solid #E2E8F0;border-radius:22px;background:#fff;box-shadow:0 18px 50px rgba(15,23,42,.10)}
+      .logo{width:54px;height:54px;margin:0 auto 16px;display:grid;place-items:center;border-radius:16px;background:#09090B;color:#fff;font-size:24px;font-weight:700}
+      h1{margin:0;color:#0F172A;font-size:24px;line-height:1.35}
+      p{margin:8px 0 0;color:#64748B;font-size:13px;line-height:1.8}
+      .loader{width:32px;height:32px;margin:22px auto 0;border:3px solid #E2E8F0;border-top-color:#0F172A;border-radius:50%;animation:spin .75s linear infinite}
+      small{display:block;margin-top:16px;color:#94A3B8;font-size:10px}
+      @keyframes spin{to{transform:rotate(360deg)}}
+    `;
+    doc.head.appendChild(style);
+
+    const wrap=doc.createElement("main");
+    wrap.className="wrap";
+    const logo=doc.createElement("div");
+    logo.className="logo";
+    logo.textContent="أ";
+    const h1=doc.createElement("h1");
+    h1.textContent="أبو خالد";
+    const p=doc.createElement("p");
+    p.textContent="جاري فتح تسجيل الدخول الآمن عبر Google…";
+    const loader=doc.createElement("div");
+    loader.className="loader";
+    const note=doc.createElement("small");
+    note.textContent="سيتم إغلاق هذه النافذة تلقائياً بعد تسجيل الدخول.";
+
+    wrap.append(logo,h1,p,loader,note);
+    doc.body.appendChild(wrap);
+  }catch{}
+}
+
 function syncMobileViewport(){
   let viewportMeta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;
   if(!viewportMeta){
@@ -226,6 +281,7 @@ function App(){
       // script-opened tab/window so Google's desktop-scaled consent page cannot
       // leak its visual viewport scale back into the app.
       const authWindow=window.open("about:blank","abu-khaled-google-auth");
+      renderGoogleAuthWaitingWindow(authWindow);
       try{if(authWindow)authWindow.opener=null}catch{}
 
       const redirectTo=`${window.location.origin}/?auth_popup=1`;
