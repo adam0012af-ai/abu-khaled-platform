@@ -257,17 +257,16 @@ function App(){
 
       <section className="couponIntro">
         <span className="pill">منصة عروض وكوبونات ذكية</span>
-        <h1>أفضل الكوبونات.<br/><em>من المتاجر التي تثق بها.</em></h1>
-        <p>نبحث ونجمع ونرتب العروض لتصل إلى الكود المناسب بسرعة، ثم نحولك مباشرة إلى المتجر الرسمي لإتمام الشراء.</p>
+        <h1>اكتشف أفضل العروض والكوبونات</h1>
+        <p>نرتب لك العروض المميزة من المتاجر المعروفة لتصل إلى الكود المناسب بسرعة ووضوح.</p>
         <form className="couponSearch" onSubmit={e=>{e.preventDefault();document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}}><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder={t.search}/><button>{t.searchBtn}</button></form>
-        <div className="couponStats"><span><b>{coupons.length}+</b> كوبونات وعروض</span><span><b>{partnerStores.length}</b> متاجر شريكة</span><span><b>{countries.length-1}</b> دول</span></div>
       </section>
 
       <section id="stores" className="couponSection storesSection modernStores">
-        <div className="couponSectionHead"><div><span>PARTNER STORES</span><h2>متاجر تستحق المتابعة</h2></div><small>اختَر متجراً وشاهد عروضه الفعالة فوراً</small></div>
+        <div className="couponSectionHead"><div><span>PARTNER STORES</span><h2>المتاجر الشريكة</h2></div><small>اختر متجراً لعرض كوبوناته</small></div>
         <div className="storeGrid modernStoreSlider">
-          <button className={storeFilter==="الكل"?"active storeAllCard":"storeAllCard"} onClick={()=>setStoreFilter("الكل")}><span className="storeLogoWrap storeAllLogo">✦</span><b>كل المتاجر</b><small>{coupons.length} عروض فعالة</small></button>
-          {partnerStores.map(store=><button key={store.id} className={storeFilter===store.id?"active":""} onClick={()=>selectStore(store.id)}><span className="storeLogoWrap"><img src={store.logo} alt={store.name}/></span><b>{store.name}</b><small>{coupons.filter(c=>c.store_id===store.id).length} عروض فعالة</small></button>)}
+          <button className={storeFilter==="الكل"?"active storeAllCard":"storeAllCard"} onClick={()=>setStoreFilter("الكل")}><span className="storeLogoWrap storeAllLogo">✦</span><b>الكل</b></button>
+          {partnerStores.map(store=><button key={store.id} className={storeFilter===store.id?"active":""} onClick={()=>selectStore(store.id)}><span className="storeLogoWrap"><img src={store.logo} alt={store.name}/></span><b>{store.name}</b></button>)}
         </div>
       </section>
 
@@ -285,15 +284,15 @@ function App(){
       <section id="coupons" className="couponSection modernDealsSection">
         <div className="couponSectionHead"><div><span>CURATED DEALS</span><h2>صفقات وكوبونات مختارة</h2></div><small>{visibleCoupons.length} عرض متاح</small></div>
         {visibleCoupons.length?<div className="couponGrid modernVoucherGrid">{visibleCoupons.map(coupon=><article className="couponCard modernVoucherCard" key={coupon.id} onClick={()=>openQuickView(coupon)}>
-          <div className="voucherGlow"/>
           <div className="couponCardTop">
-            <div className="couponStore"><span><img src={coupon.store_logo} alt={coupon.store_name}/></span><div><b>{coupon.store_name}</b><small className="liveToday">نشط اليوم ✓</small></div></div>
-            <span className="voucherCountry">{coupon.country}</span>
+            <div className="couponStore">
+              <span><img src={coupon.store_logo} alt={coupon.store_name}/></span>
+              <div><b>{coupon.store_name}</b><small>{coupon.country}</small></div>
+            </div>
           </div>
           <div className="couponDiscount modernDiscount">{coupon.discount_label}</div>
           <h3>{coupon.title}</h3>
-          <p>{coupon.description}</p>
-          <div className="voucherMetaLine"><span>{coupon.category}</span><span>{coupon.expires||"لفترة محدودة"}</span></div>
+          <p className="voucherDescription">{coupon.description}</p>
           <div className="voucherCodeBox" onClick={e=>e.stopPropagation()}>
             <div><small>كود الخصم</small><strong>{coupon.coupon_code}</strong></div>
             <button className={copied===coupon.id?"copied":""} onClick={()=>copyCouponOnly(coupon)}>{copied===coupon.id?"تم النسخ ✓":"نسخ الكود"}</button>
