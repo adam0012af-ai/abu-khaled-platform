@@ -71,25 +71,45 @@ const heroSlides=[
   ["صفقات موثوقة وروابط مباشرة","نرتب لك أفضل العروض ونرسل لك إلى صفحات المتاجر الرسمية بروابط آمنة.","https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1800&q=92","شاهد المتاجر"]
 ];
 
-function isMobileOAuthDevice(){
-  const coarsePointer=window.matchMedia?.("(pointer: coarse)")?.matches??false;
-  const physicalShortSide=Math.min(window.screen?.width||window.innerWidth,window.screen?.height||window.innerHeight);
-  return coarsePointer&&physicalShortSide<=1024;
+function OAuthCallbackBridge(){
+  useEffect(()=>{
+    let finished=false;
+    let alive=true;
+
+    const goHome=(session:any)=>{
+      if(finished||!alive||!session?.user)return;
+      finished=true;
+      window.location.replace(window.location.origin+"/");
+    };
+
+    supabase.auth.getSession().then(({data})=>{
+      if(data.session)goHome(data.session);
+    });
+
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      if(session?.user)goHome(session);
+    });
+
+    const timeout=window.setTimeout(()=>{
+      if(!finished&&alive)window.location.replace(window.location.origin+"/");
+    },6000);
+
+    return()=>{
+      alive=false;
+      subscription.unsubscribe();
+      window.clearTimeout(timeout);
+    };
+  },[]);
+
+  return <div className="oauthCallbackBlank" aria-hidden="true"/>;
 }
 
-function syncMobileViewport(){
-  let viewportMeta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;
-  if(!viewportMeta){
-    viewportMeta=document.createElement("meta");
-    viewportMeta.name="viewport";
-    document.head.appendChild(viewportMeta);
-  }
-  viewportMeta.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover");
-
-  document.documentElement.classList.toggle("mobile-capable",isMobileOAuthDevice());
+function isOAuthCallbackDocument(){
+  const url=new URL(window.location.href);
+  return url.searchParams.has("code")||
+    url.searchParams.has("error")||
+    window.location.hash.includes("access_token");
 }
-
-syncMobileViewport();
 
 function App(){
   const[user,setUser]=useState<any>(null);
@@ -118,66 +138,35 @@ function App(){
   useEffect(()=>{
     let alive=true;
 
-    const cleanAuthUrl=()=>{
-      const url=new URL(window.location.href);
-      if(
-        window.location.hash.includes("access_token")||
-        url.searchParams.has("code")||
-        url.searchParams.has("error")
-      ){
-        window.history.replaceState({},document.title,window.location.pathname);
+    const applySession=(session:any)=>{
+      if(!alive)return;
+      if(session?.user){
+        setUser(session.user);
+        setAuthOpen(false);
+        setAuthBusy(false);
+        setAuthMsg("");
+      }else{
+        setUser(null);
       }
     };
-
-    const applyAuthenticatedSession=(session:any)=>{
-      if(!alive||!session?.user)return;
-
-      const oauthResetPending=sessionStorage.getItem("abu-khaled-oauth-reset")==="1";
-      if(oauthResetPending){
-        // A full top-level navigation is intentional here. Mobile Chromium can
-        // preserve Google's visual viewport scale across the OAuth redirect.
-        // Replacing the callback document once creates a fresh document/layout
-        // viewport, exactly like the manual refresh that fixes the issue.
-        sessionStorage.removeItem("abu-khaled-oauth-reset");
-        window.location.replace(window.location.origin+"/");
-        return;
-      }
-
-      cleanAuthUrl();
-      syncMobileViewport();
-      setUser(session.user);
-      setAuthOpen(false);
-      setAuthBusy(false);
-      setAuthMsg("");
-    };
-
-    syncMobileViewport();
 
     supabase.auth.getSession().then(({data,error})=>{
       if(!alive)return;
       if(error){
-        sessionStorage.removeItem("abu-khaled-oauth-reset");
         setAuthMsg(error.message);
         setAuthBusy(false);
         return;
       }
-      if(data.session)applyAuthenticatedSession(data.session);
-      else setUser(null);
+      applySession(data.session);
     });
 
     const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
-      if(!alive)return;
-      if(session?.user)applyAuthenticatedSession(session);
-      else setUser(null);
+      applySession(session);
     });
-
-    const handlePageShow=()=>syncMobileViewport();
-    window.addEventListener("pageshow",handlePageShow);
 
     return()=>{
       alive=false;
       subscription.unsubscribe();
-      window.removeEventListener("pageshow",handlePageShow);
     };
   },[]);
   useEffect(()=>{const id=window.setInterval(()=>setBanner(v=>(v+1)%heroSlides.length),5000);return()=>window.clearInterval(id)},[]);
@@ -189,11 +178,6 @@ function App(){
     setAuthBusy(true);
     setAuthMsg("");
 
-    // Keep the user flow native: site -> Google -> site.
-    // On the successful callback we perform one automatic clean navigation
-    // to reset the mobile visual viewport before the homepage is shown.
-    sessionStorage.setItem("abu-khaled-oauth-reset","1");
-
     const redirectTo=`${window.location.origin}/`;
     const{error}=await supabase.auth.signInWithOAuth({
       provider:"google",
@@ -201,7 +185,6 @@ function App(){
     });
 
     if(error){
-      sessionStorage.removeItem("abu-khaled-oauth-reset");
       setAuthMsg(error.message);
       setAuthBusy(false);
     }
@@ -312,4 +295,4 @@ function App(){
   </div>
 }
 
-createRoot(document.getElementById("root")!).render(<App/>);
+createRoot(document.getElementById("root")!).render(isOAuthCallbackDocument()?<OAuthCallbackBridge/>:<App/>);
