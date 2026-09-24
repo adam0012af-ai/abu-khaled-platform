@@ -269,3 +269,61 @@ html.mobile-capable .promoShade{
   background:linear-gradient(0deg,rgba(15,23,42,.76) 0%,rgba(15,23,42,.28) 58%,rgba(15,23,42,.06) 100%);
 }
 html.mobile-capable .promoText button{border-radius:999px}
+
+
+/* v11 OAuth mobile hard-lock: full mobile layout even when browser restores a desktop-width viewport */
+html.mobile-capable body{min-width:0!important;max-width:640px!important;margin:0 auto!important;overflow-x:hidden!important}
+html.mobile-capable #root{width:100%!important;max-width:640px!important;min-width:0!important;overflow-x:hidden!important}
+html.mobile-capable main{width:100%!important;max-width:100%!important;padding:0 14px!important}
+html.mobile-capable .promoBanner{height:286px!important;margin:14px 0 4px!important;border-radius:18px!important}
+html.mobile-capable .promoPrev,html.mobile-capable .promoNext{display:none!important}
+html.mobile-capable .promoText{inset-inline-start:20px!important;inset-inline-end:20px!important;top:auto!important;bottom:30px!important;transform:none!important;max-width:none!important}
+html.mobile-capable .promoText h2{font-size:26px!important;line-height:1.25!important;margin:7px 0!important}
+html.mobile-capable .promoText p{font-size:12px!important;line-height:1.7!important;margin:0 0 12px!important}
+html.mobile-capable .promoDots{bottom:11px!important;gap:5px!important}
+html.mobile-capable .promoDots button{width:5px!important;height:5px!important}
+html.mobile-capable .promoDots button.active{width:16px!important}
+html.mobile-capable .hero{min-height:auto!important;grid-template-columns:1fr!important;gap:18px!important;padding:38px 0 32px!important}
+html.mobile-capable .hero h1{font-size:40px!important;letter-spacing:-1px!important;margin:14px 0!important}
+html.mobile-capable .heroCopy>p{font-size:14px!important}
+html.mobile-capable .search{margin-top:20px!important}
+html.mobile-capable .search input{font-size:12px!important}
+html.mobile-capable .search button{padding:10px 13px!important;font-size:11px!important}
+html.mobile-capable .proof{gap:10px!important;justify-content:space-between!important}
+html.mobile-capable .proof span{font-size:9px!important}
+html.mobile-capable .spotlight{max-width:none!important;padding:21px!important;border-radius:17px!important}
+html.mobile-capable .spotIcon{width:64px!important;height:64px!important;font-size:31px!important;margin:22px 0 14px!important}
+html.mobile-capable .spotlight h2{font-size:23px!important}
+html.mobile-capable .block{padding:46px 0!important}
+html.mobile-capable .heading{margin-bottom:18px!important}
+html.mobile-capable .heading h2,html.mobile-capable .marketCopy h2{font-size:24px!important}
+html.mobile-capable .categories{grid-template-columns:1fr 1fr!important;gap:8px!important}
+html.mobile-capable .cat{min-height:76px!important;padding:10px!important;gap:8px!important}
+html.mobile-capable .cat i{width:36px!important;height:36px!important;font-size:17px!important}
+html.mobile-capable .cat div b{font-size:12px!important}
+html.mobile-capable .cat small{font-size:8px!important}
+html.mobile-capable .deals{grid-template-columns:1fr 1fr!important;gap:9px!important}
+html.mobile-capable .deal{border-radius:14px!important}
+html.mobile-capable .dealImg{aspect-ratio:1/1!important}
+html.mobile-capable .dealBody{padding:12px!important}
+html.mobile-capable .dealBody h3{font-size:12px!important;min-height:31px!important}
+html.mobile-capable .prices{display:grid!important;gap:1px!important}
+html.mobile-capable .prices strong{font-size:14px!important}
+html.mobile-capable .storeIntro{padding:23px 18px!important;margin-bottom:44px!important;grid-template-columns:1fr!important;gap:17px!important}
+html.mobile-capable .storeIntro h2{font-size:24px!important}
+html.mobile-capable .storeIntro p{font-size:13px!important}
+html.mobile-capable .introVisual>div{min-height:76px!important}
+html.mobile-capable .introVisual b{font-size:20px!important}
+html.mobile-capable .markets{grid-template-columns:1fr!important;padding:21px!important;margin-bottom:48px!important}
+html.mobile-capable .currencyBig button{padding:10px!important}
+html.mobile-capable footer{padding:28px 14px 18px!important}
+html.mobile-capable .productModal{grid-template-columns:1fr!important}
+html.mobile-capable .productModal>img{height:260px!important;min-height:0!important}
+html.mobile-capable .productInfo{padding:22px 18px!important}
+html.mobile-capable .productInfo h2{font-size:25px!important}
+html.mobile-capable .checkoutModal{padding:25px 16px!important}
+html.mobile-capable .paymentMethods,html.mobile-capable .formRow{grid-template-columns:1fr!important}
+html.mobile-capable .modalBack{padding:8px!important}
+html.mobile-capable .productModal,html.mobile-capable .checkoutModal{border-radius:17px!important}
+html.mobile-capable .cartItem{grid-template-columns:52px 1fr auto!important}
+html.mobile-capable .cartItem img{width:52px!important;height:52px!important}
