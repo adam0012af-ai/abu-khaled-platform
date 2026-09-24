@@ -78,7 +78,7 @@ function syncMobileViewport(){
     viewportMeta.name="viewport";
     document.head.appendChild(viewportMeta);
   }
-  viewportMeta.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no");
+  viewportMeta.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover");
 
   const coarsePointer=window.matchMedia?.("(pointer: coarse)")?.matches??false;
   const physicalShortSide=Math.min(window.screen?.width||window.innerWidth,window.screen?.height||window.innerHeight);
