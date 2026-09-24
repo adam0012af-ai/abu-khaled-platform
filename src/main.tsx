@@ -4,77 +4,68 @@ import{supabase}from"./supabase";
 import"./style.css";
 
 type Lang="ar"|"tr"|"en"|"fr"|"de";
-type DealProduct={
+
+type PartnerStore={
   id:string;
   name:string;
-  image:string;
-  category:string;
+  logo:string;
+};
+
+type Coupon={
+  id:string;
+  title:string;
+  store_id:string;
   store_name:string;
   store_logo:string;
+  country:string;
+  category:string;
+  discount_label:string;
+  coupon_code:string;
   affiliate_link:string;
-  coupon_code?:string;
-  original_price:number;
-  deal_price:number;
-  discount_rate:number;
-  status:string;
-  rating:number;
   description:string;
-  is_new?:boolean;
+  verified:boolean;
   featured?:boolean;
+  expires?:string;
 };
 
 const L:{[k in Lang]:any}={
-  ar:{flag:"🇸🇦",name:"العربية",dir:"rtl",hero:"اكتشف. قارن.",hero2:"وفّر بذكاء.",desc:"منصة ذكية تجمع لك العروض والكوبونات وتقارن الصفقات من المتاجر الرسمية في مكان واحد.",search:"ابحث عن منتج أو متجر...",go:"ابحث",home:"الرئيسية",cats:"الأقسام",offers:"العروض والكوبونات",cur:"العملة",language:"اللغة"},
-  tr:{flag:"🇹🇷",name:"Türkçe",dir:"ltr",hero:"Keşfet. Karşılaştır.",hero2:"Akıllıca tasarruf et.",desc:"Resmî mağazalardan fırsatları, kuponları ve fiyatları tek yerde karşılaştır.",search:"Ürün veya mağaza ara...",go:"Ara",home:"Ana Sayfa",cats:"Kategoriler",offers:"Fırsatlar ve Kuponlar",cur:"Para Birimi",language:"Dil"},
-  en:{flag:"🇬🇧",name:"English",dir:"ltr",hero:"Discover. Compare.",hero2:"Save smarter.",desc:"Compare deals, coupons and prices from official stores in one smart hub.",search:"Search product or store...",go:"Search",home:"Home",cats:"Categories",offers:"Deals & Coupons",cur:"Currency",language:"Language"},
-  fr:{flag:"🇫🇷",name:"Français",dir:"ltr",hero:"Découvrez. Comparez.",hero2:"Économisez mieux.",desc:"Comparez offres, coupons et prix des boutiques officielles en un seul endroit.",search:"Rechercher un produit ou une boutique...",go:"Rechercher",home:"Accueil",cats:"Catégories",offers:"Offres & Coupons",cur:"Devise",language:"Langue"},
-  de:{flag:"🇩🇪",name:"Deutsch",dir:"ltr",hero:"Entdecken. Vergleichen.",hero2:"Clever sparen.",desc:"Vergleiche Angebote, Gutscheine und Preise offizieller Shops an einem Ort.",search:"Produkt oder Shop suchen...",go:"Suchen",home:"Startseite",cats:"Kategorien",offers:"Angebote & Gutscheine",cur:"Währung",language:"Sprache"}
+  ar:{flag:"🇸🇦",name:"العربية",dir:"rtl",home:"الرئيسية",stores:"المتاجر",coupons:"الكوبونات",language:"اللغة",country:"الدولة",search:"ابحث عن متجر أو كوبون...",searchBtn:"بحث"},
+  tr:{flag:"🇹🇷",name:"Türkçe",dir:"ltr",home:"Ana Sayfa",stores:"Mağazalar",coupons:"Kuponlar",language:"Dil",country:"Ülke",search:"Mağaza veya kupon ara...",searchBtn:"Ara"},
+  en:{flag:"🇬🇧",name:"English",dir:"ltr",home:"Home",stores:"Stores",coupons:"Coupons",language:"Language",country:"Country",search:"Search store or coupon...",searchBtn:"Search"},
+  fr:{flag:"🇫🇷",name:"Français",dir:"ltr",home:"Accueil",stores:"Boutiques",coupons:"Coupons",language:"Langue",country:"Pays",search:"Rechercher une boutique ou un coupon...",searchBtn:"Rechercher"},
+  de:{flag:"🇩🇪",name:"Deutsch",dir:"ltr",home:"Startseite",stores:"Shops",coupons:"Gutscheine",language:"Sprache",country:"Land",search:"Shop oder Gutschein suchen...",searchBtn:"Suchen"}
 };
+
 const langs=(Object.keys(L) as Lang[]);
-const categories=[["الكل","✦"],["إلكترونيات","⌁"],["أزياء وسنيكرز","♢"],["عطور","✧"],["إكسسوارات منزلية","⌂"]];
+const countries=["الكل","مصر","السعودية","الإمارات","تركيا"];
+const categories=["الكل","إلكترونيات","أزياء","عطور وجمال","منزل"];
 
-const products:DealProduct[]=[
-  {id:"airpulse-pro",name:"سماعات AirPulse Pro",image:"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=900&q=90",category:"إلكترونيات",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=64",affiliate_link:"https://www.amazon.com.tr/s?k=bluetooth+headphones&tag=abukhaleddemo-21",coupon_code:"AK20",original_price:1899,deal_price:1499,discount_rate:21,status:"الأكثر طلباً",rating:4.9,description:"سماعات لاسلكية بصوت نقي وعزل مريح للاستخدام اليومي.",featured:true},
-  {id:"nova-smart",name:"ساعة Nova Smart",image:"https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=900&q=90",category:"إلكترونيات",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=64",affiliate_link:"https://www.noon.com/saudi-en/search?q=smart%20watch&utm_source=abu_khaled_demo",coupon_code:"NOON15",original_price:3390,deal_price:2790,discount_rate:18,status:"عرض موثوق",rating:4.8,description:"ساعة ذكية بتصميم أنيق ومتابعة يومية للنشاط والتنبيهات.",featured:true},
-  {id:"studio-mini",name:"سماعة Studio Mini",image:"https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=900&q=90",category:"إلكترونيات",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=64",affiliate_link:"https://www.aliexpress.com/wholesale?SearchText=wireless+headphones&aff_fcid=abu_khaled_demo",original_price:2290,deal_price:1890,discount_rate:17,status:"اختيار مميز",rating:4.7,description:"تصميم مدمج وصوت غني مع راحة مناسبة للجلسات الطويلة.",featured:true},
-  {id:"urban-flex",name:"Sneaker Urban Flex",image:"https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=90",category:"أزياء وسنيكرز",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=64",affiliate_link:"https://www.namshi.com/saudi-en/search/?q=sneakers&utm_source=abu_khaled_demo",coupon_code:"STYLE10",original_price:2790,deal_price:2190,discount_rate:22,status:"الأكثر طلباً",rating:4.9,description:"سنيكرز عصري بخامات مريحة وتصميم يومي متعدد الاستخدامات.",featured:true},
-  {id:"atelier-carry",name:"حقيبة Atelier Carry",image:"https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=90",category:"أزياء وسنيكرز",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=64",affiliate_link:"https://www.noon.com/saudi-en/search?q=handbag&utm_source=abu_khaled_demo",original_price:2490,deal_price:1980,discount_rate:20,status:"مختار",rating:4.7,description:"حقيبة أنيقة بتفاصيل هادئة ومساحة عملية للاستخدام اليومي.",featured:true},
-  {id:"signature-noir",name:"عطر Signature Noir",image:"https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=900&q=90",category:"عطور",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=64",affiliate_link:"https://www.amazon.com.tr/s?k=perfume&tag=abukhaleddemo-21",coupon_code:"SCENT12",original_price:1650,deal_price:1250,discount_rate:24,status:"الأكثر طلباً",rating:4.9,description:"تركيبة عطرية دافئة بطابع فاخر وثبات مناسب للمساء.",featured:true},
-  {id:"velvet-bloom",name:"عطر Velvet Bloom",image:"https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=900&q=90",category:"عطور",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=64",affiliate_link:"https://www.aliexpress.com/wholesale?SearchText=perfume&aff_fcid=abu_khaled_demo",original_price:1890,deal_price:1490,discount_rate:21,status:"عرض موسمي",rating:4.8,description:"نفحات ناعمة ومنعشة بتوازن أنيق للاستخدام اليومي.",featured:true},
-  {id:"barista",name:"ماكينة قهوة Barista",image:"https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=900&q=90",category:"إكسسوارات منزلية",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=64",affiliate_link:"https://www.noon.com/saudi-en/search?q=coffee%20machine&utm_source=abu_khaled_demo",coupon_code:"HOME8",original_price:4250,deal_price:3490,discount_rate:18,status:"صفقة اليوم",rating:4.9,description:"ماكينة قهوة بتصميم مدمج لتحضير مشروبات يومية بسهولة.",featured:true},
-
-  {id:"slate-keys",name:"لوحة مفاتيح Slate Keys",image:"https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=900&q=90",category:"إلكترونيات",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=64",affiliate_link:"https://www.amazon.com.tr/s?k=wireless+keyboard&tag=abukhaleddemo-21",original_price:1990,deal_price:1690,discount_rate:15,status:"وصل حديثاً",rating:4.8,description:"لوحة مفاتيح لاسلكية بتصميم نحيف وتجربة كتابة هادئة.",is_new:true},
-  {id:"metro-mini",name:"حقيبة Metro Mini",image:"https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=90",category:"أزياء وسنيكرز",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=64",affiliate_link:"https://www.namshi.com/saudi-en/search/?q=bag&utm_source=abu_khaled_demo",coupon_code:"NEW12",original_price:2090,deal_price:1740,discount_rate:17,status:"وصل حديثاً",rating:4.7,description:"حقيبة يومية مدمجة بخطوط نظيفة ومساحات عملية.",is_new:true},
-  {id:"amber-edition",name:"عطر Amber Edition",image:"https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&w=900&q=90",category:"عطور",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=64",affiliate_link:"https://www.amazon.com.tr/s?k=amber+perfume&tag=abukhaleddemo-21",coupon_code:"AMBER15",original_price:1990,deal_price:1590,discount_rate:20,status:"وصل حديثاً",rating:4.9,description:"عطر بطابع دافئ ولمسة خشبية راقية للاستخدام اليومي.",is_new:true},
-  {id:"nordic-stone",name:"مزهرية Nordic Stone",image:"https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=900&q=90",category:"إكسسوارات منزلية",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=64",affiliate_link:"https://www.aliexpress.com/wholesale?SearchText=home+decor+vase&aff_fcid=abu_khaled_demo",original_price:1390,deal_price:1090,discount_rate:22,status:"وصل حديثاً",rating:4.6,description:"قطعة ديكور بسيطة بملمس حجري تناسب المساحات العصرية.",is_new:true}
+const partnerStores:PartnerStore[]=[
+  {id:"amazon",name:"Amazon",logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128"},
+  {id:"noon",name:"نون",logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128"},
+  {id:"shein",name:"SHEIN",logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128"},
+  {id:"aliexpress",name:"AliExpress",logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128"},
+  {id:"namshi",name:"نمشي",logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128"}
 ];
 
-const banners=[
-  ["صفقات تقنية من المتاجر الرسمية","قارن أسعار الإلكترونيات واكتشف أفضل الخصومات من شركائنا.","https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1800&q=92","استكشف صفقات التقنية","إلكترونيات"],
-  ["عروض الموضة في مكان واحد","وفر وقت البحث وقارن عروض السنيكرز والحقائب بين المتاجر.","https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1800&q=92","قارن عروض الموضة","أزياء وسنيكرز"],
-  ["كوبونات وعروض عطور مختارة","خصومات موسمية وروابط مباشرة للشراء من المتاجر الشريكة.","https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&w=1800&q=92","شاهد عروض العطور","عطور"]
+const coupons:Coupon[]=[
+  {id:"amazon-tech-25",title:"خصم على مختارات الإلكترونيات والأجهزة الذكية",store_id:"amazon",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128",country:"السعودية",category:"إلكترونيات",discount_label:"خصم 25%",coupon_code:"TECH25",affiliate_link:"https://www.amazon.com/?tag=abu-khaled-demo-20",description:"خصم تجريبي على منتجات مختارة من قسم الإلكترونيات.",verified:true,featured:true,expires:"لفترة محدودة"},
+  {id:"noon-save-20",title:"كوبون توفير على آلاف المنتجات المختارة",store_id:"noon",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",country:"مصر",category:"إلكترونيات",discount_label:"خصم 20%",coupon_code:"SAVE20",affiliate_link:"https://www.noon.com/egypt-en/?utm_source=abu_khaled_demo",description:"استخدم الكود على المنتجات المؤهلة وفق شروط المتجر.",verified:true,featured:true,expires:"اليوم"},
+  {id:"shein-style-15",title:"خصم إضافي على الأزياء والموضة",store_id:"shein",store_name:"SHEIN",store_logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128",country:"الإمارات",category:"أزياء",discount_label:"خصم 15%",coupon_code:"STYLE15",affiliate_link:"https://www.shein.com/?url_from=abu_khaled_demo",description:"كوبون تجريبي للموضة والإكسسوارات المختارة.",verified:true,featured:true,expires:"هذا الأسبوع"},
+  {id:"ali-big-30",title:"تخفيضات موسمية على منتجات مختارة",store_id:"aliexpress",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128",country:"مصر",category:"إلكترونيات",discount_label:"حتى 30%",coupon_code:"ALI30",affiliate_link:"https://www.aliexpress.com/?aff_fcid=abu_khaled_demo",description:"صفقات موسمية وتجريبية على فئات متعددة.",verified:true,featured:true,expires:"لفترة محدودة"},
+  {id:"namshi-fashion-20",title:"خصم على السنيكرز والملابس المختارة",store_id:"namshi",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128",country:"السعودية",category:"أزياء",discount_label:"خصم 20%",coupon_code:"NM20",affiliate_link:"https://www.namshi.com/saudi-en/?utm_source=abu_khaled_demo",description:"كوبون تجريبي على مختارات الموضة والأحذية.",verified:true,featured:true,expires:"قريباً"},
+  {id:"amazon-beauty-18",title:"عروض على العطور ومنتجات العناية",store_id:"amazon",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128",country:"الإمارات",category:"عطور وجمال",discount_label:"خصم 18%",coupon_code:"BEAUTY18",affiliate_link:"https://www.amazon.ae/?tag=abu-khaled-demo-21",description:"خصم تجريبي على منتجات الجمال والعطور المؤهلة.",verified:true,featured:true,expires:"هذا الأسبوع"},
+  {id:"noon-home-12",title:"خصم على المنزل والمطبخ",store_id:"noon",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",country:"السعودية",category:"منزل",discount_label:"خصم 12%",coupon_code:"HOME12",affiliate_link:"https://www.noon.com/saudi-en/?utm_source=abu_khaled_demo",description:"عروض مختارة على مستلزمات المنزل والأجهزة الصغيرة.",verified:true,expires:"لفترة محدودة"},
+  {id:"shein-new-10",title:"خصم للطلبات الجديدة على الموضة",store_id:"shein",store_name:"SHEIN",store_logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128",country:"السعودية",category:"أزياء",discount_label:"خصم 10%",coupon_code:"NEW10",affiliate_link:"https://www.shein.com/?url_from=abu_khaled_demo",description:"كوبون تجريبي للطلبات المؤهلة للمستخدمين الجدد.",verified:true,expires:"قريباً"},
+  {id:"ali-home-22",title:"خصم على الإكسسوارات المنزلية",store_id:"aliexpress",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128",country:"تركيا",category:"منزل",discount_label:"خصم 22%",coupon_code:"HOME22",affiliate_link:"https://www.aliexpress.com/?aff_fcid=abu_khaled_demo",description:"عروض تجريبية على إكسسوارات الديكور والمنزل.",verified:true,expires:"هذا الشهر"},
+  {id:"namshi-extra-15",title:"خصم إضافي على تشكيلات مختارة",store_id:"namshi",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128",country:"الإمارات",category:"أزياء",discount_label:"خصم 15%",coupon_code:"EXTRA15",affiliate_link:"https://www.namshi.com/uae-en/?utm_source=abu_khaled_demo",description:"كود تجريبي لعروض إضافية على منتجات مختارة.",verified:true,expires:"هذا الأسبوع"}
 ];
 
-function StoreBadge({product}:{product:DealProduct}){
-  return <span className="storeBadge"><img src={product.store_logo} alt="" loading="lazy"/><b>{product.store_name}</b></span>
-}
-
-function DealCard({product,onOpen,onToggleWishlist,isWish,formatMoney,onCopy,copied}:{product:DealProduct,onOpen:()=>void,onToggleWishlist:()=>void,isWish:boolean,formatMoney:(v:number)=>string,onCopy:(code:string)=>void,copied:string}){
-  return <article className="deal flagshipProduct affiliateCard" onClick={onOpen}>
-    <div className="dealImg">
-      <img src={product.image} alt={product.name} loading="lazy"/>
-      <StoreBadge product={product}/>
-      <button className={"wishlistBtn "+(isWish?"active":"")} aria-label="المفضلة" onClick={e=>{e.stopPropagation();onToggleWishlist()}}>{isWish?"♥":"♡"}</button>
-    </div>
-    <div className="dealBody">
-      <div className="dealMeta"><span>{product.category}</span><span>★ {product.rating}</span></div>
-      <h3>{product.name}</h3>
-      <div className="prices affiliatePrices"><strong>{formatMoney(product.deal_price)}</strong><del>{formatMoney(product.original_price)}</del><span className="priceBadge">خصم {product.discount_rate}%</span></div>
-      {product.coupon_code&&<button className="couponBtn" onClick={e=>{e.stopPropagation();onCopy(product.coupon_code!)}}>{copied===product.coupon_code?"✓ تم النسخ":"نسخ الكوبون "+product.coupon_code}</button>}
-      <a className="affiliateCta" href={product.affiliate_link} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}>اذهب إلى العرض <span>↗</span></a>
-    </div>
-  </article>
-}
+const heroSlides=[
+  ["أقوى الكوبونات في مكان واحد","اكتشف الأكواد والعروض من أشهر المتاجر وانتقل مباشرة إلى المتجر لإتمام الشراء.","https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1800&q=92","استكشف الكوبونات"],
+  ["قارن العروض قبل أن تشتري","ابحث حسب المتجر أو الدولة أو القسم واعثر على أعلى نسبة خصم بسرعة.","https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=1800&q=92","قارن الآن"],
+  ["صفقات موثوقة وروابط مباشرة","نرتب لك أفضل العروض ونرسل لك إلى صفحات المتاجر الرسمية بروابط آمنة.","https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1800&q=92","شاهد المتاجر"]
+];
 
 function App(){
   const[user,setUser]=useState<any>(null);
@@ -87,95 +78,125 @@ function App(){
   const[authBusy,setAuthBusy]=useState(false);
   const[menu,setMenu]=useState(false);
   const[langOpen,setLangOpen]=useState(false);
+  const[lang,setLang]=useState<Lang>("ar");
+  const[country,setCountry]=useState("الكل");
+  const[storeFilter,setStoreFilter]=useState("الكل");
+  const[category,setCategory]=useState("الكل");
+  const[searchTerm,setSearchTerm]=useState("");
+  const[sortBy,setSortBy]=useState<"featured"|"discount">("featured");
   const[banner,setBanner]=useState(0);
   const[touchX,setTouchX]=useState<number|null>(null);
-  const[activeCategory,setActiveCategory]=useState("الكل");
-  const[storeFilter,setStoreFilter]=useState("الكل");
-  const[sortFilter,setSortFilter]=useState("featured");
-  const[searchTerm,setSearchTerm]=useState("");
-  const[wishlist,setWishlist]=useState<string[]>([]);
-  const[product,setProduct]=useState<DealProduct|null>(null);
-  const[copiedCoupon,setCopiedCoupon]=useState("");
-  const[lang,setLang]=useState<Lang>("ar");
-  const[currency,setCurrency]=useState("TRY ₺");
-  const[currencyManual,setCurrencyManual]=useState(false);
-  const[fxRates,setFxRates]=useState<Record<string,number>>({TRY:1,USD:.024,EUR:.0205,SAR:.09,EGP:1.18});
+  const[copied,setCopied]=useState("");
   const t=L[lang];
 
   useEffect(()=>{let alive=true;const enforceViewport=()=>{let meta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;if(!meta){meta=document.createElement("meta");meta.name="viewport";document.head.appendChild(meta)}meta.content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"};const cleanAuthUrl=()=>{const url=new URL(window.location.href);if(url.searchParams.has("code")||url.searchParams.has("error")||url.hash){window.history.replaceState({},document.title,window.location.pathname)}};const applyAuthenticatedSession=(session:any)=>{if(!alive||!session?.user)return;enforceViewport();setUser(session.user);setAuthOpen(false);setAuthBusy(false);setAuthMsg("");cleanAuthUrl()};supabase.auth.getSession().then(({data,error})=>{if(!alive)return;if(error){setAuthMsg(error.message);setAuthBusy(false);return}if(data.session)applyAuthenticatedSession(data.session);else setUser(null)});const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{if(!alive)return;if(session?.user)applyAuthenticatedSession(session);else setUser(null)});return()=>{alive=false;subscription.unsubscribe()}},[]);
-  useEffect(()=>{const id=window.setInterval(()=>setBanner(v=>(v+1)%banners.length),5000);return()=>window.clearInterval(id)},[]);
-  useEffect(()=>{let cancelled=false;fetch("https://open.er-api.com/v6/latest/TRY").then(r=>r.ok?r.json():Promise.reject()).then(data=>{if(cancelled||!data?.rates)return;setFxRates(v=>({...v,TRY:1,USD:Number(data.rates.USD)||v.USD,EUR:Number(data.rates.EUR)||v.EUR,SAR:Number(data.rates.SAR)||v.SAR,EGP:Number(data.rates.EGP)||v.EGP}))}).catch(()=>{});return()=>{cancelled=true}},[]);
+  useEffect(()=>{const id=window.setInterval(()=>setBanner(v=>(v+1)%heroSlides.length),5000);return()=>window.clearInterval(id)},[]);
 
   const submitAuth=async()=>{setAuthBusy(true);setAuthMsg("");if(!authEmail||authPassword.length<6){setAuthMsg("أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.");setAuthBusy(false);return}const result=authMode==="signup"?await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{full_name:authName}}}):await supabase.auth.signInWithPassword({email:authEmail,password:authPassword});if(result.error)setAuthMsg(result.error.message);else{setAuthMsg(authMode==="signup"&&!result.data.session?"تم إنشاء الحساب. راجع بريدك لتأكيد الحساب.":"تم تسجيل الدخول بنجاح.");if(result.data.session)setTimeout(()=>setAuthOpen(false),500)}setAuthBusy(false)};
   const resetPassword=async()=>{if(!authEmail){setAuthMsg("اكتب بريدك الإلكتروني أولًا.");return}const{error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:window.location.origin});setAuthMsg(error?error.message:"تم إرسال رابط استعادة كلمة المرور إلى بريدك.")};
   const logout=async()=>{await supabase.auth.signOut();setMenu(false)};
   const googleLogin=async()=>{setAuthBusy(true);setAuthMsg("");const redirectTo=`${window.location.origin}/`;const{error}=await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo,queryParams:{prompt:"select_account"}}});if(error){setAuthMsg(error.message);setAuthBusy(false)}};
+  const chooseLang=(x:Lang)=>{setLang(x);setLangOpen(false)};
 
-  const autoCurrency=(x:Lang)=>x==="tr"?"TRY ₺":x==="ar"?"SAR ﷼":"EUR €";
-  const choose=(x:Lang)=>{setLang(x);if(!currencyManual)setCurrency(autoCurrency(x));setLangOpen(false)};
-  const chooseCurrency=(x:string)=>{setCurrency(x);setCurrencyManual(true)};
-  const currencyCode=currency.split(" ")[0];
-  const currencySymbol:Record<string,string>={TRY:"₺",SAR:"﷼",EGP:"£",EUR:"€",USD:"$"};
-  const formatMoney=(value:number)=>{const amount=value*(fxRates[currencyCode]||1);const decimals=currencyCode==="TRY"||currencyCode==="EGP"?0:2;return new Intl.NumberFormat(lang==="ar"?"ar-EG":"en-US",{minimumFractionDigits:decimals,maximumFractionDigits:decimals}).format(amount)+" "+(currencySymbol[currencyCode]||currencyCode)};
-
-  const stores=useMemo(()=>["الكل",...Array.from(new Set(products.map(p=>p.store_name)))],[]);
-  const filteredProducts=useMemo(()=>{
+  const visibleCoupons=useMemo(()=>{
     const q=searchTerm.trim().toLowerCase();
-    let list=products.filter(p=>(activeCategory==="الكل"||p.category===activeCategory)&&(storeFilter==="الكل"||p.store_name===storeFilter)&&(!q||p.name.toLowerCase().includes(q)||p.store_name.toLowerCase().includes(q)||p.category.toLowerCase().includes(q)));
-    if(sortFilter==="discount")list=[...list].sort((a,b)=>b.discount_rate-a.discount_rate);
-    if(sortFilter==="price")list=[...list].sort((a,b)=>a.deal_price-b.deal_price);
+    let list=coupons.filter(c=>
+      (country==="الكل"||c.country===country)&&
+      (storeFilter==="الكل"||c.store_id===storeFilter)&&
+      (category==="الكل"||c.category===category)&&
+      (!q||c.title.toLowerCase().includes(q)||c.store_name.toLowerCase().includes(q)||c.coupon_code.toLowerCase().includes(q))
+    );
+    if(sortBy==="discount"){
+      list=[...list].sort((a,b)=>Number(b.discount_label.replace(/\D/g,""))-Number(a.discount_label.replace(/\D/g,"")));
+    }else{
+      list=[...list].sort((a,b)=>Number(Boolean(b.featured))-Number(Boolean(a.featured)));
+    }
     return list;
-  },[activeCategory,storeFilter,searchTerm,sortFilter]);
-  const featuredDeals=filteredProducts.filter(p=>p.featured).slice(0,8);
-  const newArrivals=filteredProducts.filter(p=>p.is_new).slice(0,8);
-  const toggleWishlist=(id:string)=>setWishlist(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
-  const finishSwipe=(endX:number)=>{if(touchX===null)return;const dx=endX-touchX;if(Math.abs(dx)>42)setBanner(v=>(v+(dx<0?1:banners.length-1))%banners.length);setTouchX(null)};
-  const copyCoupon=async(code:string)=>{try{await navigator.clipboard.writeText(code)}catch{const ta=document.createElement("textarea");ta.value=code;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()}setCopiedCoupon(code);window.setTimeout(()=>setCopiedCoupon(v=>v===code?"":v),1800)};
+  },[country,storeFilter,category,searchTerm,sortBy]);
+
+  const copyCode=(code:string)=>{
+    const fallback=()=>{const ta=document.createElement("textarea");ta.value=code;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()};
+    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(code).catch(fallback);else fallback();
+  };
+
+  const activateCoupon=(coupon:Coupon)=>{
+    copyCode(coupon.coupon_code);
+    setCopied(coupon.id);
+    window.setTimeout(()=>setCopied(v=>v===coupon.id?"":v),1800);
+    window.open(coupon.affiliate_link,"_blank","noopener,noreferrer");
+  };
+
+  const selectStore=(storeId:string)=>{
+    setStoreFilter(storeId);
+    document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"});
+  };
+
+  const finishSwipe=(endX:number)=>{if(touchX===null)return;const dx=endX-touchX;if(Math.abs(dx)>42)setBanner(v=>(v+(dx<0?1:heroSlides.length-1))%heroSlides.length);setTouchX(null)};
 
   return <div dir={t.dir}>
-    <div className="topbar"><b>DEMO</b><span>{lang==="ar"?"عروض موثوقة • مقارنة ذكية • روابط مباشرة":"Trusted deals · Smart comparison"}</span><small>TTV4K · Abo Adam</small></div>
+    <div className="topbar"><b>DEMO</b><span>منصة كوبونات وعروض ذكية من المتاجر الرسمية</span><small>TTV4K · Abo Adam</small></div>
+
     <header>
       <a className="brand">أبو خالد</a>
-      <nav><a>{t.home}</a><a href="#categories">{t.cats}</a><a href="#deals">{t.offers}</a></nav>
+      <nav><a>{t.home}</a><a href="#stores">{t.stores}</a><a href="#coupons">{t.coupons}</a></nav>
       <div className="actions">
-        <button className="country">◈ <span>{currency}</span></button>
-        <div className="langWrap"><button className="lang" onClick={()=>setLangOpen(!langOpen)}>{t.flag}<span>{t.name}</span>⌄</button>{langOpen&&<div className="langMenu">{langs.map(x=><button key={x} onClick={()=>choose(x)}>{L[x].flag} {L[x].name}</button>)}</div>}</div>
+        <div className="langWrap"><button className="lang" onClick={()=>setLangOpen(!langOpen)}>{t.flag}<span>{t.name}</span>⌄</button>{langOpen&&<div className="langMenu">{langs.map(x=><button key={x} onClick={()=>chooseLang(x)}>{L[x].flag} {L[x].name}</button>)}</div>}</div>
         {user?<button className="authHeader iconButton" aria-label="الحساب" onClick={()=>setMenu(true)}>{(user.user_metadata?.avatar_url||user.user_metadata?.picture)?<img className="headerAvatar" src={user.user_metadata.avatar_url||user.user_metadata.picture} alt="" referrerPolicy="no-referrer"/>:<svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>}<span>حسابي</span></button>:<button className="authHeader iconButton" aria-label="تسجيل الدخول" onClick={()=>setAuthOpen(true)}><svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg><span>دخول</span></button>}
-        <button className="savedBtn iconButton" aria-label="العروض المحفوظة" onClick={()=>document.getElementById("deals")?.scrollIntoView({behavior:"smooth"})}><svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg><b>{wishlist.length}</b></button>
         <button className="hamb iconButton" aria-label="القائمة" onClick={()=>setMenu(true)}><svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       </div>
     </header>
 
-    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small><span>DEMO</span> · SMART DEALS</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#categories" onClick={()=>setMenu(false)}><span className="drawerNavIcon">▦</span><span>{t.cats}</span><i>›</i></a><a href="#deals" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◇</span><span>{t.offers}</span><i>›</i></a></div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.cur}</label>{currencyManual&&<small>اختيار يدوي</small>}</div><div className="currencyChoices">{["TRY ₺","SAR ﷼","EGP £","EUR €","USD $"].map(x=><button key={x} className={currency===x?"active":""} onClick={()=>chooseCurrency(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>choose(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
+    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small><span>DEMO</span> · COUPONS HUB</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#stores" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◎</span><span>{t.stores}</span><i>›</i></a><a href="#coupons" onClick={()=>setMenu(false)}><span className="drawerNavIcon">%</span><span>{t.coupons}</span><i>›</i></a></div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.country}</label><small>{country}</small></div><div className="countryChoices">{countries.map(x=><button key={x} className={country===x?"active":""} onClick={()=>setCountry(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>chooseLang(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
 
     <main>
-      <section className="promoBanner flagshipSlider" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>finishSwipe(e.changedTouches[0].clientX)}>
-        <img key={banners[banner][2]} src={banners[banner][2]} alt={banners[banner][0]}/><div className="promoShade"/>
-        <div className="promoText"><small>ABU KHALED · SMART DEALS HUB</small><h2>{banners[banner][0]}</h2><p>{banners[banner][1]}</p><button onClick={()=>{setActiveCategory(banners[banner][4]);document.getElementById("deals")?.scrollIntoView({behavior:"smooth"})}}>{banners[banner][3]}</button></div>
-        <button className="promoPrev" aria-label="السابق" onClick={()=>setBanner((banner+banners.length-1)%banners.length)}>‹</button><button className="promoNext" aria-label="التالي" onClick={()=>setBanner((banner+1)%banners.length)}>›</button>
-        <div className="promoDots">{banners.map((_,i)=><button key={i} aria-label={"بنر "+(i+1)} className={banner===i?"active":""} onClick={()=>setBanner(i)}><span/></button>)}</div>
+      <section className="promoBanner couponHero" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>finishSwipe(e.changedTouches[0].clientX)}>
+        <img key={heroSlides[banner][2]} src={heroSlides[banner][2]} alt={heroSlides[banner][0]}/>
+        <div className="promoShade"/>
+        <div className="promoText"><small>ABU KHALED · COUPONS & DEALS</small><h2>{heroSlides[banner][0]}</h2><p>{heroSlides[banner][1]}</p><button onClick={()=>document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}>{heroSlides[banner][3]}</button></div>
+        <button className="promoPrev" aria-label="السابق" onClick={()=>setBanner((banner+heroSlides.length-1)%heroSlides.length)}>‹</button>
+        <button className="promoNext" aria-label="التالي" onClick={()=>setBanner((banner+1)%heroSlides.length)}>›</button>
+        <div className="promoDots">{heroSlides.map((_,i)=><button key={i} className={banner===i?"active":""} onClick={()=>setBanner(i)}><span/></button>)}</div>
       </section>
 
-      <section className="hero affiliateHero"><div className="heroCopy"><span className="pill">مقارنة ذكية • كوبونات • متاجر رسمية</span><h1>{t.hero}<br/><em>{t.hero2}</em></h1><p>{t.desc}</p><form className="search" onSubmit={e=>{e.preventDefault();document.getElementById("deals")?.scrollIntoView({behavior:"smooth"})}}><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder={t.search}/><button>{t.go}</button></form><div className="proof"><span><b>{products.length}</b> عرض</span><span><b>{stores.length-1}</b> متاجر شريكة</span><span><b>5</b> عملات</span></div></div><div className="spotlight affiliateSpotlight"><div className="spotTop"><span>SMART MATCH</span><i>● LIVE</i></div><div className="spotIcon">↗</div><h2>من المقارنة إلى المتجر مباشرة</h2><p>نساعدك في اكتشاف الصفقة، نسخ الكوبون، ثم الانتقال بأمان إلى المتجر الرسمي لإتمام الشراء.</p></div></section>
+      <section className="couponIntro">
+        <span className="pill">منصة عروض وكوبونات ذكية</span>
+        <h1>أفضل الكوبونات.<br/><em>من المتاجر التي تثق بها.</em></h1>
+        <p>نبحث ونجمع ونرتب العروض لتصل إلى الكود المناسب بسرعة، ثم نحولك مباشرة إلى المتجر الرسمي لإتمام الشراء.</p>
+        <form className="couponSearch" onSubmit={e=>{e.preventDefault();document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}}><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder={t.search}/><button>{t.searchBtn}</button></form>
+        <div className="couponStats"><span><b>{coupons.length}+</b> كوبونات وعروض</span><span><b>{partnerStores.length}</b> متاجر شريكة</span><span><b>{countries.length-1}</b> دول</span></div>
+      </section>
 
-      <section id="categories" className="categoryStripSection"><div className="heading compactHeading"><div><span>DISCOVER</span><h2>تصفّح حسب القسم</h2></div></div><div className="categoryPills">{categories.map(([name,icon])=><button key={name} className={activeCategory===name?"active":""} onClick={()=>setActiveCategory(name)}><i>{icon}</i><span>{name}</span></button>)}</div></section>
+      <section id="stores" className="couponSection storesSection">
+        <div className="couponSectionHead"><div><span>PARTNER STORES</span><h2>أشهر المتاجر الشريكة</h2></div><small>اختر متجراً لعرض كوبوناته</small></div>
+        <div className="storeGrid">{partnerStores.map(store=><button key={store.id} className={storeFilter===store.id?"active":""} onClick={()=>selectStore(store.id)}><span className="storeLogoWrap"><img src={store.logo} alt={store.name}/></span><b>{store.name}</b><small>{coupons.filter(c=>c.store_id===store.id).length} عروض</small></button>)}</div>
+      </section>
 
-      <section className="dealFilterBar" aria-label="فلترة العروض"><label className="filterSearch"><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="ابحث عن منتج أو متجر"/></label><label><span>المتجر</span><select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}>{stores.map(store=><option key={store}>{store}</option>)}</select></label><label><span>الترتيب</span><select value={sortFilter} onChange={e=>setSortFilter(e.target.value)}><option value="featured">الأكثر ملاءمة</option><option value="discount">أعلى نسبة خصم</option><option value="price">الأقل سعراً</option></select></label><button onClick={()=>{setSearchTerm("");setStoreFilter("الكل");setActiveCategory("الكل");setSortFilter("featured")}}>إعادة الضبط</button></section>
+      <section className="couponFilterBar" aria-label="فلترة الكوبونات">
+        <label className="filterSearch"><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="ابحث باسم المتجر أو الكوبون"/></label>
+        <label><span>المتجر</span><select value={storeFilter} onChange={e=>setStoreFilter(e.target.value)}><option value="الكل">كل المتاجر</option>{partnerStores.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <label><span>الدولة</span><select value={country} onChange={e=>setCountry(e.target.value)}>{countries.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label><span>القسم</span><select value={category} onChange={e=>setCategory(e.target.value)}>{categories.map(x=><option key={x}>{x}</option>)}</select></label>
+        <label><span>الترتيب</span><select value={sortBy} onChange={e=>setSortBy(e.target.value as "featured"|"discount")}><option value="featured">الأكثر تميزاً</option><option value="discount">أعلى خصم</option></select></label>
+        <button onClick={()=>{setSearchTerm("");setStoreFilter("الكل");setCountry("الكل");setCategory("الكل");setSortBy("featured")}}>إعادة الضبط</button>
+      </section>
 
-      <section id="deals" className="block productSection"><div className="heading"><div><span>SMART DEALS</span><h2>أفضل الصفقات المتاحة</h2></div><small>{filteredProducts.length} نتيجة</small></div>{featuredDeals.length?<div className="deals flagshipGrid">{featuredDeals.map(p=><DealCard key={p.id} product={p} onOpen={()=>setProduct(p)} onToggleWishlist={()=>toggleWishlist(p.id)} isWish={wishlist.includes(p.id)} formatMoney={formatMoney} onCopy={copyCoupon} copied={copiedCoupon}/>)}</div>:<div className="emptyDeals">لا توجد عروض مطابقة للفلاتر الحالية.</div>}</section>
+      <section id="coupons" className="couponSection">
+        <div className="couponSectionHead"><div><span>EXCLUSIVE COUPONS</span><h2>أقوى الكوبونات الحصرية</h2></div><small>{visibleCoupons.length} نتيجة</small></div>
+        {visibleCoupons.length?<div className="couponGrid">{visibleCoupons.map(coupon=><article className="couponCard" key={coupon.id}><div className="couponCardTop"><div className="couponStore"><span><img src={coupon.store_logo} alt={coupon.store_name}/></span><div><b>{coupon.store_name}</b><small>{coupon.country} · {coupon.category}</small></div></div>{coupon.verified&&<span className="verifiedBadge">✓ موثوق</span>}</div><div className="couponDiscount">{coupon.discount_label}</div><h3>{coupon.title}</h3><p>{coupon.description}</p><div className="couponMeta"><span>{coupon.expires||"لفترة محدودة"}</span><span>كود: <b>{coupon.coupon_code}</b></span></div><a href={coupon.affiliate_link} target="_blank" rel="noopener noreferrer" className="couponAction" onClick={e=>{e.preventDefault();activateCoupon(coupon)}}>{copied===coupon.id?"✓ تم نسخ الكود!":<>نسخ الكود والذهاب للمتجر <span>↗</span></>}</a></article>)}</div>:<div className="emptyDeals">لا توجد كوبونات مطابقة للفلاتر الحالية.</div>}
+      </section>
 
-      {newArrivals.length>0&&<section className="block productSection arrivalsSection"><div className="heading"><div><span>FRESH DEALS</span><h2>عروض أضيفت حديثاً</h2></div><small>تحديثات جديدة</small></div><div className="deals flagshipGrid arrivalsGrid">{newArrivals.map(p=><DealCard key={p.id} product={p} onOpen={()=>setProduct(p)} onToggleWishlist={()=>toggleWishlist(p.id)} isWish={wishlist.includes(p.id)} formatMoney={formatMoney} onCopy={copyCoupon} copied={copiedCoupon}/>)}</div></section>}
-
-      <section className="trustStrip affiliateTrust" aria-label="مزايا المنصة"><div><i>◎</i><span><b>مقارنة في مكان واحد</b><small>عروض من أكثر من متجر شريك</small></span></div><div><i>⌁</i><span><b>روابط مباشرة وآمنة</b><small>الشراء يتم من المتجر الرسمي</small></span></div><div><i>✦</i><span><b>كوبونات جاهزة</b><small>نسخ الكود بنقرة واحدة عند توفره</small></span></div></section>
+      <section className="couponTrust">
+        <div><i>✓</i><span><b>كوبونات موثقة</b><small>نرتب العروض ونوضح مصدرها ومتجرها</small></span></div>
+        <div><i>↗</i><span><b>تحويل مباشر للمتجر</b><small>لا نقوم بتحصيل المدفوعات داخل المنصة</small></span></div>
+        <div><i>◎</i><span><b>مقارنة أسهل</b><small>فلترة حسب المتجر والدولة والقسم</small></span></div>
+      </section>
     </main>
 
-    {product&&<div className="modalBack" onClick={()=>setProduct(null)}><section className="productModal affiliateModal" onClick={e=>e.stopPropagation()}><button className="modalClose" onClick={()=>setProduct(null)}>×</button><div className="affiliateModalImage"><img src={product.image} alt={product.name}/><StoreBadge product={product}/></div><div className="productInfo"><small>SMART DEAL · {product.store_name}</small><h2>{product.name}</h2><div className="rating">★★★★★ <span>{product.rating} تقييم</span></div><div className="modalPrice"><strong>{formatMoney(product.deal_price)}</strong><del>{formatMoney(product.original_price)}</del><b>خصم {product.discount_rate}%</b></div><p>{product.description}</p><div className="affiliateFacts"><span>المتجر الشريك <b>{product.store_name}</b></span><span>القسم <b>{product.category}</b></span><span>الحالة <b>{product.status}</b></span></div>{product.coupon_code&&<button className="modalCoupon" onClick={()=>copyCoupon(product.coupon_code!)}>{copiedCoupon===product.coupon_code?"✓ تم النسخ!":"نسخ الكوبون "+product.coupon_code}</button>}<a className="modalAffiliateCta" href={product.affiliate_link} target="_blank" rel="noopener noreferrer">شراء من {product.store_name} <span>↗</span></a><small className="affiliateNotice">سيتم فتح موقع المتجر في تبويب جديد. قد نحصل على عمولة من بعض عمليات الشراء دون تكلفة إضافية عليك.</small></div></section></div>}
+    {copied&&<div className="copyToast" role="status">✓ تم نسخ الكود!</div>}
 
-    {copiedCoupon&&<div className="copyToast" role="status">✓ تم نسخ الكوبون</div>}
+    {authOpen&&<div className="modalBack authBack" onClick={()=>setAuthOpen(false)}><section className="authExperience" onClick={e=>e.stopPropagation()}><button className="authClose" onClick={()=>setAuthOpen(false)}>×</button><aside className="authStory"><div className="authBrand"><i>%</i><b>ABU <em>KHALED</em></b><small>منصة كوبونات وعروض</small></div><div className="authStoryCopy"><h2>اكتشف العروض<br/><em>بشكل أذكى</em></h2><div className="benefit"><i>%</i><div><b>كوبونات حصرية</b><small>أكواد خصم مرتبة حسب المتجر</small></div></div><div className="benefit"><i>◎</i><div><b>متاجر متعددة</b><small>قارن بين العروض في مكان واحد</small></div></div><div className="benefit"><i>↗</i><div><b>انتقال مباشر</b><small>إتمام الشراء داخل المتجر الرسمي</small></div></div></div><small className="authStoryFoot">منصة واحدة للمقارنة والتوفير</small></aside><div className="authPanel"><small>ABU KHALED · SECURE ACCOUNT</small><h2>{authMode==="login"?"مرحبًا بعودتك":"أنشئ حسابك"}</h2><p>{authMode==="login"?"سجل الدخول إلى حسابك":"ابدأ تجربة عروض مخصصة وآمنة"}</p><div className="authTabs"><button className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setAuthMsg("")}}>تسجيل الدخول</button><button className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setAuthMsg("")}}>حساب جديد</button></div>{authMode==="signup"&&<label className="authField"><span>👤</span><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="الاسم الكامل"/></label>}<label className="authField"><span>✉</span><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="البريد الإلكتروني"/></label><label className="authField"><span>▣</span><input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="كلمة المرور"/></label>{authMode==="login"&&<div className="authHelpers"><span>تسجيل دخول آمن</span><button onClick={resetPassword}>نسيت كلمة المرور؟</button></div>}{authMsg&&<div className="authMsg">{authMsg}</div>}<button className="authSubmit" disabled={authBusy} onClick={submitAuth}>{authBusy?"جاري التنفيذ...":authMode==="login"?"تسجيل الدخول  ←":"إنشاء الحساب  ←"}</button><div className="authDivider"><span>أو</span></div><div className="socialDemo"><button className="googleLogin" disabled={authBusy} onClick={googleLogin}>G&nbsp;&nbsp; المتابعة باستخدام Google</button><button disabled>●&nbsp;&nbsp; Apple</button></div><div className="authSwitch"><span>{authMode==="login"?"ليس لديك حساب؟":"لديك حساب بالفعل؟"}</span><button onClick={()=>{setAuthMode(authMode==="login"?"signup":"login");setAuthMsg("")}}>{authMode==="login"?"إنشاء حساب جديد":"تسجيل الدخول"}</button></div><div className="authSecure">🔒 الحساب مؤمّن عبر Supabase Auth.</div></div></section></div>}
 
-    {authOpen&&<div className="modalBack authBack" onClick={()=>setAuthOpen(false)}><section className="authExperience" onClick={e=>e.stopPropagation()}><button className="authClose" onClick={()=>setAuthOpen(false)}>×</button><aside className="authStory"><div className="authBrand"><i>▢</i><b>ABU <em>KHALED</em></b><small>منصة صفقات ذكية</small></div><div className="authStoryCopy"><h2>احفظ أفضل<br/><em>العروض لك</em></h2><div className="benefit"><i>♡</i><div><b>قائمة المفضلة</b><small>احفظ الصفقات التي تهمك</small></div></div><div className="benefit"><i>%</i><div><b>كوبونات مختارة</b><small>اعثر على الأكواد المتاحة بسرعة</small></div></div><div className="benefit"><i>↗</i><div><b>روابط مباشرة</b><small>انتقل إلى المتجر الرسمي لإتمام الشراء</small></div></div></div><small className="authStoryFoot">منصة واحدة للمقارنة والتوفير</small></aside><div className="authPanel"><small>ABU KHALED · SECURE ACCOUNT</small><h2>{authMode==="login"?"مرحبًا بعودتك":"أنشئ حسابك"}</h2><p>{authMode==="login"?"سجل الدخول إلى حسابك":"ابدأ تجربة عروض مخصصة وآمنة"}</p><div className="authTabs"><button className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setAuthMsg("")}}>تسجيل الدخول</button><button className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setAuthMsg("")}}>حساب جديد</button></div>{authMode==="signup"&&<label className="authField"><span>👤</span><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="الاسم الكامل"/></label>}<label className="authField"><span>✉</span><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="البريد الإلكتروني"/></label><label className="authField"><span>▣</span><input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="كلمة المرور"/></label>{authMode==="login"&&<div className="authHelpers"><span>تسجيل دخول آمن</span><button onClick={resetPassword}>نسيت كلمة المرور؟</button></div>}{authMsg&&<div className="authMsg">{authMsg}</div>}<button className="authSubmit" disabled={authBusy} onClick={submitAuth}>{authBusy?"جاري التنفيذ...":authMode==="login"?"تسجيل الدخول  ←":"إنشاء الحساب  ←"}</button><div className="authDivider"><span>أو</span></div><div className="socialDemo"><button className="googleLogin" disabled={authBusy} onClick={googleLogin}>G&nbsp;&nbsp; المتابعة باستخدام Google</button><button disabled>●&nbsp;&nbsp; Apple</button></div><div className="authSwitch"><span>{authMode==="login"?"ليس لديك حساب؟":"لديك حساب بالفعل؟"}</span><button onClick={()=>{setAuthMode(authMode==="login"?"signup":"login");setAuthMsg("")}}>{authMode==="login"?"إنشاء حساب جديد":"تسجيل الدخول"}</button></div><div className="authSecure">🔒 الحساب مؤمّن عبر Supabase Auth. تسجيل Google مفعّل للتجربة.</div></div></section></div>}
-
-    <footer className="siteFooter" id="footer"><div className="footerTop"><div className="footerIdentity"><b>أبو خالد</b><p>منصة ذكية لتجميع العروض والكوبونات ومقارنة الصفقات من المتاجر الشريكة.</p><small>DEMO · TTV4K — Abo Adam</small></div><div className="footerLinks"><b>روابط سريعة</b><a href="#privacy">سياسة الخصوصية</a><a href="#terms">الشروط والأحكام</a><a href="#deals">العروض</a><a href="#contact">تواصل معنا</a></div><div className="footerPayments affiliatePartners"><b>متاجر شريكة</b><div className="paymentBadges"><span>Amazon</span><span>نون</span><span>نمشي</span><span>AliExpress</span></div><small>نوفر لك أفضل العروض الموثوقة بروابط تسوق آمنة ومباشرة من المتاجر الرسمية.</small></div></div><div className="affiliateDisclosure">قد تحتوي بعض الروابط على إحالات تسويقية، وقد نحصل على عمولة عند إتمام شراء مؤهل دون زيادة السعر عليك.</div><div className="footerBottom"><span>© 2026 متجر أبو خالد. جميع الحقوق محفوظة.</span><span>مقارنة ذكية • كوبونات • روابط مباشرة</span></div></footer>
+    <footer className="siteFooter couponFooter"><div className="footerTop"><div className="footerIdentity"><b>أبو خالد</b><p>منصة ذكية لتجميع الكوبونات والعروض ومقارنة الصفقات من المتاجر الشريكة.</p><small>DEMO · TTV4K — Abo Adam</small></div><div className="footerLinks"><b>روابط سريعة</b><a href="#stores">المتاجر</a><a href="#coupons">الكوبونات</a><a href="#privacy">سياسة الخصوصية</a><a href="#terms">الشروط والأحكام</a></div><div className="footerPayments"><b>الشفافية</b><p className="transparencyText">نوفر لك أفضل العروض الموثوقة بروابط تسوق آمنة ومباشرة من المتاجر الرسمية.</p><small>قد تحتوي بعض الروابط على إحالات تسويقية وقد نحصل على عمولة عند إتمام شراء مؤهل، دون تكلفة إضافية عليك.</small></div></div><div className="footerBottom"><span>© 2026 متجر أبو خالد. جميع الحقوق محفوظة.</span><span>كوبونات • عروض • روابط مباشرة</span></div></footer>
   </div>
 }
 
