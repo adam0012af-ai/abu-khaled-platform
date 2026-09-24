@@ -3314,3 +3314,40 @@ iframe{
     min-width:0!important;
   }
 }
+
+
+/* v24 Single mobile layout source of truth */
+.oauthCallbackBlank{
+  position:fixed;
+  inset:0;
+  width:100vw;
+  height:100dvh;
+  overflow:hidden;
+  background:#F8FAFC;
+}
+
+@media(max-width:640px){
+  .storeGrid{
+    margin-inline:0!important;
+    padding-inline:0!important;
+    width:100%!important;
+    max-width:100%!important;
+  }
+
+  .couponFilterBar,
+  .couponGrid,
+  .couponSection,
+  .couponIntro,
+  .couponHero,
+  .couponTrust{
+    margin-inline:0!important;
+    max-width:100%!important;
+  }
+
+  .couponFilterBar>*,
+  .couponGrid>*,
+  .couponCard,
+  .storeGrid>*{
+    min-width:0!important;
+  }
+}
