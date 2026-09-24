@@ -272,11 +272,11 @@ function App(){
 
       <section className="dealChipsWrap" aria-label="تصنيفات سريعة">
         <div className="dealChips">
-          <button className={dealChip==="best"?"active":""} onClick={()=>setDealChip("best")}>🔥 الأفضل</button>
-          <button className={dealChip==="discount"?"active":""} onClick={()=>setDealChip("discount")}>⚡ أقوى خصم</button>
-          <button className={dealChip==="tech"?"active":""} onClick={()=>setDealChip("tech")}>📱 تقنية</button>
-          <button className={dealChip==="fashion"?"active":""} onClick={()=>setDealChip("fashion")}>👗 أزياء</button>
-          <button className={dealChip==="home"?"active":""} onClick={()=>setDealChip("home")}>🏠 المنزل</button>
+          <button className={dealChip==="best"?"active":""} onClick={()=>setDealChip("best")}>الأفضل</button>
+          <button className={dealChip==="discount"?"active":""} onClick={()=>setDealChip("discount")}>أقوى خصم</button>
+          <button className={dealChip==="tech"?"active":""} onClick={()=>setDealChip("tech")}>تقنية</button>
+          <button className={dealChip==="fashion"?"active":""} onClick={()=>setDealChip("fashion")}>أزياء</button>
+          <button className={dealChip==="home"?"active":""} onClick={()=>setDealChip("home")}>المنزل</button>
         </div>
         {(storeFilter!=="الكل"||country!=="الكل"||searchTerm)&&<button className="clearDealFilters" onClick={()=>{setStoreFilter("الكل");setCountry("الكل");setSearchTerm("");setDealChip("best")}}>مسح التحديد</button>}
       </section>
