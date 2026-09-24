@@ -1150,3 +1150,230 @@ html.mobile-capable .flagshipSlider{height:305px!important}
   }
   .cartMiniIcon{font-size:11px}
 }
+
+
+/* v17 Launch-ready CTA + official footer */
+.cardBuy{
+  width:100%;
+  min-height:42px;
+  padding:10px 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  border:0;
+  border-radius:12px;
+  background:#0F172A;
+  color:#FFFFFF;
+  font-size:14px;
+  font-weight:500;
+  line-height:1.25;
+  white-space:nowrap;
+}
+.cardBuy>span{display:block;line-height:1.25}
+.cardBuy .cartMiniIcon{
+  width:16px;
+  height:16px;
+  flex:0 0 16px;
+  display:block;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.addCart{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.addCart .cartMiniIcon{
+  width:16px;
+  height:16px;
+  flex:0 0 16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+/* Official ecommerce footer */
+.siteFooter{
+  width:100%;
+  max-width:none;
+  margin:64px 0 0;
+  padding:0;
+  border-top:1px solid #E2E8F0;
+  background:#FFFFFF;
+  color:#475569;
+}
+.footerTop{
+  width:min(1240px,100%);
+  margin:0 auto;
+  padding:42px 28px 34px;
+  display:grid;
+  grid-template-columns:1.15fr .75fr 1.1fr;
+  gap:42px;
+}
+.footerIdentity,
+.footerLinks,
+.footerPayments{
+  min-width:0;
+}
+.footerIdentity{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:7px;
+}
+.footerIdentity>b{
+  color:#0F172A;
+  font-size:24px;
+  font-weight:700;
+  letter-spacing:-.35px;
+}
+.footerIdentity p{
+  max-width:360px;
+  margin:0;
+  color:#64748B;
+  font-size:12px;
+  line-height:1.8;
+}
+.footerIdentity small{
+  margin-top:5px;
+  color:#94A3B8;
+  font-size:9px;
+  letter-spacing:.35px;
+}
+.footerLinks{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:9px;
+}
+.footerLinks>b,
+.footerPayments>b{
+  margin-bottom:4px;
+  color:#0F172A;
+  font-size:12px;
+  font-weight:600;
+}
+.footerLinks a{
+  color:#64748B;
+  text-decoration:none;
+  font-size:11px;
+  line-height:1.6;
+  transition:color .15s ease,transform .15s ease;
+}
+.footerLinks a:hover{
+  color:#0F172A;
+  transform:translateX(-1px);
+}
+.footerPayments{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:9px;
+}
+.paymentBadges{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.paymentBadges span{
+  min-height:34px;
+  padding:7px 11px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid #E2E8F0;
+  border-radius:10px;
+  background:#F8FAFC;
+  color:#0F172A;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.15px;
+}
+.footerPayments>small{
+  color:#94A3B8;
+  font-size:9px;
+  line-height:1.6;
+}
+.footerBottom{
+  width:min(1240px,100%);
+  margin:0 auto;
+  padding:18px 28px 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  border-top:1px solid #F1F5F9;
+  color:#94A3B8;
+  font-size:10px;
+}
+.footerBottom span:first-child{
+  color:#64748B;
+  font-weight:500;
+}
+
+@media(max-width:760px){
+  .siteFooter{margin-top:46px}
+  .footerTop{
+    padding:30px 16px 24px;
+    grid-template-columns:1fr;
+    gap:26px;
+  }
+  .footerIdentity>b{font-size:22px}
+  .footerLinks{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px 16px;
+  }
+  .footerLinks>b{
+    grid-column:1/-1;
+  }
+  .paymentBadges{gap:6px}
+  .paymentBadges span{
+    min-height:32px;
+    padding:6px 9px;
+    font-size:9px;
+  }
+  .footerBottom{
+    padding:16px;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:5px;
+    font-size:9px;
+  }
+}
+@media(max-width:640px){
+  .cardBuy{
+    min-height:40px;
+    padding:10px 12px;
+    gap:8px;
+    font-size:12px;
+    border-radius:12px;
+  }
+  .cardBuy .cartMiniIcon{
+    width:15px;
+    height:15px;
+    flex-basis:15px;
+  }
+}
+html.mobile-capable .siteFooter{
+  width:100%!important;
+  max-width:100%!important;
+}
+html.mobile-capable .footerTop{
+  padding:30px 16px 24px!important;
+  grid-template-columns:1fr!important;
+  gap:26px!important;
+}
+html.mobile-capable .footerBottom{
+  padding:16px!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:5px!important;
+}
