@@ -71,6 +71,23 @@ const heroSlides=[
   ["صفقات موثوقة وروابط مباشرة","نرتب لك أفضل العروض ونرسل لك إلى صفحات المتاجر الرسمية بروابط آمنة.","https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1800&q=92","شاهد المتاجر"]
 ];
 
+function syncMobileViewport(){
+  let viewportMeta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;
+  if(!viewportMeta){
+    viewportMeta=document.createElement("meta");
+    viewportMeta.name="viewport";
+    document.head.appendChild(viewportMeta);
+  }
+  viewportMeta.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no");
+
+  const coarsePointer=window.matchMedia?.("(pointer: coarse)")?.matches??false;
+  const physicalShortSide=Math.min(window.screen?.width||window.innerWidth,window.screen?.height||window.innerHeight);
+  const mobileDevice=coarsePointer&&physicalShortSide<=1024;
+  document.documentElement.classList.toggle("mobile-capable",mobileDevice);
+}
+
+syncMobileViewport();
+
 function App(){
   const[user,setUser]=useState<any>(null);
   const[authOpen,setAuthOpen]=useState(false);
@@ -95,7 +112,65 @@ function App(){
   const[galleryIndex,setGalleryIndex]=useState(0);
   const t=L[lang];
 
-  useEffect(()=>{let alive=true;const enforceViewport=()=>{let meta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;if(!meta){meta=document.createElement("meta");meta.name="viewport";document.head.appendChild(meta)}meta.content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"};const cleanAuthUrl=()=>{const url=new URL(window.location.href);if(url.searchParams.has("code")||url.searchParams.has("error")||url.hash){window.history.replaceState({},document.title,window.location.pathname)}};const applyAuthenticatedSession=(session:any)=>{if(!alive||!session?.user)return;enforceViewport();setUser(session.user);setAuthOpen(false);setAuthBusy(false);setAuthMsg("");cleanAuthUrl()};supabase.auth.getSession().then(({data,error})=>{if(!alive)return;if(error){setAuthMsg(error.message);setAuthBusy(false);return}if(data.session)applyAuthenticatedSession(data.session);else setUser(null)});const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{if(!alive)return;if(session?.user)applyAuthenticatedSession(session);else setUser(null)});return()=>{alive=false;subscription.unsubscribe()}},[]);
+  useEffect(()=>{
+    let alive=true;
+
+    const cleanAuthUrl=()=>{
+      if(window.location.hash.includes("access_token")){
+        window.history.replaceState({},document.title,window.location.pathname);
+        return;
+      }
+      const url=new URL(window.location.href);
+      if(url.searchParams.has("code")||url.searchParams.has("error")){
+        window.history.replaceState({},document.title,window.location.pathname);
+      }
+    };
+
+    const applyAuthenticatedSession=(session:any)=>{
+      if(!alive||!session?.user)return;
+
+      // OAuth callback: clean URL without reload or DOM replacement.
+      cleanAuthUrl();
+
+      // Force the correct mobile viewport immediately after the session is verified.
+      syncMobileViewport();
+      window.requestAnimationFrame(()=>syncMobileViewport());
+
+      setUser(session.user);
+      setAuthOpen(false);
+      setAuthBusy(false);
+      setAuthMsg("");
+    };
+
+    // Apply once on mount as well, before/after OAuth browser restoration.
+    syncMobileViewport();
+
+    supabase.auth.getSession().then(({data,error})=>{
+      if(!alive)return;
+      if(error){
+        setAuthMsg(error.message);
+        setAuthBusy(false);
+        return;
+      }
+      if(data.session)applyAuthenticatedSession(data.session);
+      else setUser(null);
+    });
+
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      if(!alive)return;
+      if(session?.user)applyAuthenticatedSession(session);
+      else setUser(null);
+    });
+
+    const handlePageShow=()=>syncMobileViewport();
+    window.addEventListener("pageshow",handlePageShow);
+
+    return()=>{
+      alive=false;
+      subscription.unsubscribe();
+      window.removeEventListener("pageshow",handlePageShow);
+    };
+  },[]);
   useEffect(()=>{const id=window.setInterval(()=>setBanner(v=>(v+1)%heroSlides.length),5000);return()=>window.clearInterval(id)},[]);
 
   const submitAuth=async()=>{setAuthBusy(true);setAuthMsg("");if(!authEmail||authPassword.length<6){setAuthMsg("أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.");setAuthBusy(false);return}const result=authMode==="signup"?await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{full_name:authName}}}):await supabase.auth.signInWithPassword({email:authEmail,password:authPassword});if(result.error)setAuthMsg(result.error.message);else{setAuthMsg(authMode==="signup"&&!result.data.session?"تم إنشاء الحساب. راجع بريدك لتأكيد الحساب.":"تم تسجيل الدخول بنجاح.");if(result.data.session)setTimeout(()=>setAuthOpen(false),500)}setAuthBusy(false)};
