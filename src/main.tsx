@@ -71,6 +71,12 @@ const heroSlides=[
   ["صفقات موثوقة وروابط مباشرة","نرتب لك أفضل العروض ونرسل لك إلى صفحات المتاجر الرسمية بروابط آمنة.","https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1800&q=92","شاهد المتاجر"]
 ];
 
+function isMobileOAuthDevice(){
+  const coarsePointer=window.matchMedia?.("(pointer: coarse)")?.matches??false;
+  const physicalShortSide=Math.min(window.screen?.width||window.innerWidth,window.screen?.height||window.innerHeight);
+  return coarsePointer&&physicalShortSide<=1024;
+}
+
 function syncMobileViewport(){
   let viewportMeta=document.querySelector('meta[name="viewport"]') as HTMLMetaElement|null;
   if(!viewportMeta){
@@ -80,10 +86,7 @@ function syncMobileViewport(){
   }
   viewportMeta.setAttribute("content","width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover");
 
-  const coarsePointer=window.matchMedia?.("(pointer: coarse)")?.matches??false;
-  const physicalShortSide=Math.min(window.screen?.width||window.innerWidth,window.screen?.height||window.innerHeight);
-  const mobileDevice=coarsePointer&&physicalShortSide<=1024;
-  document.documentElement.classList.toggle("mobile-capable",mobileDevice);
+  document.documentElement.classList.toggle("mobile-capable",isMobileOAuthDevice());
 }
 
 syncMobileViewport();
@@ -114,6 +117,7 @@ function App(){
 
   useEffect(()=>{
     let alive=true;
+    let channel:BroadcastChannel|null=null;
 
     const cleanAuthUrl=()=>{
       if(window.location.hash.includes("access_token")){
@@ -121,18 +125,33 @@ function App(){
         return;
       }
       const url=new URL(window.location.href);
-      if(url.searchParams.has("code")||url.searchParams.has("error")){
+      if(url.searchParams.has("code")||url.searchParams.has("error")||url.searchParams.has("auth_popup")){
         window.history.replaceState({},document.title,window.location.pathname);
       }
+    };
+
+    const finishPopupAuth=()=>{
+      try{
+        if("BroadcastChannel" in window){
+          const popupChannel=new BroadcastChannel("abu-khaled-auth");
+          popupChannel.postMessage({type:"auth-success"});
+          popupChannel.close();
+        }
+      }catch{}
+      try{
+        localStorage.setItem("abu-khaled-auth-success",String(Date.now()));
+        localStorage.removeItem("abu-khaled-auth-success");
+      }catch{}
+      window.setTimeout(()=>window.close(),180);
     };
 
     const applyAuthenticatedSession=(session:any)=>{
       if(!alive||!session?.user)return;
 
-      // OAuth callback: clean URL without reload or DOM replacement.
-      cleanAuthUrl();
+      const callbackUrl=new URL(window.location.href);
+      const isPopupReturn=callbackUrl.searchParams.get("auth_popup")==="1";
 
-      // Force the correct mobile viewport immediately after the session is verified.
+      cleanAuthUrl();
       syncMobileViewport();
       window.requestAnimationFrame(()=>syncMobileViewport());
 
@@ -140,10 +159,33 @@ function App(){
       setAuthOpen(false);
       setAuthBusy(false);
       setAuthMsg("");
+
+      if(isPopupReturn)finishPopupAuth();
     };
 
-    // Apply once on mount as well, before/after OAuth browser restoration.
+    const refreshSessionFromSibling=async()=>{
+      const{data}=await supabase.auth.getSession();
+      if(data.session)applyAuthenticatedSession(data.session);
+    };
+
     syncMobileViewport();
+
+    if("BroadcastChannel" in window){
+      try{
+        channel=new BroadcastChannel("abu-khaled-auth");
+        channel.onmessage=(event)=>{
+          if(event.data?.type==="auth-success")refreshSessionFromSibling();
+        };
+      }catch{}
+    }
+
+    const handleStorage=(event:StorageEvent)=>{
+      if(event.key==="abu-khaled-auth-success")refreshSessionFromSibling();
+    };
+    const handlePageShow=()=>syncMobileViewport();
+
+    window.addEventListener("storage",handleStorage);
+    window.addEventListener("pageshow",handlePageShow);
 
     supabase.auth.getSession().then(({data,error})=>{
       if(!alive)return;
@@ -162,12 +204,11 @@ function App(){
       else setUser(null);
     });
 
-    const handlePageShow=()=>syncMobileViewport();
-    window.addEventListener("pageshow",handlePageShow);
-
     return()=>{
       alive=false;
       subscription.unsubscribe();
+      channel?.close();
+      window.removeEventListener("storage",handleStorage);
       window.removeEventListener("pageshow",handlePageShow);
     };
   },[]);
@@ -176,7 +217,53 @@ function App(){
   const submitAuth=async()=>{setAuthBusy(true);setAuthMsg("");if(!authEmail||authPassword.length<6){setAuthMsg("أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.");setAuthBusy(false);return}const result=authMode==="signup"?await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{full_name:authName}}}):await supabase.auth.signInWithPassword({email:authEmail,password:authPassword});if(result.error)setAuthMsg(result.error.message);else{setAuthMsg(authMode==="signup"&&!result.data.session?"تم إنشاء الحساب. راجع بريدك لتأكيد الحساب.":"تم تسجيل الدخول بنجاح.");if(result.data.session)setTimeout(()=>setAuthOpen(false),500)}setAuthBusy(false)};
   const resetPassword=async()=>{if(!authEmail){setAuthMsg("اكتب بريدك الإلكتروني أولًا.");return}const{error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:window.location.origin});setAuthMsg(error?error.message:"تم إرسال رابط استعادة كلمة المرور إلى بريدك.")};
   const logout=async()=>{await supabase.auth.signOut();setMenu(false)};
-  const googleLogin=async()=>{setAuthBusy(true);setAuthMsg("");const redirectTo=`${window.location.origin}/`;const{error}=await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo,queryParams:{prompt:"select_account"}}});if(error){setAuthMsg(error.message);setAuthBusy(false)}};
+  const googleLogin=async()=>{
+    setAuthBusy(true);
+    setAuthMsg("");
+
+    if(isMobileOAuthDevice()){
+      // Keep the main mobile page untouched. Google OAuth runs in a separate
+      // script-opened tab/window so Google's desktop-scaled consent page cannot
+      // leak its visual viewport scale back into the app.
+      const authWindow=window.open("about:blank","abu-khaled-google-auth");
+      try{if(authWindow)authWindow.opener=null}catch{}
+
+      const redirectTo=`${window.location.origin}/?auth_popup=1`;
+      const{data,error}=await supabase.auth.signInWithOAuth({
+        provider:"google",
+        options:{
+          redirectTo,
+          skipBrowserRedirect:true,
+          queryParams:{prompt:"select_account"}
+        }
+      });
+
+      if(error||!data?.url){
+        try{authWindow?.close()}catch{}
+        setAuthMsg(error?.message||"تعذر بدء تسجيل الدخول باستخدام Google.");
+        setAuthBusy(false);
+        return;
+      }
+
+      if(authWindow&&!authWindow.closed){
+        authWindow.location.href=data.url;
+      }else{
+        // Popup blocked: preserve a working fallback.
+        window.location.assign(data.url);
+      }
+      return;
+    }
+
+    const redirectTo=`${window.location.origin}/`;
+    const{error}=await supabase.auth.signInWithOAuth({
+      provider:"google",
+      options:{redirectTo,queryParams:{prompt:"select_account"}}
+    });
+    if(error){
+      setAuthMsg(error.message);
+      setAuthBusy(false);
+    }
+  };
   const chooseLang=(x:Lang)=>{setLang(x);setLangOpen(false)};
 
   const visibleCoupons=useMemo(()=>{
