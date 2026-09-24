@@ -225,11 +225,13 @@ function App(){
   const recordAffiliateClick=(coupon:Coupon)=>{
     let destinationDomain="unknown";
     try{destinationDomain=new URL(coupon.affiliate_link).hostname}catch{}
-    void supabase.rpc("record_affiliate_click",{
-      p_coupon_id:coupon.id,
-      p_store_id:coupon.store_id,
-      p_destination_domain:destinationDomain,
-      p_source:"web"
+    void supabase.functions.invoke("affiliate-click",{
+      body:{
+        coupon_id:coupon.id,
+        store_id:coupon.store_id,
+        destination_domain:destinationDomain,
+        source:"web"
+      }
     });
   };
 
