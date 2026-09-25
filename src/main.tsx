@@ -14,13 +14,51 @@ function useLanguage(){
 }
 function LanguageSwitcher({compact=false}){
   const {lang,setLang}=useLanguage();
-  return <div className={'languageSwitcher '+(compact?'compact':'')} role="group" aria-label="Language">
-    <button type="button" className={lang==='ar'?'active':''} onClick={()=>setLang('ar')} aria-label="العربية">
-      <span className="langFlag">🇸🇦</span><span className="langText">عربي</span>
+  const [open,setOpen]=useState(false);
+  const ref=useRef(null);
+  const current=lang==='en'
+    ? {flag:'🇺🇸',short:'EN',label:'English'}
+    : {flag:'🇸🇦',short:'AR',label:'العربية'};
+
+  useEffect(()=>{
+    if(!open) return;
+    const close=(e)=>{ if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const esc=(e)=>{ if(e.key==='Escape') setOpen(false); };
+    document.addEventListener('pointerdown',close);
+    document.addEventListener('keydown',esc);
+    return()=>{
+      document.removeEventListener('pointerdown',close);
+      document.removeEventListener('keydown',esc);
+    };
+  },[open]);
+
+  function choose(next){
+    setLang(next);
+    setOpen(false);
+  }
+
+  return <div className={'languageMenu '+(compact?'compact':'')} ref={ref}>
+    <button
+      type="button"
+      className="languageTrigger"
+      onClick={()=>setOpen(v=>!v)}
+      aria-haspopup="menu"
+      aria-expanded={open}
+      aria-label="Language"
+    >
+      <span className="langFlag">{current.flag}</span>
+      <span className="langCurrent">{current.short}</span>
+      <span className="langChevron">⌄</span>
     </button>
-    <button type="button" className={lang==='en'?'active':''} onClick={()=>setLang('en')} aria-label="English">
-      <span className="langFlag">🇺🇸</span><span className="langText">EN</span>
-    </button>
+
+    {open&&<div className="languagePopover" role="menu">
+      <button type="button" className={lang==='ar'?'active':''} onClick={()=>choose('ar')} role="menuitem">
+        <span>🇸🇦</span><b>العربية</b>
+      </button>
+      <button type="button" className={lang==='en'?'active':''} onClick={()=>choose('en')} role="menuitem">
+        <span>🇺🇸</span><b>English</b>
+      </button>
+    </div>}
   </div>;
 }
 
@@ -607,7 +645,6 @@ function Panel({ user, csrf, onLogout }) {
             >
               <span className="sidebarIcon"><NavIcon name={item.icon}/></span>
               <span className="sidebarText">{item.label}</span>
-              <span className="sidebarNavArrow">›</span>
             </button>;
           })}
         </nav>
@@ -626,11 +663,13 @@ function Panel({ user, csrf, onLogout }) {
             <b>{currentLabel}</b>
           </div>
           <div className="contentHeaderActions">
-            <LanguageSwitcher compact/>
+            <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label={l('فتح القائمة','Open menu')}>
+              <span className="hamburgerLines" aria-hidden="true"><i/><i/><i/></span>
+            </button>
             <button className={'headerProfileBtn '+(tab==='profile'?'active':'')} onClick={()=>goTo('profile')} aria-label={l('البروفايل','Profile')}>
               <span>{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</span>
             </button>
-            <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label={l('فتح القائمة','Open menu')}>☰</button>
+            <LanguageSwitcher compact/>
           </div>
         </header>
 
@@ -667,6 +706,7 @@ function ProfilePage({profile,user,call,logout}) {
   const {lang,l}=useLanguage();
   const [form,setForm]=useState({currentPassword:'',newPassword:'',confirmPassword:''});
   const [show,setShow]=useState(false);
+  const [passwordOpen,setPasswordOpen]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const p=profile||user||{};
@@ -738,35 +778,43 @@ function ProfilePage({profile,user,call,logout}) {
         </div>
       </section>
 
-      <section className="profileCard">
-        <div className="profileCardHead">
-          <h3>{l('تغيير كلمة المرور','Change password')}</h3>
-        </div>
-        <form className="profilePasswordForm" onSubmit={changePassword}>
-          <label>
-            <span>{l('كلمة المرور الحالية','Current password')}</span>
-            <input type={show?'text':'password'} value={form.currentPassword} onChange={e=>setForm({...form,currentPassword:e.target.value})} autoComplete="current-password"/>
-          </label>
-          <label>
-            <span>{l('كلمة المرور الجديدة','New password')}</span>
-            <input type={show?'text':'password'} value={form.newPassword} onChange={e=>setForm({...form,newPassword:e.target.value})} autoComplete="new-password"/>
-          </label>
-          <label>
-            <span>{l('تأكيد كلمة المرور','Confirm password')}</span>
-            <input type={show?'text':'password'} value={form.confirmPassword} onChange={e=>setForm({...form,confirmPassword:e.target.value})} autoComplete="new-password"/>
-          </label>
+      <section className={'profileCard profileSecurity '+(passwordOpen?'open':'')}>
+        <button type="button" className="profileSecurityHead" onClick={()=>setPasswordOpen(v=>!v)}>
+          <span className="securityGlyph">⌁</span>
+          <span className="securityCopy">
+            <b>{l('الأمان وكلمة المرور','Security & password')}</b>
+            <small>{l('تغيير كلمة المرور','Change password')}</small>
+          </span>
+          <span className="securityAction">{passwordOpen?'−':'+'}</span>
+        </button>
+
+        {passwordOpen&&<form className="profilePasswordForm" onSubmit={changePassword}>
+          <div className="profilePasswordGrid">
+            <label>
+              <span>{l('كلمة المرور الحالية','Current password')}</span>
+              <input type={show?'text':'password'} value={form.currentPassword} onChange={e=>setForm({...form,currentPassword:e.target.value})} autoComplete="current-password"/>
+            </label>
+            <label>
+              <span>{l('كلمة المرور الجديدة','New password')}</span>
+              <input type={show?'text':'password'} value={form.newPassword} onChange={e=>setForm({...form,newPassword:e.target.value})} autoComplete="new-password"/>
+            </label>
+            <label>
+              <span>{l('تأكيد كلمة المرور','Confirm password')}</span>
+              <input type={show?'text':'password'} value={form.confirmPassword} onChange={e=>setForm({...form,confirmPassword:e.target.value})} autoComplete="new-password"/>
+            </label>
+          </div>
           <div className="profilePasswordActions">
             <button type="button" className="profileShowBtn" onClick={()=>setShow(v=>!v)}>{show?l('إخفاء','Hide'):l('إظهار','Show')}</button>
             <button className="primary" disabled={busy}>{busy?l('جارٍ الحفظ…','Saving…'):l('حفظ','Save')}</button>
           </div>
           {message&&<div className="profileMessage">{message}</div>}
-        </form>
+        </form>}
       </section>
     </div>
 
     <section className="profileDangerCard">
       <div>
-        <h3>{l('الجلسة الحالية','Current session')}</h3>
+        <h3>{l('الحساب','Account')}</h3>
       </div>
       <button type="button" className="profileLogoutBtn" onClick={logout}>
         <span>↪</span>
