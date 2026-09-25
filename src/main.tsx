@@ -315,17 +315,21 @@ function Login({ onAuth }) {
     <div className="loginBackdrop" aria-hidden="true"/>
 
     <main className="loginViewport">
-      <section className="loginPanel" aria-labelledby="login-title">
-        <div className="loginLanguage">
-          <LanguageSwitcher compact/>
-        </div>
-
-        <header className="loginPanelHeader">
-          <PremiumLoginLogo/>
+      <section className="loginPanel loginPanelV2" aria-labelledby="login-title">
+        <header className="loginHero">
+          <div className="loginHeroGlow" aria-hidden="true"/>
+          <div className="loginLanguage">
+            <LanguageSwitcher compact/>
+          </div>
+          <div className="loginBrandCenter">
+            <PremiumLoginLogo/>
+            <span className="loginBrandKicker">CONTROL PANEL</span>
+          </div>
         </header>
 
         <div className="loginPanelBody">
           <div className="loginHeading">
+            <span className="loginEyebrow">{l('وصول آمن','SECURE ACCESS')}</span>
             <h1 id="login-title">{l('تسجيل الدخول','Sign in')}</h1>
           </div>
 
@@ -393,7 +397,7 @@ function Login({ onAuth }) {
           <span>© ACTIVE CODE MULTI · TTV4K</span>
           <span className="loginSecurity">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V8a4 4 0 0 1 8 0v2"/></svg>
-            256-bit SSL
+            {l('جلسة آمنة','Secure session')}
           </span>
         </footer>
       </section>
