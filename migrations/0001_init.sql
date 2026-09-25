@@ -1,3 +1,9 @@
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TEXT NOT NULL
+);
+
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS users (
@@ -7,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
   password_salt TEXT NOT NULL,
   password_iterations INTEGER NOT NULL DEFAULT 150000,
   role TEXT NOT NULL CHECK (role IN ('admin','reseller')),
+  account_type TEXT NOT NULL DEFAULT 'reseller' CHECK (account_type IN ('owner','admin','agent','reseller')),
+  parent_user_id TEXT,
   display_name TEXT NOT NULL,
   credits INTEGER NOT NULL DEFAULT 0 CHECK (credits >= 0),
   last_credit_tx_id TEXT,
@@ -169,3 +177,7 @@ INSERT OR IGNORE INTO servers(id,name,slug,active,low_stock_threshold,sort_order
 ('srv_x','X','x',1,10,30,datetime('now')),
 ('srv_spider','Spider','spider',1,10,40,datetime('now')),
 ('srv_mh','MH','mh',1,10,50,datetime('now'));
+
+INSERT OR IGNORE INTO app_meta(key,value,updated_at) VALUES
+('balance_mode','currency',datetime('now')),
+('balance_currency','EGP',datetime('now'));
