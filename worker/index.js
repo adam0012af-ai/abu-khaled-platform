@@ -254,7 +254,20 @@ async function api(request, env) {
     if (gate?.blocked_until && gate.blocked_until > now()) return json({ error: 'TOO_MANY_ATTEMPTS' }, 429);
     const user = await env.DB.prepare('SELECT * FROM users WHERE username=? COLLATE NOCASE OR email=? COLLATE NOCASE LIMIT 1').bind(identifier, identifier).first();
     const calculated = user ? await passwordHash(password, user.password_salt, Number(user.password_iterations)) : await passwordHash(password, 'invalid-user-salt', PASSWORD_ITERATIONS);
-    const ok = Boolean(user && user.status === 'active' && secureEqual(calculated, user.password_hash));
+    let ok = Boolean(user && user.status === 'active' && secureEqual(calculated, user.password_hash));
+
+    // One-time owner recovery: if the bootstrap secret changed after the owner
+    // record was first created, accepting the current SETUP_KEY re-syncs the
+    // stored hash. Delete SETUP_KEY after successful recovery.
+    if (!ok && user && user.role === 'admin' && user.username === 'owner' && env.SETUP_KEY && secureEqual(password, String(env.SETUP_KEY))) {
+      const salt = randomToken(18);
+      const at = now();
+      await env.DB.prepare('UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,updated_at=? WHERE id=?')
+        .bind(await passwordHash(password, salt), salt, PASSWORD_ITERATIONS, at, user.id).run();
+      await audit(env, request, user, 'OWNER_PASSWORD_RESYNCED', 'user', user.id, {});
+      ok = true;
+    }
+
     if (!ok) {
       const currentTime = Date.now();
       let attempts = 1;
