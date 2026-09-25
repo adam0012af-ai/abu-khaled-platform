@@ -215,7 +215,7 @@ function Login({ onAuth }) {
         turnstileWidget.current=window.turnstile.render(turnstileNode.current,{
           sitekey:turnstile.siteKey,
           theme:'light',
-          size:'normal',
+          size:'flexible',
           language:lang==='en'?'en':'ar',
           action:'login',
           execution:'execute',
