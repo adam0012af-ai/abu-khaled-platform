@@ -893,7 +893,7 @@ async function api(request,env){
       const countWhere=[], countArgs=[];
       if(sourceId){ countWhere.push("service_id=?"); countArgs.push(sourceId); }
       const counts=await env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status='available' THEN 1 ELSE 0 END),0) available,COALESCE(SUM(CASE WHEN status='issued' THEN 1 ELSE 0 END),0) issued,COALESCE(SUM(CASE WHEN status='disabled' THEN 1 ELSE 0 END),0) disabled FROM sharing_codes "+(countWhere.length?'WHERE '+countWhere.join(' AND '):'')).bind(...countArgs).first();
-      const sources=(await env.DB.prepare("SELECT id,name_ar,name_en,active,sort_order FROM sharing_services ORDER BY sort_order,name_en").all()).results||[];
+      const sources=(await env.DB.prepare("SELECT id,name_ar,name_en,credit_cost,active,sort_order FROM sharing_services ORDER BY sort_order,name_en").all()).results||[];
       return json({kind,codes:rows,counts:counts||{total:0,available:0,issued:0,disabled:0},sources});
     }
 
@@ -907,7 +907,7 @@ async function api(request,env){
     const countWhere=[], countArgs=[];
     if(sourceId){ countWhere.push("server_id=?"); countArgs.push(sourceId); }
     const counts=await env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status='available' THEN 1 ELSE 0 END),0) available,COALESCE(SUM(CASE WHEN status='issued' THEN 1 ELSE 0 END),0) issued,COALESCE(SUM(CASE WHEN status='disabled' THEN 1 ELSE 0 END),0) disabled FROM codes "+(countWhere.length?'WHERE '+countWhere.join(' AND '):'')).bind(...countArgs).first();
-    const sources=(await env.DB.prepare("SELECT id,name,active,sort_order FROM servers ORDER BY sort_order,name").all()).results||[];
+    const sources=(await env.DB.prepare("SELECT s.id,s.name,s.active,s.sort_order,COALESCE((SELECT p.credit_cost FROM packages p WHERE p.server_id=s.id AND p.active=1 ORDER BY p.sort_order,p.created_at LIMIT 1),0) credit_cost FROM servers s ORDER BY s.sort_order,s.name").all()).results||[];
     return json({kind,codes:rows,counts:counts||{total:0,available:0,issued:0,disabled:0},sources});
   }
 
@@ -1153,14 +1153,22 @@ async function api(request,env){
 
   if(path==='/api/admin/import-codes' && method==='POST'){
     const body=await bodyJson(request), serverId=clean(body.serverId,80), filename=clean(body.filename||'codes.txt',120);
+    const hasCodeCost=body.codeCost!==undefined&&body.codeCost!==null&&String(body.codeCost)!=='';
+    const codeCost=hasCodeCost?Math.max(0,Math.trunc(Number(body.codeCost))):null;
+    if(hasCodeCost&&!Number.isSafeInteger(codeCost)) return json({error:'INVALID_CODE_COST'},400);
     const lines=String(body.text||'').replace(/\r/g,'').split('\n');
     const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
     const unique=Array.from(new Set(nonBlank));
     if(!serverId||unique.length===0) return json({error:'EMPTY_IMPORT'},400);
     if(unique.length>700) return json({error:'IMPORT_LIMIT_700'},413);
-    const pack=await env.DB.prepare("SELECT id FROM packages WHERE server_id=? AND active=1 ORDER BY sort_order,created_at LIMIT 1").bind(serverId).first();
+    const pack=await env.DB.prepare("SELECT id,credit_cost FROM packages WHERE server_id=? AND active=1 ORDER BY sort_order,created_at LIMIT 1").bind(serverId).first();
     if(!pack) return json({error:'SERVER_PACKAGE_MISMATCH'},409);
     const packageId=pack.id;
+    const previousCost=Number(pack.credit_cost||0);
+    const effectiveCost=hasCodeCost?codeCost:previousCost;
+    if(hasCodeCost&&effectiveCost!==previousCost){
+      await env.DB.prepare("UPDATE packages SET credit_cost=? WHERE id=?").bind(effectiveCost,packageId).run();
+    }
 
     const existingRows=(await env.DB.prepare("SELECT code FROM codes WHERE code IN ("+unique.slice(0,90).map(()=>'?').join(',')+")").bind(...unique.slice(0,90)).all()).results||[];
     const existing=new Set(existingRows.map(r=>r.code));
@@ -1181,8 +1189,8 @@ async function api(request,env){
 
     const duplicateCount=Math.max(0,nonBlank.length-inserted);
     await env.DB.prepare("UPDATE code_batches SET inserted_count=?,duplicate_count=? WHERE id=?").bind(inserted,duplicateCount,batchId).run();
-    await audit(env,request,user,'CODES_IMPORTED','code_batch',batchId,{serverId,packageId,filename,totalLines:lines.length,inserted,duplicateCount});
-    return json({ok:true,batch:{id:batchId,filename,total_lines:lines.length,blank_count:blank,inserted_count:inserted,duplicate_count:duplicateCount,created_at:at}},201);
+    await audit(env,request,user,'CODES_IMPORTED','code_batch',batchId,{serverId,packageId,filename,totalLines:lines.length,inserted,duplicateCount,priceBefore:previousCost,priceAfter:effectiveCost});
+    return json({ok:true,batch:{id:batchId,filename,total_lines:lines.length,blank_count:blank,inserted_count:inserted,duplicate_count:duplicateCount,unit_cost:effectiveCost,created_at:at}},201);
   }
 
 
@@ -1190,6 +1198,9 @@ async function api(request,env){
     const body=await bodyJson(request);
     const serviceId=clean(body.serviceId,80);
     const filename=clean(body.filename||'sharing-codes.txt',120);
+    const hasCodeCost=body.codeCost!==undefined&&body.codeCost!==null&&String(body.codeCost)!=='';
+    const codeCost=hasCodeCost?Math.max(0,Math.trunc(Number(body.codeCost))):null;
+    if(hasCodeCost&&!Number.isSafeInteger(codeCost)) return json({error:'INVALID_CODE_COST'},400);
     const lines=String(body.text||'').replace(/\r/g,'').split('\n');
     const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
     const unique=Array.from(new Set(nonBlank));
@@ -1197,8 +1208,13 @@ async function api(request,env){
     if(!serviceId||unique.length===0) return json({error:'EMPTY_IMPORT'},400);
     if(unique.length>700) return json({error:'IMPORT_LIMIT_700'},413);
 
-    const service=await env.DB.prepare("SELECT id,name_ar,name_en FROM sharing_services WHERE id=? AND active=1 LIMIT 1").bind(serviceId).first();
+    const service=await env.DB.prepare("SELECT id,name_ar,name_en,credit_cost FROM sharing_services WHERE id=? AND active=1 LIMIT 1").bind(serviceId).first();
     if(!service) return json({error:'SHARING_SERVICE_NOT_FOUND'},404);
+    const previousCost=Number(service.credit_cost||0);
+    const effectiveCost=hasCodeCost?codeCost:previousCost;
+    if(hasCodeCost&&effectiveCost!==previousCost){
+      await env.DB.prepare("UPDATE sharing_services SET credit_cost=? WHERE id=?").bind(effectiveCost,serviceId).run();
+    }
 
     const batchId=uid('sbat'), at=now(), blank=lines.length-nonBlank.length;
     await env.DB.prepare("INSERT INTO sharing_batches(id,service_id,filename,imported_by,total_lines,blank_count,inserted_count,duplicate_count,created_at) VALUES(?,?,?,?,?,?,0,0,?)")
@@ -1226,7 +1242,9 @@ async function api(request,env){
       filename,
       totalLines:lines.length,
       inserted,
-      duplicateCount
+      duplicateCount,
+      priceBefore:previousCost,
+      priceAfter:effectiveCost
     });
 
     return json({
@@ -1238,6 +1256,7 @@ async function api(request,env){
         blank_count:blank,
         inserted_count:inserted,
         duplicate_count:duplicateCount,
+        unit_cost:effectiveCost,
         created_at:at
       }
     },201);
