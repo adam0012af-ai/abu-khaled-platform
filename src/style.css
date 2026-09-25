@@ -320,10 +320,11 @@ a{color:inherit}
   transition:max-height .18s ease,opacity .16s ease,padding .18s ease,margin .18s ease
 }
 .sidebarSubnav.show{
-  max-height:120px;
+  max-height:360px;
   opacity:1;
   margin-top:3px;
-  padding-top:3px
+  padding-top:3px;
+  padding-bottom:3px
 }
 .sidebarSubnav button{
   min-height:32px;
@@ -5070,5 +5071,22 @@ html[dir="ltr"] .sidebarProfileAction.active{
   }
   .deleteCommandRow .codeDeleteAllBtn{
     width:100%
+  }
+}
+
+
+/* Keep expanded sidebar pockets fully visible on mobile */
+@media(max-width:820px){
+  .sidebarPocket{
+    overflow:visible
+  }
+  .sidebarPocket.expanded{
+    overflow:visible
+  }
+  .sidebarSubnav{
+    overflow:hidden
+  }
+  .sidebarSubnav.show{
+    max-height:420px
   }
 }
