@@ -6,7 +6,7 @@ let schemaReady = false;
 const BASE_SCHEMA = [
   "PRAGMA foreign_keys = ON",
   "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL)",
-  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 100000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 100000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, last_login_ip TEXT, last_country TEXT, last_login_at TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, ip_hash TEXT, user_agent TEXT)",
   "CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_started_at TEXT NOT NULL, blocked_until TEXT)",
   "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, slug TEXT NOT NULL UNIQUE COLLATE NOCASE, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), low_stock_threshold INTEGER NOT NULL DEFAULT 10, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)",
@@ -99,6 +99,16 @@ async function ensureSchema(env){
   }
   if(!cols.some(c=>c.name==='last_credit_tx_id')){
     await env.DB.prepare("ALTER TABLE users ADD COLUMN last_credit_tx_id TEXT").run();
+  }
+
+  if(!cols.some(c=>c.name==='last_login_ip')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN last_login_ip TEXT").run();
+  }
+  if(!cols.some(c=>c.name==='last_country')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN last_country TEXT").run();
+  }
+  if(!cols.some(c=>c.name==='last_login_at')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN last_login_at TEXT").run();
   }
 
   const appCols=(await env.DB.prepare("PRAGMA table_info(apps)").all()).results||[];
@@ -275,8 +285,13 @@ async function login(request,env){
   }
 
   await env.DB.prepare("DELETE FROM login_attempts WHERE key=?").bind(key).run();
+  const loginIp=clean(request.headers.get('cf-connecting-ip')||'',64);
+  const loginCountry=clean(request.headers.get('cf-ipcountry')||'',8).toUpperCase();
+  const loginAt=now();
+  await env.DB.prepare("UPDATE users SET last_login_ip=?,last_country=?,last_login_at=?,updated_at=? WHERE id=?")
+    .bind(loginIp||null,loginCountry||null,loginAt,loginAt,user.id).run();
   const session=await createSession(env,request,user.id);
-  await audit(env,request,user,'LOGIN_SUCCESS','session',null,{mode:'db'});
+  await audit(env,request,user,'LOGIN_SUCCESS','session',null,{mode:'db',country:loginCountry||null});
   return json({user:publicUser(user),csrf:session.csrf},200,{'set-cookie':sessionCookie(session.token)});
 }
 
@@ -296,7 +311,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-panel-polish-v5',
+      version:'worker-reseller-management-v6',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
@@ -482,7 +497,7 @@ async function api(request,env){
   if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
 
   if(path==='/api/admin/resellers' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT id,username,email,display_name,credits,status,created_at,updated_at FROM users WHERE role='reseller' ORDER BY created_at DESC LIMIT 500").all()).results||[];
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,COUNT(c.id) issued_codes FROM users u LEFT JOIN codes c ON c.reseller_id=u.id AND c.status='issued' WHERE u.role='reseller' GROUP BY u.id ORDER BY u.created_at DESC LIMIT 500").all()).results||[];
     return json({resellers:rows});
   }
 
