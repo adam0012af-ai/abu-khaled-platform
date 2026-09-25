@@ -792,8 +792,8 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='overview' && !isAdmin && <ResellerOverview data={data} goTo={goTo}/>}
             {tab==='servers' && isAdmin && <Servers action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
             {tab==='inventory' && isAdmin && <Inventory data={data}/>}
-            {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
-            {tab==='iptv-stock' && isAdmin && <CodeStockManager kind="iptv" call={call}/>}
+            {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
+            {tab==='iptv-stock' && isAdmin && <CodeStockManager kind="iptv" call={call} balanceConfig={data.balanceConfig}/>} 
             {tab==='sharing-admin' && isAdmin && <SharingAdminManager call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
 
             {tab==='reseller-create' && canManageResellers && <CreateReseller action={action} busy={busy} endpoint={isAdmin?'/api/admin/resellers':'/api/team/resellers'} balanceConfig={data.balanceConfig} agentMode={isAgent}/>}
@@ -1111,7 +1111,7 @@ function SharingAdminManager({call,action,busy,balanceConfig}){
       </div>}
     </section>
 
-    <CodeStockManager kind="sharing" call={call}/>
+    <CodeStockManager kind="sharing" call={call} balanceConfig={balanceConfig}/>
     <Sharing admin call={call} action={action} busy={busy} balanceConfig={balanceConfig}/>
   </div>;
 }
@@ -1120,7 +1120,7 @@ function Sharing({admin,call,action,busy,balanceConfig}){
   const {lang,l}=useLanguage();
   const [data,setData]=useState({services:[],codes:[],balance:0,balanceConfig:balanceConfig||{mode:'currency',currency:'EGP'}});
   const [ready,setReady]=useState(false);
-  const [importForm,setImportForm]=useState({serviceId:'',filename:'sharing-codes.txt',text:''});
+  const [importForm,setImportForm]=useState({serviceId:'',filename:'sharing-codes.txt',text:'',codeCost:''});
   const [issueForm,setIssueForm]=useState({serviceId:'',customerRef:'',quantity:1});
   const [mode,setMode]=useState('single');
   const [result,setResult]=useState(null);
@@ -1217,10 +1217,30 @@ function Sharing({admin,call,action,busy,balanceConfig}){
 
         <label className="acmField">
           <span>{l('الخدمة','Service')}</span>
-          <select value={importForm.serviceId} onChange={e=>setImportForm(v=>({...v,serviceId:e.target.value}))} required>
+          <select value={importForm.serviceId} onChange={e=>{
+            const serviceId=e.target.value;
+            const service=data.services.find(s=>s.id===serviceId);
+            setImportForm(v=>({...v,serviceId,codeCost:service?Number(service.credit_cost||0):''}));
+          }} required>
             <option value="">{l('اختر الخدمة','Select service')}</option>
             {data.services.map(s=><option key={s.id} value={s.id}>{lang==='en'?s.name_en:s.name_ar}</option>)}
           </select>
+        </label>
+
+        <label className="acmField">
+          <span>{l('سعر الكود / الخصم','Code price / deduction')} ({balanceUnit(data.balanceConfig,lang)})</span>
+          <input
+            dir="ltr"
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={importForm.codeCost}
+            onChange={e=>setImportForm(v=>({...v,codeCost:e.target.value}))}
+            required
+          />
+          <small>{data.balanceConfig?.mode==='credit'
+            ? l('سيُخصم كريدت عند إصدار كود الشيرنج.','Credits will be deducted when a sharing code is issued.')
+            : l('سيُخصم المبلغ بنفس العملة المفعلة.','The amount will be deducted in the active currency.')}</small>
         </label>
 
         <label className="sharingFilePick">
@@ -1239,7 +1259,7 @@ function Sharing({admin,call,action,busy,balanceConfig}){
           />
         </label>
 
-        <button className="acmPrimaryBtn sharingSubmit" disabled={busy||!importForm.serviceId||!importForm.text.trim()}>
+        <button className="acmPrimaryBtn sharingSubmit" disabled={busy||!importForm.serviceId||importForm.codeCost===''||!importForm.text.trim()}>
           {l('رفع الأكواد','Import codes')}
         </button>
       </form>
@@ -1681,9 +1701,9 @@ function Inventory({data}) {
   </section>;
 }
 
-function ImportCodes({data,action,busy}) {
-  const {l}=useLanguage();
-  const [form,setForm]=useState({serverId:'',filename:'codes.txt',text:''});
+function ImportCodes({data,action,busy,balanceConfig}) {
+  const {lang,l}=useLanguage();
+  const [form,setForm]=useState({serverId:'',filename:'codes.txt',text:'',codeCost:''});
   const lines=form.text.replace(/\r/g,'').split('\n');
   const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
   const unique=new Set(nonBlank);
@@ -1706,14 +1726,36 @@ function ImportCodes({data,action,busy}) {
         setForm({...form,text:''});
       }}>
         <label>{l('السيرفر','Server')}</label>
-        <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value})} required>
+        <select value={form.serverId} onChange={e=>{
+          const serverId=e.target.value;
+          const pack=data.packages.find(p=>p.server_id===serverId&&Number(p.active)===1);
+          setForm({...form,serverId,codeCost:pack?Number(pack.credit_cost||0):''});
+        }} required>
           <option value="">{l('اختر السيرفر','Select server')}</option>
           {data.servers.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}
         </select>
 
+        <label>{l('سعر الكود / الخصم عند الإصدار','Code price / deduction')} ({balanceUnit(balanceConfig,lang)})</label>
+        <div className="importPriceField">
+          <input
+            dir="ltr"
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={form.codeCost}
+            onChange={e=>setForm({...form,codeCost:e.target.value})}
+            placeholder="0"
+            required
+          />
+          <span>{balanceUnit(balanceConfig,lang)}</span>
+        </div>
+        <small className="importPriceHint">{balanceConfig?.mode==='credit'
+          ? l('السعر سيُخصم كريدت من الموزع عند إصدار الكود.','This amount will be deducted as credits when the code is issued.')
+          : l('السعر سيظهر ويُخصم بنفس العملة المفعلة من لوحة الأدمن.','This price will be shown and deducted in the currency enabled by admin.')}</small>
+
         <label className="filePick">{l('اختيار ملف TXT','Choose TXT file')}<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
         <textarea rows="14" placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')} value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
-        <button className="primary" disabled={busy||unique.size===0||!form.serverId}>{l('استيراد','Import')}</button>
+        <button className="primary" disabled={busy||unique.size===0||!form.serverId||form.codeCost===''}>{l('استيراد','Import')}</button>
       </form>
 
       <div className="previewBox">
@@ -1730,7 +1772,7 @@ function ImportCodes({data,action,busy}) {
   </section>;
 }
 
-function CodeStockManager({kind,call}) {
+function CodeStockManager({kind,call,balanceConfig}) {
   const {lang,l}=useLanguage();
   const isSharing=kind==='sharing';
   const [data,setData]=useState({codes:[],counts:{total:0,available:0,issued:0,disabled:0},sources:[]});
@@ -1738,7 +1780,7 @@ function CodeStockManager({kind,call}) {
   const [search,setSearch]=useState('');
   const [appliedSearch,setAppliedSearch]=useState('');
   const [bulkOpen,setBulkOpen]=useState(false);
-  const [bulkForm,setBulkForm]=useState({sourceId:'',filename:isSharing?'sharing-codes.txt':'iptv-codes.txt',text:''});
+  const [bulkForm,setBulkForm]=useState({sourceId:'',filename:isSharing?'sharing-codes.txt':'iptv-codes.txt',text:'',codeCost:''});
   const [selectedIds,setSelectedIds]=useState([]);
   const [confirmSelected,setConfirmSelected]=useState(false);
   const [editId,setEditId]=useState('');
@@ -1777,7 +1819,11 @@ function CodeStockManager({kind,call}) {
         counts:out.counts||{total:0,available:0,issued:0,disabled:0},
         sources:out.sources||[]
       });
-      setBulkForm(v=>({...v,sourceId:v.sourceId||next.sourceId||''}));
+      setBulkForm(v=>{
+        const sourceId=v.sourceId||next.sourceId||'';
+        const source=(out.sources||[]).find(s=>s.id===sourceId);
+        return {...v,sourceId,codeCost:v.codeCost!==''?v.codeCost:(source?Number(source.credit_cost||0):'')};
+      });
       setSelectedIds([]);
       setConfirmSelected(false);
     }catch{
@@ -1828,8 +1874,8 @@ function CodeStockManager({kind,call}) {
     try{
       const endpoint=isSharing?'/api/admin/sharing/import':'/api/admin/import-codes';
       const body=isSharing
-        ? {serviceId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text}
-        : {serverId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text};
+        ? {serviceId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text,codeCost:bulkForm.codeCost}
+        : {serverId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text,codeCost:bulkForm.codeCost};
       const out=await call(endpoint,{method:'POST',body});
       const batch=out.batch||{};
       setMessage(
@@ -1976,17 +2022,39 @@ function CodeStockManager({kind,call}) {
         </div>
         <strong>{num(bulkUnique.length)} / 700</strong>
       </div>
-      <select value={bulkForm.sourceId} onChange={e=>setBulkForm(v=>({...v,sourceId:e.target.value}))} required>
+      <select value={bulkForm.sourceId} onChange={e=>{
+        const sourceId=e.target.value;
+        const source=data.sources.find(s=>s.id===sourceId);
+        setBulkForm(v=>({...v,sourceId,codeCost:source?Number(source.credit_cost||0):''}));
+      }} required>
         <option value="">{isSharing?l('اختر نوع الشيرنج','Select sharing service'):l('اختر السيرفر','Select server')}</option>
         {data.sources.map(s=><option key={s.id} value={s.id}>{sourceName(s)}</option>)}
       </select>
+      <label className="codeBulkPrice">
+        <span>{l('سعر الكود / الخصم','Code price / deduction')}</span>
+        <div>
+          <input
+            dir="ltr"
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={bulkForm.codeCost}
+            onChange={e=>setBulkForm(v=>({...v,codeCost:e.target.value}))}
+            required
+          />
+          <b>{balanceUnit(balanceConfig,lang)}</b>
+        </div>
+        <small>{balanceConfig?.mode==='credit'
+          ? l('يظهر للموزعين كريدت','Shown to resellers as credits')
+          : l('يظهر للموزعين بالعملة المفعلة','Shown to resellers in the active currency')}</small>
+      </label>
       <label className="codeBulkFile">
         <span>{l('اختيار ملف TXT','Choose TXT')}</span>
         <input type="file" accept=".txt,text/plain" onChange={pickBulkFile}/>
         <b>{bulkForm.filename}</b>
       </label>
       <textarea rows="6" dir="ltr" value={bulkForm.text} onChange={e=>setBulkForm(v=>({...v,text:e.target.value}))} placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')}/>
-      <button className="codeAddBtn" disabled={busy||!bulkForm.sourceId||bulkUnique.length===0||bulkUnique.length>700}>
+      <button className="codeAddBtn" disabled={busy||!bulkForm.sourceId||bulkForm.codeCost===''||bulkUnique.length===0||bulkUnique.length>700}>
         {busy?l('جارٍ الإضافة…','Adding…'):l('إضافة المجموعة','Add batch')}
       </button>
       {bulkUnique.length>700&&<em>{l('قسّم الأكواد إلى دفعات، الحد 700 كود في كل مرة.','Split the codes into batches; maximum 700 per import.')}</em>}
