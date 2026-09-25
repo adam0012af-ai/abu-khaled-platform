@@ -214,7 +214,7 @@ function Panel({ user, csrf, onLogout }) {
           <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
           <div>
             <b>{user.displayName||user.username}</b>
-            <span>{isAdmin?'ADMIN':'RESELLER'}</span>
+            <span>{isAdmin?'UNLIMITED CREDIT':num(data.dashboard?.user?.credits ?? user.credits)+' CREDIT'}</span>
           </div>
         </div>
 
@@ -259,7 +259,7 @@ function AdminOverview({data,onNavigate}) {
     {key:'total',label:'إجمالي الأكواد',value:c.total_codes,sub:'Total Inventory',tone:'blue',icon:'▣',tab:'import'},
     {key:'issued',label:'الأكواد المفعلة',value:c.issued,sub:'Activated Codes',tone:'violet',icon:'⚡',tab:'issued'},
     {key:'resellers',label:'الموزعون',value:c.resellers,sub:'Reseller Accounts',tone:'orange',icon:'♟',tab:'resellers'},
-    {key:'credits',label:'رصيد الموزعين',value:c.reseller_credits,sub:'Available Balance',tone:'cyan',icon:'▤',tab:'resellers'},
+    {key:'credits',label:'رصيد الأدمن',display:'∞',sub:'UNLIMITED CREDIT',tone:'cyan',icon:'▤',tab:'resellers'},
     {key:'requests',label:'طلبات الكريدت',value:c.pending_requests,sub:'Pending Requests',tone:'pink',icon:'◈',tab:'credit'}
   ];
 
@@ -275,7 +275,7 @@ function AdminOverview({data,onNavigate}) {
         <div className="cardAccent"/>
         <div className="referenceIcon">{card.icon}</div>
         <span>{card.label}</span>
-        <strong>{num(card.value)}</strong>
+        <strong>{card.display ?? num(card.value)}</strong>
         <small>{card.sub}</small>
       </button>)}
     </div>
@@ -298,54 +298,103 @@ function AdminOverview({data,onNavigate}) {
   </>;
 }
 function Servers({data,action,busy}) {
-  const [server,setServer]=useState({name:'',lowStockThreshold:10});
-  const [pack,setPack]=useState({serverId:'',name:'',durationLabel:'',creditCost:1});
-  return <div className="twoCol">
-    <section className="section">
-      <div className="sectionHead"><div><span>SERVER POCKETS</span><h2>السيرفرات</h2></div></div>
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/servers',server);setServer({name:'',lowStockThreshold:10});}}>
-        <input placeholder="اسم السيرفر" value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
-        <input type="number" min="0" placeholder="تنبيه المخزون" value={server.lowStockThreshold} onChange={e=>setServer({...server,lowStockThreshold:e.target.value})}/>
-        <button className="primary" disabled={busy}>إضافة سيرفر</button>
-      </form>
-      <div className="list">{data.servers.map(s=><div className="listRow" key={s.id}><b>{s.name}</b><span>{num(s.available_codes)} متاح</span><small>{num(s.issued_codes)} مفعّل</small></div>)}</div>
-    </section>
-    <section className="section">
-      <div className="sectionHead"><div><span>PACKAGES</span><h2>الباقات ونقاط الخصم</h2></div></div>
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/packages',pack);setPack({...pack,name:'',durationLabel:''});}}>
-        <select value={pack.serverId} onChange={e=>setPack({...pack,serverId:e.target.value})} required><option value="">اختر السيرفر</option>{data.servers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
-        <input placeholder="اسم الباقة - سنة" value={pack.name} onChange={e=>setPack({...pack,name:e.target.value})} required/>
-        <input placeholder="المدة - 12 Month" value={pack.durationLabel} onChange={e=>setPack({...pack,durationLabel:e.target.value})}/>
-        <input type="number" min="0" placeholder="تكلفة النقاط" value={pack.creditCost} onChange={e=>setPack({...pack,creditCost:e.target.value})} required/>
-        <button className="primary" disabled={busy}>إضافة باكدج</button>
-      </form>
-      <div className="list">{data.packages.map(p=><div className="listRow" key={p.id}><b>{data.servers.find(s=>s.id===p.server_id)?.name} / {p.name}</b><span>{num(p.credit_cost)} نقطة</span><small>{num(p.available_codes)} متاح</small></div>)}</div>
-    </section>
-  </div>;
-}
+  const [server,setServer]=useState({name:'',lowStockThreshold:10,creditCost:1});
 
-function ImportCodes({data,action,busy}) {
-  const [form,setForm]=useState({serverId:'',packageId:'',filename:'codes.txt',text:''});
-  const packages=data.packages.filter(p=>p.server_id===form.serverId);
-  const lines=form.text.replace(/\r/g,'').split('\n');
-  const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
-  const unique=new Set(nonBlank);
-  async function pickFile(e){const f=e.target.files?.[0];if(!f)return;setForm({...form,filename:f.name,text:await f.text()});}
   return <section className="section">
-    <div className="sectionHead"><div><span>TXT STOCK IMPORT</span><h2>رفع مخزون الأكواد</h2></div><small>الكود لن ينتقل أبداً بين السيرفرات</small></div>
-    <div className="importGrid">
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/import-codes',form);setForm({...form,text:''});}}>
-        <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value,packageId:''})} required><option value="">اختر السيرفر</option>{data.servers.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select>
-        <select value={form.packageId} onChange={e=>setForm({...form,packageId:e.target.value})} required><option value="">اختر الباكدج</option>{packages.map(p=><option value={p.id} key={p.id}>{p.name} — {p.credit_cost} نقطة</option>)}</select>
-        <label className="filePick">اختيار ملف TXT<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
-        <textarea rows="14" placeholder="أو الصق الأكواد هنا — كود واحد في كل سطر" value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
-        <button className="primary" disabled={busy||unique.size===0}>استيراد المخزون</button>
-      </form>
-      <div className="previewBox"><span>معاينة قبل الرفع</span><strong>{num(unique.size)}</strong><b>كود فريد</b><div><em>{num(lines.length)} سطر</em><em>{num(lines.length-nonBlank.length)} فارغ</em><em>{num(nonBlank.length-unique.size)} مكرر داخل الملف</em></div><p>المكرر الموجود مسبقاً في نفس السيرفر والباكدج يتم تجاهله تلقائياً وتسجيله في الدفعة.</p></div>
+    <div className="sectionHead">
+      <div><span>SERVERS</span><h2>السيرفرات السنوية</h2></div>
+      <small>كل سيرفر = اشتراك سنوي واحد</small>
+    </div>
+
+    <form className="formGrid" onSubmit={async e=>{
+      e.preventDefault();
+      await action('/api/admin/servers',server);
+      setServer({name:'',lowStockThreshold:10,creditCost:1});
+    }}>
+      <label>اسم السيرفر</label>
+      <input placeholder="مثال: Nova" value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
+
+      <label>تكلفة الكود بالكريدت</label>
+      <input type="number" min="0" placeholder="مثال: 1" value={server.creditCost} onChange={e=>setServer({...server,creditCost:e.target.value})} required/>
+
+      <label>تنبيه المخزون المنخفض</label>
+      <input type="number" min="0" placeholder="مثال: 10" value={server.lowStockThreshold} onChange={e=>setServer({...server,lowStockThreshold:e.target.value})}/>
+
+      <button className="primary" disabled={busy}>إضافة سيرفر سنوي</button>
+    </form>
+
+    <div className="serverGrid adminServerGrid">
+      {data.servers.map(s=>{
+        const p=data.packages.find(p=>p.server_id===s.id&&Number(p.active)===1);
+        return <div className="serverCard" key={s.id}>
+          <div className="serverTop"><b>{s.name}</b><span>{Number(s.active)===1?'ACTIVE':'OFF'}</span></div>
+          <strong>{num(s.available_codes)}</strong>
+          <small>كود متاح</small>
+          <div className="serverFoot">
+            <span>الإجمالي {num(s.total_codes)}</span>
+            <span>المفعّل {num(s.issued_codes)}</span>
+          </div>
+          <div className="packageMini">
+            <div>
+              <span>سنوي · 12 Months</span>
+              <b>{num(p?.credit_cost||0)} Credit</b>
+              <em>ثابت للسيرفر</em>
+            </div>
+          </div>
+        </div>
+      })}
     </div>
   </section>;
 }
+function ImportCodes({data,action,busy}) {
+  const [form,setForm]=useState({serverId:'',filename:'codes.txt',text:''});
+  const lines=form.text.replace(/\r/g,'').split('\n');
+  const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
+  const unique=new Set(nonBlank);
 
+  async function pickFile(e){
+    const f=e.target.files?.[0];
+    if(!f)return;
+    setForm({...form,filename:f.name,text:await f.text()});
+  }
+
+  return <section className="section">
+    <div className="sectionHead">
+      <div><span>ANNUAL TXT STOCK</span><h2>رفع الأكواد السنوية</h2></div>
+      <small>اختر السيرفر فقط — النظام يربط الباقة السنوية تلقائيًا</small>
+    </div>
+
+    <div className="importGrid">
+      <form className="formGrid" onSubmit={async e=>{
+        e.preventDefault();
+        await action('/api/admin/import-codes',form);
+        setForm({...form,text:''});
+      }}>
+        <label>السيرفر</label>
+        <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value})} required>
+          <option value="">اختر السيرفر</option>
+          {data.servers.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}
+        </select>
+
+        <label className="filePick">اختيار ملف TXT<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
+        <textarea rows="14" placeholder="أو الصق الأكواد هنا — كود واحد في كل سطر" value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
+        <button className="primary" disabled={busy||unique.size===0||!form.serverId}>استيراد المخزون</button>
+      </form>
+
+      <div className="previewBox">
+        <span>معاينة قبل الرفع</span>
+        <strong>{num(unique.size)}</strong>
+        <b>كود سنوي فريد</b>
+        <div>
+          <em>{num(lines.length)} سطر</em>
+          <em>{num(lines.length-nonBlank.length)} فارغ</em>
+          <em>{num(nonBlank.length-unique.size)} مكرر داخل الملف</em>
+        </div>
+        <p>المكرر الموجود مسبقًا يتم تجاهله تلقائيًا. الأكواد تظل مرتبطة بالسيرفر المحدد فقط.</p>
+      </div>
+    </div>
+  </section>;
+}
 function Resellers({data,action,busy}) {
   const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
   const [credit,setCredit]=useState({resellerId:'',amount:1,note:''});
@@ -394,17 +443,19 @@ function Codes({codes,admin=false}) {
 }
 
 function Issue({data,action,busy}) {
-  const [form,setForm]=useState({serverId:'',packageId:'',customerRef:'',quantity:1});
+  const [form,setForm]=useState({serverId:'',customerRef:'',quantity:1});
   const [mode,setMode]=useState('single');
   const [result,setResult]=useState(null);
-  const packs=data.packages.filter(p=>p.server_id===form.serverId&&Number(p.active)===1);
-  const selected=packs.find(p=>p.id===form.packageId);
+
+  const selected=data.servers.find(s=>s.id===form.serverId&&Number(s.active)===1);
   const q=mode==='single'?1:Math.max(1,Math.min(100,Number(form.quantity)||1));
-  const total=selected?Number(selected.credit_cost)*q:0;
+  const unitCost=Number(selected?.credit_cost||0);
+  const total=unitCost*q;
+  const balance=Number(data.dashboard?.user?.credits||0);
 
   async function submit(e){
     e.preventDefault();
-    const out=await action('/api/issue',{...form,quantity:q});
+    const out=await action('/api/issue',{serverId:form.serverId,customerRef:form.customerRef,quantity:q});
     setResult(out);
   }
   async function copyAll(){await navigator.clipboard.writeText((result?.codes||[]).map(x=>x.code).join('\n'));}
@@ -416,9 +467,15 @@ function Issue({data,action,busy}) {
   }
 
   return <section className="section issueUnified">
+    <div className="resellerBalanceCard">
+      <span>رصيدك الحالي</span>
+      <strong>{num(balance)}</strong>
+      <small>CREDIT</small>
+    </div>
+
     <div className="sectionHead">
-      <div><span>ISSUE CENTER</span><h2>إنشاء واستخراج الأكواد</h2></div>
-      <small>الإنشاء والنتيجة في نفس المكان</small>
+      <div><span>ANNUAL ISSUE CENTER</span><h2>إنشاء كود سنوي</h2></div>
+      <small>المخزون غير معروض للموزعين</small>
     </div>
 
     <div className="modeSwitch">
@@ -428,40 +485,49 @@ function Issue({data,action,busy}) {
 
     <form className="formGrid issueForm" onSubmit={submit}>
       <label>السيرفر</label>
-      <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value,packageId:''});setResult(null);}} required>
+      <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
         <option value="">اختر السيرفر</option>
-        {data.servers.filter(s=>Number(s.active)===1).map(s=><option value={s.id} key={s.id}>{s.name} — {s.available_codes} متاح</option>)}
-      </select>
-
-      <label>الباكدج</label>
-      <select value={form.packageId} onChange={e=>{setForm({...form,packageId:e.target.value});setResult(null);}} required>
-        <option value="">اختر الباكدج</option>
-        {packs.map(p=><option value={p.id} key={p.id}>{p.name} — {p.credit_cost} نقطة — {p.available_codes} متاح</option>)}
+        {data.servers.filter(s=>Number(s.active)===1).map(s=>
+          <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
+        )}
       </select>
 
       <label>اسم العميل أو رقم الهاتف</label>
       <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="مثال: Ahmed أو 010..."/>
 
-      {mode==='bulk'&&<><label>عدد الأكواد</label><input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></>}
+      {mode==='bulk'&&<>
+        <label>عدد الأكواد</label>
+        <input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/>
+      </>}
 
       <div className="costBox">
         <div><span>العدد</span><b>{q}</b></div>
-        <div><span>تكلفة الكود</span><b>{selected?.credit_cost||0}</b></div>
-        <div><span>الإجمالي</span><b>{total} نقطة</b></div>
-        <div><span>رصيدك</span><b>{data.dashboard?.user?.credits||0}</b></div>
+        <div><span>تكلفة الكود</span><b>{num(unitCost)} Credit</b></div>
+        <div><span>الإجمالي</span><b>{num(total)} Credit</b></div>
+        <div><span>رصيدك</span><b>{num(balance)} Credit</b></div>
       </div>
+
       <button className="primary wide" disabled={busy||!selected}>{busy?'جاري الصرف…':'تفعيل واستخراج'}</button>
     </form>
 
     <div className={'inlineResult '+(result?'hasResult':'')}>
       <div className="inlineResultHead">
         <div><span>RESULT</span><h3>الأكواد الناتجة</h3></div>
-        {result&&<div className="rowBtns"><button className="secondary" type="button" onClick={copyAll}>نسخ الكل</button><button className="secondary" type="button" onClick={download}>تنزيل TXT</button></div>}
+        {result&&<div className="rowBtns">
+          <button className="secondary" type="button" onClick={copyAll}>نسخ الكل</button>
+          <button className="secondary" type="button" onClick={download}>تنزيل TXT</button>
+        </div>}
       </div>
 
-      {!result ? <div className="emptyState compact">بعد التفعيل ستظهر الأكواد هنا مباشرة داخل نفس القسم.</div> : <>
-        <div className="resultMeta"><b>{result.order.server}</b><span>{result.order.package}</span><em>{result.order.creditsBefore} → {result.order.creditsAfter} نقطة</em></div>
-        <div className="issuedList">{result.codes.map(x=><button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>)}</div>
+      {!result ? <div className="emptyState compact">بعد التفعيل ستظهر الأكواد هنا مباشرة.</div> : <>
+        <div className="resultMeta">
+          <b>{result.order.server}</b>
+          <span>سنوي</span>
+          <em>{result.order.creditsBefore} → {result.order.creditsAfter} Credit</em>
+        </div>
+        <div className="issuedList">{result.codes.map(x=>
+          <button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>
+        )}</div>
       </>}
     </div>
   </section>;
