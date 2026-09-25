@@ -788,7 +788,8 @@ function Sharing({admin,call,action,busy}){
   async function pickFile(e){
     const f=e.target.files?.[0];
     if(!f) return;
-    setImportForm(v=>({...v,filename:f.name,text:await f.text()}));
+    const text=await f.text();
+    setImportForm(v=>({...v,filename:f.name,text}));
   }
 
   async function importCodes(e){
