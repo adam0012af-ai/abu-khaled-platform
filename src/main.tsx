@@ -42,6 +42,7 @@ function Login({ onAuth }) {
   const [form, setForm] = useState({ identifier:'', password:'' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showPassword,setShowPassword]=useState(false);
 
   async function submit(e) {
     e.preventDefault();
@@ -59,48 +60,74 @@ function Login({ onAuth }) {
     } catch (e) {
       const code = String(e.message || e);
       setError(
-        code.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. تم إيقاف المحاولة مؤقتاً.' :
-        code.includes('INVALID_LOGIN') ? 'اسم المستخدم / البريد الإلكتروني أو كلمة المرور غير صحيحة.' :
-        code.includes('SYSTEM_NOT_INITIALIZED') ? 'حساب الإدارة الأول لم يتم تجهيزه بعد.' :
+        code.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. حاول مرة أخرى بعد قليل.' :
+        code.includes('INVALID_LOGIN') ? 'بيانات الدخول غير صحيحة.' :
+        code.includes('SYSTEM_NOT_INITIALIZED') ? 'حساب الإدارة لم يتم تجهيزه بعد.' :
         'تعذر تسجيل الدخول.'
       );
     } finally { setBusy(false); }
   }
 
-  return (
-    <div className="loginPage">
-      <div className="loginGlow glow1"/><div className="loginGlow glow2"/>
-      <section className="loginVisual">
-        <Logo/>
-        <div className="visualCopy">
-          <span className="eyebrow">SECURE DISTRIBUTION PLATFORM</span>
-          <h1>إدارة الأكواد.<br/>بدون خلط.<br/><mark>بدون تكرار.</mark></h1>
-          <p>دخول موحد وآمن. لا يوجد تسجيل حسابات من الصفحة العامة؛ جميع الحسابات تُنشأ من لوحة الإدارة فقط.</p>
+  return <div className="panelLoginPage">
+    <div className="panelLoginShell">
+      <header className="panelLoginBrand">
+        <Logo compact/>
+        <span>CONTROL PANEL</span>
+      </header>
+
+      <form className="panelLoginCard" onSubmit={submit}>
+        <div className="panelLoginHead">
+          <div className="panelLoginIcon"><NavIcon name="users"/></div>
+          <div>
+            <h1>تسجيل الدخول</h1>
+            <p>استخدم حسابك للوصول إلى اللوحة.</p>
+          </div>
         </div>
-        <div className="securityStrip">
-          <div>01 <b>Admin Managed</b></div>
-          <div>02 <b>Server Isolation</b></div>
-          <div>03 <b>Full Audit</b></div>
+
+        <label className="panelLoginField">
+          <span>Username or Email</span>
+          <input
+            value={form.identifier}
+            onChange={e=>setForm({...form,identifier:e.target.value})}
+            placeholder="اسم المستخدم أو البريد"
+            autoCapitalize="none"
+            autoComplete="username"
+            required
+          />
+        </label>
+
+        <label className="panelLoginField">
+          <span>Password</span>
+          <div className="panelLoginPassword">
+            <input
+              type={showPassword?'text':'password'}
+              value={form.password}
+              onChange={e=>setForm({...form,password:e.target.value})}
+              placeholder="كلمة المرور"
+              autoComplete="current-password"
+              required
+            />
+            <button type="button" onClick={()=>setShowPassword(v=>!v)}>
+              {showPassword?'إخفاء':'إظهار'}
+            </button>
+          </div>
+        </label>
+
+        {error&&<div className="panelLoginError">{error}</div>}
+
+        <button className="primary panelLoginSubmit" disabled={busy}>
+          {busy?'جاري التحقق…':'دخول'}
+        </button>
+
+        <div className="panelLoginSecurity">
+          <span className="createStateDot"/>
+          <span>جلسة آمنة ومشفرة</span>
         </div>
-      </section>
-      <section className="loginCardWrap">
-        <form className="loginCard" onSubmit={submit}>
-          <div className="mobileBrand"><Logo compact/></div>
-          <span className="panelTag">CONTROL PANEL</span>
-          <h2>تسجيل الدخول</h2>
-          <p>استخدم اسم المستخدم أو البريد الإلكتروني وكلمة المرور.</p>
-          <label>Username or Email</label>
-          <input value={form.identifier} onChange={e=>setForm({...form,identifier:e.target.value})} placeholder="username@example.com" autoCapitalize="none" autoComplete="username" required/>
-          <label>Password</label>
-          <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••••" autoComplete="current-password" required/>
-          {error && <div className="errorBox">{error}</div>}
-          <button className="primary wide" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول آمن'}</button>
-          <small className="secureNote">Admin Managed Accounts • Session Protected • CSRF Guard</small>
-        </form>
-      </section>
+      </form>
     </div>
-  );
+  </div>;
 }
+
 function Stat({ label, value, sub }) {
   return <div className="stat"><span>{label}</span><strong>{num(value)}</strong>{sub && <small>{sub}</small>}</div>;
 }
@@ -622,105 +649,79 @@ function CreateReseller({action,busy}) {
     setShowPassword(false);
   }
 
-  return <section className="section resellerCreatePage">
-    <div className="resellerCreateHeader">
-      <div className="resellerCreateIcon"><NavIcon name="userPlus"/></div>
+  return <section className="section compactAdminForm">
+    <div className="compactFormHead">
+      <div className="compactFormIcon"><NavIcon name="userPlus"/></div>
       <div>
-        <span>ACCOUNTS</span>
         <h2>إنشاء موزع</h2>
-        <p>بيانات الحساب والرصيد في خطوة واحدة.</p>
+        <span>حساب جديد</span>
       </div>
     </div>
 
-    <form className="resellerCreateForm" onSubmit={submit}>
-      <div className="resellerFormGroup">
-        <div className="resellerFormGroupHead">
-          <span className="groupStep">01</span>
-          <div><b>بيانات الدخول</b><small>Username وكلمة المرور</small></div>
+    <form className="compactFormGrid" onSubmit={submit}>
+      <label>
+        <span>Username</span>
+        <input
+          placeholder="اسم الدخول"
+          value={form.username}
+          onChange={e=>setForm({...form,username:e.target.value})}
+          autoComplete="off"
+          required
+        />
+      </label>
+
+      <label>
+        <span>Password</span>
+        <div className="compactPassword">
+          <input
+            type={showPassword?'text':'password'}
+            placeholder="كلمة المرور"
+            value={form.password}
+            onChange={e=>setForm({...form,password:e.target.value})}
+            autoComplete="new-password"
+            required
+          />
+          <button type="button" onClick={()=>setShowPassword(v=>!v)}>
+            {showPassword?'إخفاء':'إظهار'}
+          </button>
         </div>
+      </label>
 
-        <div className="resellerFieldsGrid">
-          <label className="resellerField">
-            <span>Username</span>
-            <input
-              placeholder="اسم الدخول"
-              value={form.username}
-              onChange={e=>setForm({...form,username:e.target.value})}
-              autoComplete="off"
-              required
-            />
-          </label>
+      <label>
+        <span>اسم الموزع <em>اختياري</em></span>
+        <input
+          placeholder="اسم العرض"
+          value={form.displayName}
+          onChange={e=>setForm({...form,displayName:e.target.value})}
+        />
+      </label>
 
-          <label className="resellerField">
-            <span>Password</span>
-            <div className="passwordFieldWrap">
-              <input
-                type={showPassword?'text':'password'}
-                placeholder="كلمة المرور"
-                value={form.password}
-                onChange={e=>setForm({...form,password:e.target.value})}
-                autoComplete="new-password"
-                required
-              />
-              <button
-                type="button"
-                className="passwordToggle"
-                onClick={()=>setShowPassword(v=>!v)}
-                aria-label={showPassword?'إخفاء كلمة المرور':'إظهار كلمة المرور'}
-              >{showPassword?'إخفاء':'إظهار'}</button>
-            </div>
-          </label>
+      <label>
+        <span>Email <em>اختياري</em></span>
+        <input
+          type="email"
+          placeholder="example@email.com"
+          value={form.email}
+          onChange={e=>setForm({...form,email:e.target.value})}
+        />
+      </label>
 
-          <label className="resellerField resellerFieldWide">
-            <span>Email <em>اختياري</em></span>
-            <input
-              type="email"
-              placeholder="example@email.com"
-              value={form.email}
-              onChange={e=>setForm({...form,email:e.target.value})}
-            />
-          </label>
+      <label className="compactCreditField">
+        <span>رصيد البداية</span>
+        <div>
+          <input
+            type="number"
+            min="0"
+            inputMode="numeric"
+            value={form.credits}
+            onChange={e=>setForm({...form,credits:e.target.value})}
+          />
+          <b>CREDIT</b>
         </div>
-      </div>
+      </label>
 
-      <div className="resellerFormGroup">
-        <div className="resellerFormGroupHead">
-          <span className="groupStep">02</span>
-          <div><b>بيانات الحساب</b><small>اسم العرض والرصيد</small></div>
-        </div>
-
-        <div className="resellerFieldsGrid accountGrid">
-          <label className="resellerField">
-            <span>اسم الموزع <em>اختياري</em></span>
-            <input
-              placeholder="اسم العرض"
-              value={form.displayName}
-              onChange={e=>setForm({...form,displayName:e.target.value})}
-            />
-          </label>
-
-          <label className="resellerField creditStartField">
-            <span>رصيد البداية</span>
-            <div className="creditInputWrap">
-              <input
-                type="number"
-                min="0"
-                inputMode="numeric"
-                value={form.credits}
-                onChange={e=>setForm({...form,credits:e.target.value})}
-              />
-              <b>CREDIT</b>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      <div className="resellerCreateFooter">
-        <div className="createAccountState">
-          <span className="createStateDot"/>
-          <div><b>الحساب سيُنشأ نشطًا</b><small>يمكن تعديل الرصيد لاحقًا من إدارة الموزعين.</small></div>
-        </div>
-        <button className="primary createResellerBtn" disabled={busy}>
+      <div className="compactFormAction">
+        <button className="primary" disabled={busy}>
           <NavIcon name="userPlus"/>
           <span>{busy?'جارٍ الإنشاء':'إنشاء الموزع'}</span>
         </button>
@@ -935,71 +936,73 @@ function Issue({data,action,busy}) {
     a.click(); URL.revokeObjectURL(a.href);
   }
 
-  return <section className="section issueUnified">
-    <div className="resellerBalanceCard">
-      <span>رصيدك الحالي</span>
-      <strong>{num(balance)}</strong>
-      <small>CREDIT</small>
+  return <section className="section compactIssuePage">
+    <div className="compactIssueHead">
+      <div>
+        <h2>تفعيل كود</h2>
+        <span>سنوي</span>
+      </div>
+      <div className="compactBalance">
+        <span>الرصيد</span>
+        <strong>{num(balance)}</strong>
+        <small>CREDIT</small>
+      </div>
     </div>
 
-    <div className="sectionHead">
-      <div><span>ISSUE CODE</span><h2>إنشاء كود</h2></div>
-    </div>
-
-    <div className="modeSwitch">
+    <div className="compactModeSwitch">
       <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button>
       <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button>
     </div>
 
-    <form className="formGrid issueForm" onSubmit={submit}>
-      <label>السيرفر</label>
-      <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
-        <option value="">اختر السيرفر</option>
-        {data.servers.filter(s=>Number(s.active)===1).map(s=>
-          <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
-        )}
-      </select>
+    <form className="compactIssueForm" onSubmit={submit}>
+      <label>
+        <span>السيرفر</span>
+        <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
+          <option value="">اختر السيرفر</option>
+          {data.servers.filter(s=>Number(s.active)===1).map(s=>
+            <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
+          )}
+        </select>
+      </label>
 
-      <label>اسم العميل أو رقم الهاتف</label>
-      <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="مثال: Ahmed أو 010..."/>
+      <label>
+        <span>العميل</span>
+        <input
+          value={form.customerRef}
+          onChange={e=>setForm({...form,customerRef:e.target.value})}
+          placeholder="الاسم أو رقم الهاتف"
+        />
+      </label>
 
-      {mode==='bulk'&&<>
-        <label>عدد الأكواد</label>
+      {mode==='bulk'&&<label>
+        <span>عدد الأكواد</span>
         <input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/>
-      </>}
+      </label>}
 
-      <div className="costBox">
+      <div className="compactIssueSummary">
         <div><span>العدد</span><b>{q}</b></div>
-        <div><span>تكلفة الكود</span><b>{num(unitCost)} Credit</b></div>
         <div><span>الإجمالي</span><b>{num(total)} Credit</b></div>
-        <div><span>رصيدك</span><b>{num(balance)} Credit</b></div>
+        <div><span>بعد التفعيل</span><b>{num(Math.max(0,balance-total))} Credit</b></div>
       </div>
 
-      <button className="primary wide" disabled={busy||!selected}>تفعيل</button>
+      <button className="primary compactIssueSubmit" disabled={busy||!selected}>تفعيل</button>
     </form>
 
-    <div className={'inlineResult '+(result?'hasResult':'')}>
-      <div className="inlineResultHead">
-        <div><span>RESULT</span><h3>الأكواد الناتجة</h3></div>
-        {result&&<div className="rowBtns">
-          <button className="secondary" type="button" onClick={copyAll}>نسخ الكل</button>
-          <button className="secondary" type="button" onClick={download}>تنزيل TXT</button>
-        </div>}
-      </div>
-
-      {!result ? <div className="emptyState compact">بعد التفعيل ستظهر الأكواد هنا مباشرة.</div> : <>
-        <div className="resultMeta">
-          <b>{result.order.server}</b>
-          <span>سنوي</span>
-          <em>{result.order.creditsBefore} → {result.order.creditsAfter} Credit</em>
+    {result&&<div className="compactIssueResult">
+      <div className="compactResultHead">
+        <div><b>تم التفعيل</b><span>{result.order.server} · {result.codes.length} كود</span></div>
+        <div className="compactResultActions">
+          <button type="button" onClick={copyAll}>نسخ الكل</button>
+          {result.codes.length>1&&<button type="button" onClick={download}>TXT</button>}
         </div>
-        <div className="issuedList">{result.codes.map(x=>
-          <button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>
-        )}</div>
-      </>}
-    </div>
+      </div>
+      <div className="issuedList">
+        {result.codes.map(x=><button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>)}
+      </div>
+    </div>}
   </section>;
 }
+
 function AdminCredit({data,action,busy}) {
   return <section className="section">
     <div className="sectionHead"><div><span>CREDIT REQUESTS</span><h2>طلبات الكريدت</h2></div></div>
