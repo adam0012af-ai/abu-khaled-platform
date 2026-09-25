@@ -24,6 +24,10 @@ const BASE_SCHEMA = [
   "CREATE INDEX IF NOT EXISTS idx_orders_reseller ON issue_orders(reseller_id,created_at)",
   "CREATE INDEX IF NOT EXISTS idx_logs_actor ON audit_logs(actor_id,created_at)",
   "CREATE INDEX IF NOT EXISTS idx_requests_status ON credit_requests(status,created_at)",
+  "CREATE TRIGGER IF NOT EXISTS trg_codes_server_package_insert BEFORE INSERT ON codes BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM packages p WHERE p.id=NEW.package_id AND p.server_id=NEW.server_id) THEN RAISE(ABORT,'CODE_SERVER_PACKAGE_MISMATCH') END; END",
+  "CREATE TRIGGER IF NOT EXISTS trg_codes_identity_lock BEFORE UPDATE OF server_id,package_id ON codes WHEN NEW.server_id<>OLD.server_id OR NEW.package_id<>OLD.package_id BEGIN SELECT RAISE(ABORT,'CODE_SERVER_IDENTITY_LOCKED'); END",
+  "CREATE TRIGGER IF NOT EXISTS trg_orders_server_package_insert BEFORE INSERT ON issue_orders BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM packages p WHERE p.id=NEW.package_id AND p.server_id=NEW.server_id) THEN RAISE(ABORT,'ORDER_SERVER_PACKAGE_MISMATCH') END; END",
+  "CREATE TRIGGER IF NOT EXISTS trg_packages_server_lock BEFORE UPDATE OF server_id ON packages WHEN NEW.server_id<>OLD.server_id BEGIN SELECT RAISE(ABORT,'PACKAGE_SERVER_IDENTITY_LOCKED'); END",
   "CREATE INDEX IF NOT EXISTS idx_sessions_hash ON sessions(token_hash)",
   "INSERT OR IGNORE INTO servers(id,name,slug,active,low_stock_threshold,sort_order,created_at) VALUES ('srv_marvel','Marvel','marvel',1,10,10,datetime('now')),('srv_nova','Nova','nova',1,10,20,datetime('now')),('srv_x','X','x',1,10,30,datetime('now')),('srv_spider','Spider','spider',1,10,40,datetime('now')),('srv_mh','MH','mh',1,10,50,datetime('now'))"
 ];
@@ -287,7 +291,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-reseller-issue-v3',
+      version:'worker-server-isolation-v4',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
@@ -404,8 +408,8 @@ async function api(request,env){
     const total=Number(pack.credit_cost)*quantity;
     if(!fresh||fresh.status!=='active'||Number(fresh.credits)<total) return json({error:'INSUFFICIENT_CREDIT'},409);
 
-    const candidates=(await env.DB.prepare("SELECT id,code FROM codes WHERE server_id=? AND package_id=? AND status='available' ORDER BY created_at,id LIMIT ?")
-      .bind(serverId,packageId,quantity).all()).results||[];
+    const candidates=(await env.DB.prepare("SELECT c.id,c.code FROM codes c JOIN packages p ON p.id=c.package_id WHERE c.server_id=? AND c.package_id=? AND p.server_id=? AND c.status='available' ORDER BY c.created_at,c.id LIMIT ?")
+      .bind(serverId,packageId,serverId,quantity).all()).results||[];
     if(candidates.length<quantity) return json({error:'INSUFFICIENT_STOCK'},409);
 
     const orderId=uid('ord'), txId=uid('ctx'), at=now();
@@ -430,8 +434,12 @@ async function api(request,env){
 
       const creditChanges=Number(batch?.[1]?.meta?.changes||0);
       const codeChanges=Number(batch?.[2]?.meta?.changes||0);
+      const exactServerCount=await env.DB.prepare("SELECT COUNT(*) count FROM codes WHERE order_id=? AND reseller_id=? AND server_id=? AND package_id=? AND status='issued'")
+        .bind(orderId,user.id,serverId,packageId).first();
+      const wrongServerCount=await env.DB.prepare("SELECT COUNT(*) count FROM codes WHERE order_id=? AND reseller_id=? AND (server_id<>? OR package_id<>?)")
+        .bind(orderId,user.id,serverId,packageId).first();
 
-      if(creditChanges!==1 || codeChanges!==quantity){
+      if(creditChanges!==1 || codeChanges!==quantity || Number(exactServerCount?.count||0)!==quantity || Number(wrongServerCount?.count||0)!==0){
         if(creditChanges===1){
           await env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=NULL,updated_at=? WHERE id=? AND credits=? AND last_credit_tx_id=?")
             .bind(before,now(),user.id,after,txId).run();
@@ -444,7 +452,7 @@ async function api(request,env){
       }
 
       try{
-        await audit(env,request,user,'CODES_ISSUED','issue_order',orderId,{serverId,packageId,quantity,totalCost:total,customerRef});
+        await audit(env,request,user,'CODES_ISSUED','issue_order',orderId,{serverId,packageId,quantity,totalCost:total,customerRef,serverLocked:true});
       }catch(logError){
         console.error('ISSUE_AUDIT_FAILED',String(logError?.message||logError));
       }
