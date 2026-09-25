@@ -31,7 +31,7 @@ const BASE_SCHEMA = [
 function now(){ return new Date().toISOString(); }
 function uid(prefix){ return prefix+'_'+crypto.randomUUID().replaceAll('-',''); }
 function clean(v,max=160){ return String(v??'').trim().slice(0,max); }
-function validUsername(v){ return /^[A-Za-z0-9_.-]{3,40}$/.test(String(v||'')); }
+function validUsername(v){ return /^[\p{L}\p{N}_.-]{6,40}$/u.test(String(v||'')); }
 function slugify(v){ return clean(v,60).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
 function json(data,status=200,headers={}){
@@ -410,7 +410,7 @@ async function api(request,env){
     const body=await bodyJson(request);
     const username=clean(body.username,40), email=clean(body.email,120).toLowerCase(), displayName=clean(body.displayName,80), password=String(body.password||'');
     const credits=Math.max(0,Math.trunc(Number(body.credits||0)));
-    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||!displayName||password.length<10||credits>1000000) return json({error:'INVALID_RESELLER'},400);
+    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||!displayName||password.length<6||credits>1000000) return json({error:'INVALID_RESELLER'},400);
     const salt=randomToken(18), id=uid('usr'), at=now();
     try{
       await env.DB.batch([
