@@ -814,117 +814,6 @@ function Panel({ user, csrf, onLogout }) {
 }
 
 
-function AdminPartners({call,action,busy}){
-  const {lang,l}=useLanguage();
-  const [partners,setPartners]=useState([]);
-  const [ready,setReady]=useState(false);
-  const [form,setForm]=useState({username:'',email:'',displayName:'',password:''});
-  const [showPassword,setShowPassword]=useState(false);
-
-  async function load(){
-    try{
-      const out=await call('/api/admin/partners');
-      setPartners(out.partners||[]);
-    }finally{
-      setReady(true);
-    }
-  }
-
-  useEffect(()=>{load();},[]);
-
-  async function submit(e){
-    e.preventDefault();
-    await action('/api/admin/partners',form);
-    setForm({username:'',email:'',displayName:'',password:''});
-    setShowPassword(false);
-    await load();
-  }
-
-  function countryName(code){
-    if(!code) return '—';
-    try{
-      return new Intl.DisplayNames([lang==='en'?'en':'ar'],{type:'region'}).of(String(code).toUpperCase())||code;
-    }catch{return code;}
-  }
-
-  return <div className="adminPartnersPage">
-    <section className="section adminPartnerCreate">
-      <div className="sectionHead">
-        <div><h2>{l('إضافة شريك أدمن','Add administrator partner')}</h2><p className="adminPartnerLead">{l('حساب شريك يدخل نفس لوحة الإدارة ويشاهد ويدير كل الأقسام بدون نقص في الصلاحيات.','A partner account uses the same administration panel with complete visibility and management access.')}</p></div>
-        <span className="fullAccessBadge">{l('نفس صلاحيات المالك','OWNER-LEVEL ACCESS')}</span>
-      </div>
-
-      <div className="adminPartnerPermissionGrid">
-        <span>{l('كل السيرفرات والمخزون','All servers & inventory')}</span>
-        <span>{l('كل الموزعين والأرصدة','All resellers & balances')}</span>
-        <span>{l('كل الأكواد والشيرنج','All codes & sharing')}</span>
-        <span>{l('السجل الكامل وإدارة الشركاء','Full logs & partner management')}</span>
-      </div>
-
-      <form className="adminPartnerForm" onSubmit={submit}>
-        <label className="acmField">
-          <span>{l('اسم المستخدم','Username')}</span>
-          <input dir="ltr" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
-        </label>
-
-        <label className="acmField">
-          <span>{l('كلمة المرور','Password')}</span>
-          <div className="acmPasswordBox">
-            <input dir="ltr" type={showPassword?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
-            <button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?l('إخفاء','Hide'):l('إظهار','Show')}</button>
-          </div>
-        </label>
-
-        <label className="acmField">
-          <span>{l('اسم الشريك','Partner name')}</span>
-          <input value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})}/>
-        </label>
-
-        <label className="acmField">
-          <span>{l('البريد الإلكتروني','Email')}</span>
-          <input dir="ltr" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-        </label>
-
-        <button className="acmPrimaryBtn adminPartnerCreateBtn" disabled={busy}>
-          <NavIcon name="userPlus"/>
-          <span>{l('إنشاء شريك أدمن','Create admin partner')}</span>
-        </button>
-      </form>
-    </section>
-
-    <section className="section adminPartnersListSection">
-      <div className="sectionHead">
-        <div><h2>{l('الشركاء','Administrators')}</h2></div>
-        <small>{num(partners.length)}</small>
-      </div>
-
-      {!ready ? <div className="panelLoadingState"><span className="panelLoadingLine"/></div> :
-      <div className="adminPartnersList">
-        {partners.map(p=>{
-          const owner=String(p.username||'').toLowerCase()==='owner';
-          return <article className="adminPartnerCard" key={p.id}>
-            <div className="adminPartnerAvatar">{(p.display_name||p.username||'A').slice(0,1).toUpperCase()}</div>
-            <div className="adminPartnerIdentity">
-              <div>
-                <b>{p.display_name||p.username}</b>
-                <span className={owner?'ownerBadge':'partnerBadge'}>{owner?l('المالك','OWNER'):l('شريك','PARTNER')}</span>
-              </div>
-              <small>@{p.username}</small>
-            </div>
-            <div className="adminPartnerMeta">
-              <div><span>{l('الدولة','Country')}</span><b>{countryName(p.last_country)}</b></div>
-              <div><span>IP</span><b dir="ltr">{p.last_login_ip||'—'}</b></div>
-              <div><span>{l('آخر دخول','Last login')}</span><b>{p.last_login_at?fmt(p.last_login_at,lang):'—'}</b></div>
-              <div><span>{l('الحالة','Status')}</span><b>{p.status==='active'?l('نشط','Active'):l('متوقف','Disabled')}</b></div>
-            </div>
-          </article>;
-        })}
-      </div>}
-    </section>
-  </div>;
-}
-
-
 function SharingAdminManager({call,action,busy,balanceConfig}){
   const {lang,l}=useLanguage();
   const emptyForm={nameAr:'',nameEn:'',creditCost:1,sortOrder:100,active:1};
@@ -1037,10 +926,7 @@ function SharingAdminManager({call,action,busy,balanceConfig}){
   return <div className="sharingAdminHub">
     <section className="section sharingServiceManager">
       <div className="sectionHead sharingAdminTitle">
-        <div>
-          <h2>{l('إدارة الشيرنج','Sharing management')}</h2>
-          <p>{l('من هنا تضيف أقسام الشيرنج وتعدلها وتحذفها، ثم ترفع وتدير الأكواد الخاصة بكل قسم.','Add, edit, or delete sharing services here, then manage the codes for each service.')}</p>
-        </div>
+        <div><h2>{l('إدارة الشيرنج','Sharing management')}</h2></div>
         <span>{num(services.filter(s=>Number(s.active)===1).length)} {l('قسم نشط','active')}</span>
       </div>
 
@@ -1109,12 +995,7 @@ function SharingAdminManager({call,action,busy,balanceConfig}){
       </div>}
     </section>
 
-    <section className="section sharingAdminHint">
-      <div>
-        <b>{l('إدارة أكواد الشيرنج','Sharing code operations')}</b>
-        <span>{l('إضافة الأكواد أو حذفها أصبحت في الصفحات الموحدة مع IPTV لتجنب تكرار الصفحات.','Adding and deleting sharing codes now lives in the unified pages with IPTV to avoid duplicated screens.')}</span>
-      </div>
-    </section>
+
   </div>;
 }
 
@@ -1240,9 +1121,7 @@ function Sharing({admin,call,action,busy,balanceConfig}){
             onChange={e=>setImportForm(v=>({...v,codeCost:e.target.value}))}
             required
           />
-          <small>{data.balanceConfig?.mode==='credit'
-            ? l('سيُخصم كريدت عند إصدار كود الشيرنج.','Credits will be deducted when a sharing code is issued.')
-            : l('سيُخصم المبلغ بنفس العملة المفعلة.','The amount will be deducted in the active currency.')}</small>
+
         </label>
 
         <label className="sharingFilePick">
@@ -1394,10 +1273,7 @@ function ProfilePage({call}) {
     <section className="profileCard passwordOnlyCard">
       <div className="passwordOnlyHead">
         <div className="passwordOnlyIcon"><NavIcon name="profile"/></div>
-        <div>
-          <h2>{l('تغيير كلمة المرور','Change password')}</h2>
-          <p>{l('البروفايل مخصص لتغيير كلمة المرور فقط.','Profile is dedicated to password changes only.')}</p>
-        </div>
+        <div><h2>{l('تغيير كلمة المرور','Change password')}</h2></div>
       </div>
 
       <form className="profilePasswordForm passwordOnlyForm" onSubmit={changePassword}>
@@ -1466,10 +1342,7 @@ function AdminOverview({data,action,busy,user}) {
 
     <section className="section balanceSettingsCard">
       <div className="sectionHead">
-        <div>
-          <h2>{l('نظام الرصيد والعملة','Balance & currency')}</h2>
-          <p>{l('الأساسي جنيه مصري، ويمكن التحويل إلى دولار أو الرجوع لنظام الكريدت من هنا.','EGP is the default. Switch to USD or Credit mode from here.')}</p>
-        </div>
+        <div><h2>{l('نظام الرصيد والعملة','Balance & currency')}</h2></div>
         <span className="balanceModeLive">{balanceUnit(cfg,lang)}</span>
       </div>
       <form className="balanceSettingsForm" onSubmit={async e=>{
@@ -1532,10 +1405,10 @@ function ResellerOverview({data,goTo}) {
   ];
 
   const quickActions=[
-    {id:'issue',label:l('إنشاء كود IPTV','Issue IPTV code'),hint:l('اختر السيرفر ثم أنشئ الكود','Choose server and issue'),icon:'issue'},
-    {id:'sharing',label:l('إنشاء كود شيرنج','Issue sharing code'),hint:l('اختر نوع الشيرنج ثم أنشئ','Choose sharing service'),icon:'sharing'},
-    {id:'mycodes',label:l('أكوادي','My codes'),hint:l('عرض كل الأكواد','View issued codes'),icon:'codes'},
-    {id:'credit',label:l('طلب رصيد','Request balance'),hint:l('إرسال طلب للإدارة','Send request'),icon:'credit'}
+    {id:'issue',label:l('إنشاء كود IPTV','Issue IPTV code'),icon:'issue'},
+    {id:'sharing',label:l('إنشاء كود شيرنج','Issue sharing code'),icon:'sharing'},
+    {id:'mycodes',label:l('أكوادي','My codes'),icon:'codes'},
+    {id:'credit',label:l('طلب رصيد','Request balance'),icon:'credit'}
   ];
 
   return <>
@@ -1567,7 +1440,7 @@ function ResellerOverview({data,goTo}) {
       <div className="resellerQuickActions">
         {quickActions.map(item=><button type="button" key={item.id} onClick={()=>goTo?.(item.id)}>
           <span className="resellerQuickActionIcon"><NavIcon name={item.icon}/></span>
-          <span className="resellerQuickActionCopy"><b>{item.label}</b><small>{item.hint}</small></span>
+          <span className="resellerQuickActionCopy"><b>{item.label}</b></span>
           <span className="resellerQuickActionArrow">‹</span>
         </button>)}
       </div>
@@ -1763,19 +1636,11 @@ function UnifiedCodeImport({data,call,action,busy,balanceConfig}) {
 
   return <section className="section unifiedCodePage">
     <div className="unifiedCodeHead">
-      <div>
-        <h2>{l('إضافة الأكواد','Add codes')}</h2>
-        <p>{l('صفحة واحدة لإضافة أكواد IPTV أو الشيرنج. اختر النوع أولًا ثم السيرفر أو خدمة الشيرنج والسعر.','One page for adding IPTV or sharing codes. Choose the type first, then the server/service and price.')}</p>
-      </div>
+      <div><h2>{l('إضافة الأكواد','Add codes')}</h2></div>
       <div className="codeTypeSwitch">
         <button type="button" className={kind==='iptv'?'active':''} onClick={()=>setKind('iptv')}>IPTV</button>
         <button type="button" className={kind==='sharing'?'active':''} onClick={()=>setKind('sharing')}>{l('شيرنج','Sharing')}</button>
       </div>
-    </div>
-
-    <div className="unifiedCodeTypeBanner">
-      <span>{l('النوع الحالي','Current type')}</span>
-      <b>{kind==='iptv'?'IPTV':l('شيرنج','Sharing')}</b>
     </div>
 
     <div className="importGrid">
@@ -1800,10 +1665,6 @@ function UnifiedCodeImport({data,call,action,busy,balanceConfig}) {
           />
           <span>{balanceUnit(balanceConfig,lang)}</span>
         </div>
-        <small className="importPriceHint">{balanceConfig?.mode==='credit'
-          ? l('القيمة ستظهر وتُخصم كريدت عند الإصدار.','The value will be shown and deducted as credits when issued.')
-          : l('القيمة ستظهر وتُخصم بنفس العملة المفعلة من لوحة الأدمن.','The value will be shown and deducted in the active admin currency.')}</small>
-
         <label className="filePick">{l('اختيار ملف TXT','Choose TXT file')}<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
         <textarea rows="14" dir="ltr" placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')} value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
         <button className="primary" disabled={busy||unique.length===0||!form.sourceId||form.codeCost===''}>
@@ -1956,10 +1817,7 @@ function UnifiedCodeManager({call}) {
 
   return <section className="section codeStockPage unifiedDeletePage">
     <div className="unifiedCodeHead">
-      <div>
-        <h2>{l('إدارة أكواد شيرنج وIPTV','Manage sharing & IPTV codes')}</h2>
-        <p>{l('هذه الصفحة للحذف فقط. اختر IPTV أو الشيرنج، ثم احذف كودًا واحدًا أو مجموعة محددة أو الكل.','This page is deletion-only. Choose IPTV or Sharing, then delete one code, selected codes, or all.')}</p>
-      </div>
+      <div><h2>{l('إدارة أكواد شيرنج وIPTV','Manage sharing & IPTV codes')}</h2></div>
       <div className="codeTypeSwitch">
         <button type="button" className={kind==='iptv'?'active':''} onClick={()=>setKind('iptv')}>IPTV</button>
         <button type="button" className={kind==='sharing'?'active':''} onClick={()=>setKind('sharing')}>{l('شيرنج','Sharing')}</button>
@@ -1998,10 +1856,7 @@ function UnifiedCodeManager({call}) {
     </div>
 
     <div className="deleteCommandRow">
-      <div>
-        <b>{kind==='iptv'?'IPTV':l('شيرنج','Sharing')}</b>
-        <span>{l('أدوات الحذف فقط','Delete tools only')}</span>
-      </div>
+      <b>{kind==='iptv'?'IPTV':l('شيرنج','Sharing')}</b>
       <button type="button" className="codeDeleteAllBtn" onClick={()=>setDeleteAllOpen(v=>!v)}>{l('حذف الكل','Delete all')}</button>
     </div>
 
@@ -2096,10 +1951,7 @@ function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConf
   return <section className="acmCreateCard">
     <div className="acmCreateHead">
       <div className="acmCreateIcon"><NavIcon name="userPlus"/></div>
-      <div>
-        <h2>{agentMode?l('إنشاء موزع تحتي','Create sub-reseller'):l('إضافة حساب جديد','Add new account')}</h2>
-        {!agentMode&&<p className="acmCreateLead">{l('اختر نوع الحساب من نفس المكان: موزع أو وكيل أو أدمن كامل.','Choose the account type here: reseller, agent, or full administrator.')}</p>}
-      </div>
+      <div><h2>{agentMode?l('إنشاء موزع تحتي','Create sub-reseller'):l('إضافة حساب جديد','Add new account')}</h2></div>
     </div>
 
     <form className="acmCreateGrid" onSubmit={submit}>
@@ -2108,7 +1960,7 @@ function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConf
         <select value={form.accountType} onChange={e=>setForm({...form,accountType:e.target.value,credits:e.target.value==='admin'?0:form.credits})}>
           <option value="reseller">{l('موزع','Reseller')}</option>
           <option value="agent">{l('وكيل','Agent')}</option>
-          <option value="admin">{l('أدمن — صلاحيات كاملة','Admin — full access')}</option>
+          <option value="admin">{l('أدمن','Admin')}</option>
         </select>
       </label>}
 
@@ -2176,14 +2028,6 @@ function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConf
           <b>{balanceUnit(balanceConfig,lang)}</b>
         </div>
       </label>}
-
-      {isAdminType&&<div className="acmAdminAccountNotice">
-        <NavIcon name="users"/>
-        <div>
-          <b>{l('حساب أدمن كامل','Full admin account')}</b>
-          <span>{l('سيظهر في الإدارة باسم أدمن ولن يظهر كموزع، ولا يحتاج رصيد إصدار.','It will appear as Admin, not Reseller, and does not use reseller balance.')}</span>
-        </div>
-      </div>}
 
       <div className="acmCreateActions">
         <button className="acmPrimaryBtn acmCreateBtn" disabled={busy}>
@@ -2323,16 +2167,13 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
               {admin&&<div className="accountEditLauncher">
                 <button type="button" className={editing?'active':''} onClick={()=>editing?setEditId(null):startEdit(r)}>
                   <NavIcon name="manageUsers"/>
-                  <span>{editing?l('إغلاق التعديل','Close edit'):l('تعديل كامل للحساب','Full account edit')}</span>
+                  <span>{editing?l('إغلاق','Close'):l('تعديل الحساب','Edit account')}</span>
                 </button>
               </div>}
 
               {admin&&editing&&<div className="accountFullEdit">
                 <div className="accountFullEditHead">
-                  <div>
-                    <b>{l('تعديل بيانات الحساب','Edit account details')}</b>
-                    <small>{l('يمكنك تغيير اليوزر والاسم والبريد والباسورد والصلاحية والحالة من مكان واحد.','Change username, name, email, password, role, and status in one place.')}</small>
-                  </div>
+                  <div><b>{l('تعديل بيانات الحساب','Edit account details')}</b></div>
                   <em>{typeLabel(editForm.accountType)}</em>
                 </div>
 
@@ -2357,7 +2198,7 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
                     <select value={editForm.accountType} onChange={e=>setEditForm(v=>({...v,accountType:e.target.value}))}>
                       <option value="reseller">{l('موزع','Reseller')}</option>
                       <option value="agent">{l('وكيل','Agent')}</option>
-                      <option value="admin">{l('أدمن — صلاحيات كاملة','Admin — full access')}</option>
+                      <option value="admin">{l('أدمن','Admin')}</option>
                     </select>
                   </label>
 
@@ -2388,7 +2229,7 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
                 <div className="accountFullEditActions">
                   <button type="button" className="secondary" onClick={()=>setEditId(null)}>{l('إلغاء','Cancel')}</button>
                   <button type="button" className="acmPrimaryBtn" disabled={busy||!editForm.username} onClick={()=>saveEdit(r)}>
-                    {busy?l('جارٍ الحفظ…','Saving…'):l('حفظ كل التعديلات','Save all changes')}
+                    {busy?l('جارٍ الحفظ…','Saving…'):l('حفظ التعديلات','Save changes')}
                   </button>
                 </div>
               </div>}
@@ -2704,7 +2545,7 @@ function Logs({logs,admin}) {
     RESELLER_CREATED:[l('إنشاء موزع','Reseller created'),'account'],
     ACCOUNT_CREATED:[l('إنشاء حساب','Account created'),'account'],
     USER_EDITED:[l('تعديل حساب','Account edited'),'account'],
-    ADMIN_PARTNER_CREATED:[l('إنشاء أدمن','Admin created'),'account'],
+
     CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
     CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
     SHARING_CODES_IMPORTED:[l('رفع أكواد شيرنج','Sharing codes imported'),'codes'],
