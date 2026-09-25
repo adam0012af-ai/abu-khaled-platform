@@ -6,7 +6,7 @@ let schemaReady = false;
 const BASE_SCHEMA = [
   "PRAGMA foreign_keys = ON",
   "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL)",
-  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 150000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 150000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, ip_hash TEXT, user_agent TEXT)",
   "CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_started_at TEXT NOT NULL, blocked_until TEXT)",
   "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, slug TEXT NOT NULL UNIQUE COLLATE NOCASE, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), low_stock_threshold INTEGER NOT NULL DEFAULT 10, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)",
@@ -90,6 +90,9 @@ async function ensureSchema(env){
   if(!cols.some(c=>c.name==='email')){
     await env.DB.prepare("ALTER TABLE users ADD COLUMN email TEXT").run();
   }
+  if(!cols.some(c=>c.name==='must_change_password')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0").run();
+  }
 
   const duplicate=await env.DB.prepare("SELECT code,COUNT(*) c FROM codes GROUP BY code HAVING c>1 LIMIT 1").first();
   if(!duplicate){
@@ -115,39 +118,45 @@ async function createSession(env,request,userId){
 async function authUser(env,request){
   const token=cookieValue(request,SESSION_COOKIE);
   if(!token) return null;
-  const row=await env.DB.prepare("SELECT s.id session_id,s.csrf_token,s.expires_at,u.id,u.username,u.email,u.display_name,u.role,u.credits,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1")
+  const row=await env.DB.prepare("SELECT s.id session_id,s.csrf_token,s.expires_at,u.id,u.username,u.email,u.display_name,u.role,u.credits,u.must_change_password,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1")
     .bind(await sha256(token),now()).first();
   if(!row || row.status!=='active') return null;
   return row;
 }
 
 function publicUser(u){
-  return {id:u.id,username:u.username,email:u.email||'',displayName:u.display_name,role:u.role,credits:Number(u.credits||0)};
+  return {id:u.id,username:u.username,email:u.email||'',displayName:u.display_name,role:u.role,credits:Number(u.credits||0),mustChangePassword:Number(u.must_change_password||0)===1};
 }
 
 function csrfOk(request,user){
   return Boolean(user && equal(request.headers.get('x-csrf-token')||'',user.csrf_token||''));
 }
 
-async function ensureAdminFromEnv(env){
-  const username='owner';
-  const password=String(env.ADMIN_PASSWORD||'').trim();
-  if(!password) return null;
+async function ensureBootstrapAdmin(env){
+  const done=await env.DB.prepare("SELECT value FROM app_meta WHERE key='owner_bootstrap_v3'").first();
+  if(done?.value==='done'){
+    return env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
+  }
 
-  let admin=await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
+  const username='owner';
+  const salt='acm-bootstrap-v3-9Q7p2L';
+  const hash='qznkmhD3OJLaCmZCRwokJygOasp/6MRjXUxnfElFIt0=';
   const at=now();
 
+  let admin=await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
   if(!admin){
-    const id=uid('usr'), salt=randomToken(18);
-    await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','Owner',0,'active',?,?)")
-      .bind(id,username,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,at,at).run();
+    const id=uid('usr');
+    await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','Owner',0,1,'active',?,?)")
+      .bind(id,username,hash,salt,PASSWORD_ITERATIONS,at,at).run();
     admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(id).first();
   }else{
-    const salt=randomToken(18);
-    await env.DB.prepare("UPDATE users SET username='owner',password_hash=?,password_salt=?,password_iterations=?,status='active',updated_at=? WHERE id=?")
-      .bind(await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,at,admin.id).run();
+    await env.DB.prepare("UPDATE users SET username='owner',password_hash=?,password_salt=?,password_iterations=?,must_change_password=1,status='active',updated_at=? WHERE id=?")
+      .bind(hash,salt,PASSWORD_ITERATIONS,at,admin.id).run();
+    await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(admin.id).run();
     admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(admin.id).first();
   }
+
+  await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('owner_bootstrap_v3','done',?)").bind(at).run();
   return admin;
 }
 
@@ -210,17 +219,6 @@ async function login(request,env){
   const gate=await env.DB.prepare("SELECT * FROM login_attempts WHERE key=?").bind(key).first();
   if(gate?.blocked_until && gate.blocked_until>now()) return json({error:'TOO_MANY_ATTEMPTS'},429);
 
-  const adminPass=String(env.ADMIN_PASSWORD||'').trim();
-  if(adminPass && identifier.toLowerCase()==='owner' && equal(String(password).trim(),adminPass)){
-    const admin=await ensureAdminFromEnv(env);
-    await env.DB.prepare("DELETE FROM login_attempts WHERE key=?").bind(key).run();
-    await seedDemo(env,admin);
-    const session=await createSession(env,request,admin.id);
-    await audit(env,request,admin,'LOGIN_SUCCESS','session',null,{mode:'admin_env'});
-    const fresh=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(admin.id).first();
-    return json({user:publicUser(fresh),csrf:session.csrf},200,{'set-cookie':sessionCookie(session.token)});
-  }
-
   const user=await env.DB.prepare("SELECT * FROM users WHERE username=? COLLATE NOCASE OR email=? COLLATE NOCASE LIMIT 1").bind(identifier,identifier).first();
   const computed=user ? await hashPassword(password,user.password_salt,Number(user.password_iterations)) : await hashPassword(password,'invalid-user-salt',PASSWORD_ITERATIONS);
   const ok=Boolean(user && user.status==='active' && equal(computed,user.password_hash));
@@ -246,7 +244,7 @@ async function login(request,env){
 
 async function api(request,env){
   await ensureSchema(env);
-  const bootAdmin=await ensureAdminFromEnv(env);
+  const bootAdmin=await ensureBootstrapAdmin(env);
   if(bootAdmin) await seedDemo(env,bootAdmin);
   const url=new URL(request.url), path=url.pathname, method=request.method.toUpperCase();
 
@@ -260,9 +258,9 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-clean-v1',
+      version:'worker-db-auth-v3',
       db:true,
-      adminConfigured:Boolean(String(env.ADMIN_PASSWORD||'').trim()),
+      adminConfigured:true,
       adminExists:Boolean(admin),
       adminUsername:admin?.username||null,
       adminStatus:admin?.status||null
@@ -283,6 +281,33 @@ async function api(request,env){
 
   if(!user) return json({error:'UNAUTHORIZED'},401);
   if(method!=='GET' && method!=='HEAD' && !csrfOk(request,user)) return json({error:'CSRF'},403);
+
+  if(path==='/api/admin/change-password' && method==='POST'){
+    if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
+    const body=await bodyJson(request);
+    const currentPassword=String(body.currentPassword||'');
+    const newPassword=String(body.newPassword||'');
+    if(newPassword.length<12) return json({error:'PASSWORD_TOO_SHORT'},400);
+
+    const dbUser=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
+    const currentHash=await hashPassword(currentPassword,dbUser.password_salt,Number(dbUser.password_iterations));
+    if(!equal(currentHash,dbUser.password_hash)) return json({error:'CURRENT_PASSWORD_WRONG'},403);
+
+    const salt=randomToken(18);
+    const at=now();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,must_change_password=0,updated_at=? WHERE id=?")
+        .bind(await hashPassword(newPassword,salt),salt,PASSWORD_ITERATIONS,at,user.id),
+      env.DB.prepare("DELETE FROM sessions WHERE user_id=? AND id<>?").bind(user.id,user.session_id),
+      env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+        .bind(uid('log'),user.id,user.role,'ADMIN_PASSWORD_CHANGED','user',user.id,JSON.stringify({forced:Boolean(user.must_change_password)}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
+    ]);
+    return json({ok:true});
+  }
+
+  if(Number(user.must_change_password||0)===1 && path!=='/api/me'){
+    return json({error:'PASSWORD_CHANGE_REQUIRED'},403);
+  }
 
   if(path==='/api/me' && method==='GET') return json({user:publicUser(user),csrf:user.csrf_token});
   if(path==='/api/servers' && method==='GET') return json(await stock(env));
