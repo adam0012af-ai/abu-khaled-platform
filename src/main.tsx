@@ -472,8 +472,10 @@ function Panel({ user, csrf, onLogout }) {
   ];
   const resellerNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
-    {id:'issue',label:l('إنشاء كود IPTV','Issue IPTV code'),icon:'issue'},
-    {id:'sharing',label:l('إنشاء كود شيرنج','Issue sharing code'),icon:'sharing'},
+    {id:'creation',label:l('الإنشاء','Create'),icon:'issue',children:[
+      {id:'issue',label:l('إنشاء كود IPTV','Issue IPTV code'),icon:'issue'},
+      {id:'sharing',label:l('إنشاء كود شيرنج','Issue sharing code'),icon:'sharing'}
+    ]},
     {id:'mycodes',label:l('أكوادي','My codes'),icon:'codes'},
     ...(isAgent?[{id:'resellers',label:l('موزعيني','My resellers'),icon:'users',children:[
       {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
@@ -485,11 +487,11 @@ function Panel({ user, csrf, onLogout }) {
     {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
-  const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?[item.id,...item.children.map(x=>x.id)]:[item.id]).filter(id=>id!=='resellers'),[isAdmin]);
+  const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?item.children.map(x=>x.id):[item.id]),[isAdmin,isAgent]);
   const initialTab = useMemo(()=>tabFromHash(user.role,allowedTabs),[user.role,allowedTabs]);
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
-  const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
+  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab)}));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
   const emptyData={ dashboard:null, profile:null, balanceConfig:{mode:'currency',currency:'EGP',unit:'EGP'}, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
@@ -556,7 +558,8 @@ function Panel({ user, csrf, onLogout }) {
       const next=tabFromHash(user.role,allowedTabs);
       setTab(next);
       setMenuOpen(false);
-      if(['reseller-create','reseller-manage'].includes(next)) setResellerPocketOpen(true);
+      const parent=navItems.find(item=>item.children?.some(x=>x.id===next));
+      if(parent) setOpenPockets(v=>({...v,[parent.id]:true}));
     };
 
     const canonical=hashForTab(user.role,tabFromHash(user.role,allowedTabs));
@@ -698,17 +701,18 @@ function Panel({ user, csrf, onLogout }) {
           {navItems.map(item=>{
             if(item.children){
               const childActive=item.children.some(x=>x.id===tab);
-              return <div className={'sidebarPocket '+(childActive?'active':'')+' '+(resellerPocketOpen?'expanded':'')} key={item.id}>
+              const pocketOpen=Boolean(openPockets[item.id]);
+              return <div className={'sidebarPocket '+(childActive?'active':'')+' '+(pocketOpen?'expanded':'')} key={item.id}>
                 <button
                   type="button"
                   className={'sidebarPocketHead '+(childActive?'active':'')}
-                  onClick={()=>setResellerPocketOpen(v=>!v)}
+                  onClick={()=>setOpenPockets(v=>({...v,[item.id]:!v[item.id]}))}
                 >
                   <span className="sidebarIcon"><NavIcon name={item.icon}/></span>
                   <span className="sidebarText">{item.label}</span>
-                  <span className="sidebarChevron">{resellerPocketOpen?'⌃':'⌄'}</span>
+                  <span className="sidebarChevron">{pocketOpen?'⌃':'⌄'}</span>
                 </button>
-                <div className={'sidebarSubnav '+(resellerPocketOpen?'show':'')}>
+                <div className={'sidebarSubnav '+(pocketOpen?'show':'')}>
                   {item.children.map(child=><button
                     type="button"
                     key={child.id}
