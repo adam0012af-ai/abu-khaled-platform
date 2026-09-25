@@ -4934,3 +4934,141 @@ html[dir="ltr"] .sidebarProfileAction.active{
     width:100%
   }
 }
+
+
+/* Unified IPTV + sharing code pages */
+.unifiedCodePage,
+.unifiedDeletePage{
+  overflow:visible
+}
+.unifiedCodeHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px
+}
+.unifiedCodeHead>div:first-child{
+  min-width:0
+}
+.unifiedCodeHead h2{
+  margin:0;
+  color:#0F172A;
+  font-size:19px
+}
+.unifiedCodeHead p{
+  max-width:720px;
+  margin:4px 0 0;
+  color:#7C8898;
+  font-size:8px;
+  line-height:1.65
+}
+.codeTypeSwitch{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  min-width:190px;
+  padding:4px;
+  border:1px solid #DCE4EC;
+  border-radius:11px;
+  background:#F8FAFC
+}
+.codeTypeSwitch button{
+  min-height:36px;
+  padding:6px 10px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:#64748B;
+  font-size:8px;
+  font-weight:900
+}
+.codeTypeSwitch button.active{
+  background:#0F172A;
+  color:#fff;
+  box-shadow:0 5px 14px rgba(15,23,42,.14)
+}
+.unifiedCodeTypeBanner{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-height:40px;
+  padding:8px 10px;
+  margin-bottom:10px;
+  border:1px solid #E2E8F0;
+  border-radius:10px;
+  background:#FBFCFD
+}
+.unifiedCodeTypeBanner span{
+  color:#94A3B8;
+  font-size:7px
+}
+.unifiedCodeTypeBanner b{
+  color:#0F766E;
+  font-size:9px
+}
+.unifiedImportForm{
+  align-content:start
+}
+.deleteCommandRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 10px;
+  padding:9px 10px;
+  border:1px solid #FECACA;
+  border-radius:10px;
+  background:#FFF7F7
+}
+.deleteCommandRow>div{
+  display:grid;
+  gap:2px
+}
+.deleteCommandRow b{
+  color:#9F1239;
+  font-size:9px
+}
+.deleteCommandRow span{
+  color:#9F6B78;
+  font-size:7px
+}
+.sharingAdminHint{
+  margin-top:0!important;
+  border-style:dashed
+}
+.sharingAdminHint>div{
+  display:grid;
+  gap:3px
+}
+.sharingAdminHint b{
+  color:#0F172A;
+  font-size:9px
+}
+.sharingAdminHint span{
+  color:#7C8898;
+  font-size:7.5px;
+  line-height:1.6
+}
+
+@media(max-width:700px){
+  .unifiedCodeHead{
+    flex-direction:column;
+    align-items:stretch
+  }
+  .codeTypeSwitch{
+    width:100%;
+    min-width:0
+  }
+  .deleteCommandRow{
+    align-items:stretch
+  }
+}
+@media(max-width:480px){
+  .deleteCommandRow{
+    flex-direction:column
+  }
+  .deleteCommandRow .codeDeleteAllBtn{
+    width:100%
+  }
+}
