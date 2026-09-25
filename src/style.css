@@ -1363,7 +1363,7 @@ tr:last-child td{border-bottom:0}
     max(12px,env(safe-area-inset-right))
     max(18px,env(safe-area-inset-bottom))
     max(12px,env(safe-area-inset-left));
-  background:#F8FAFC;
+  background:#F5F7FB;
   isolation:isolate
 }
 .loginBackdrop{
@@ -1371,9 +1371,9 @@ tr:last-child td{border-bottom:0}
   inset:0;
   z-index:-2;
   background:
-    radial-gradient(circle at 82% 10%,rgba(16,185,129,.045),transparent 28%),
-    radial-gradient(circle at 10% 12%,rgba(59,130,246,.04),transparent 26%),
-    linear-gradient(180deg,#FBFCFE 0%,#F7F9FC 100%)
+    radial-gradient(circle at 78% 12%,rgba(56,189,248,.08),transparent 30%),
+    radial-gradient(circle at 15% 18%,rgba(16,185,129,.06),transparent 26%),
+    linear-gradient(180deg,#F9FBFD 0%,#F4F7FA 100%)
 }
 .loginBackdrop::after{
   content:"";
@@ -1382,8 +1382,8 @@ tr:last-child td{border-bottom:0}
   background-image:
     linear-gradient(rgba(148,163,184,.024) 1px,transparent 1px),
     linear-gradient(90deg,rgba(148,163,184,.024) 1px,transparent 1px);
-  background-size:30px 30px;
-  mask-image:linear-gradient(to bottom,rgba(0,0,0,.40),transparent 72%)
+  background-size:32px 32px;
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.34),transparent 72%)
 }
 .loginViewport{
   width:100%;
@@ -1392,102 +1392,128 @@ tr:last-child td{border-bottom:0}
 }
 .loginPanel{
   position:relative;
-  width:min(350px,calc(100vw - 24px));
-  overflow:visible;
-  border:1px solid #E6EAF0;
-  border-radius:22px;
-  background:rgba(255,255,255,.985);
+  width:min(358px,calc(100vw - 24px));
+  overflow:hidden;
+  border:1px solid #E2E8F0;
+  border-radius:24px;
+  background:#FFFFFF;
   box-shadow:
-    0 24px 64px -44px rgba(15,23,42,.30),
-    0 10px 26px -22px rgba(15,23,42,.14);
-  backdrop-filter:blur(14px);
-  -webkit-backdrop-filter:blur(14px)
+    0 32px 80px -54px rgba(15,23,42,.40),
+    0 16px 38px -30px rgba(15,23,42,.22)
+}
+.loginHero{
+  position:relative;
+  min-height:126px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  padding:20px 22px 18px;
+  background:
+    linear-gradient(145deg,#0B1220 0%,#111C31 56%,#0F172A 100%);
+  border-bottom:1px solid rgba(255,255,255,.06)
+}
+.loginHero::after{
+  content:"";
+  position:absolute;
+  inset:auto 0 0 0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,#10B981 30%,#38BDF8 70%,transparent);
+  opacity:.75
+}
+.loginHeroGlow{
+  position:absolute;
+  width:230px;
+  height:230px;
+  border-radius:50%;
+  right:-90px;
+  top:-120px;
+  background:radial-gradient(circle,rgba(56,189,248,.16),rgba(56,189,248,0) 68%);
+  pointer-events:none
 }
 .loginLanguage{
   position:absolute;
-  top:13px;
-  left:13px;
-  z-index:30
+  top:14px;
+  left:14px;
+  z-index:20
 }
-.loginPanelHeader{
-  min-height:86px;
+.loginBrandCenter{
+  position:relative;
+  z-index:2;
   display:grid;
-  place-items:center;
-  padding:14px 58px 12px;
-  border-bottom:1px solid #F0F3F6
+  justify-items:center;
+  gap:9px
 }
-.loginPanelHeader .acmPremiumLogo{
-  margin:0 auto
-}
-.acmPremiumLogo{
-  width:max-content;
-  max-width:100%;
+.loginHero .acmPremiumLogo{
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:9px;
+  gap:10px;
   direction:ltr
 }
-.acmPremiumLogoEmblem{
+.loginHero .acmPremiumLogoEmblem{
   position:relative;
-  width:42px;
-  height:42px;
+  width:52px;
+  height:52px;
   flex:0 0 auto
 }
-.acmPremiumLogoEmblem svg{
+.loginHero .acmPremiumLogoEmblem svg{
   display:block;
   width:100%;
   height:100%
 }
-.acmPremiumLogoMini{
+.loginHero .acmPremiumLogoMini{
   position:absolute;
   left:50%;
-  bottom:5px;
+  bottom:6px;
   transform:translateX(-50%);
-  color:rgba(248,250,252,.84);
-  font:800 4.8px/1 "Inter",sans-serif;
-  letter-spacing:1.2px
+  color:rgba(248,250,252,.88);
+  font:800 5px/1 "Inter",sans-serif;
+  letter-spacing:1.4px
 }
-.acmPremiumLogoCopy{
+.loginHero .acmPremiumLogoCopy{
   display:grid;
-  gap:1px;
-  min-width:0
+  gap:2px
 }
-.acmPremiumLogoCopy strong{
-  color:#0F172A;
-  font:800 12.8px/1.05 "Inter",sans-serif;
-  letter-spacing:.1px;
+.loginHero .acmPremiumLogoCopy strong{
+  color:#F8FAFC;
+  font:800 14px/1.05 "Inter",sans-serif;
+  letter-spacing:.2px;
   white-space:nowrap
 }
-.acmPremiumLogoCopy>span{
-  color:#10B981;
-  font:800 6px/1.2 "Inter",sans-serif;
-  letter-spacing:2.5px
+.loginHero .acmPremiumLogoCopy>span{
+  color:#34D399;
+  font:800 6.5px/1.2 "Inter",sans-serif;
+  letter-spacing:3px
+}
+.loginBrandKicker{
+  color:#94A3B8;
+  font:700 6.5px/1 "Inter",sans-serif;
+  letter-spacing:2.6px
 }
 
-/* Shared language control */
+/* language control */
 .languageMenu{
   position:relative;
   direction:ltr;
   flex:0 0 auto
 }
-.languageTrigger{
-  min-width:52px;
+.loginHero .languageTrigger{
+  min-width:50px;
   height:30px;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:4px;
   padding:0 7px;
-  border:1px solid #E5EAF0;
-  border-radius:9px;
-  background:#fff;
-  color:#334155;
-  box-shadow:0 3px 10px -9px rgba(15,23,42,.22)
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:10px;
+  background:rgba(255,255,255,.08);
+  color:#E2E8F0;
+  box-shadow:none;
+  backdrop-filter:blur(10px)
 }
-.languageMenu.compact .languageTrigger{
-  min-width:48px;
-  height:30px
+.loginHero .languageTrigger:hover{
+  background:rgba(255,255,255,.12)
 }
 .langFlag{font-size:13px;line-height:1}
 .langCurrent{
@@ -1496,8 +1522,7 @@ tr:last-child td{border-bottom:0}
 }
 .langChevron{
   color:#94A3B8;
-  font:700 8px/1 "Inter",sans-serif;
-  transform:translateY(-1px)
+  font:700 8px/1 "Inter",sans-serif
 }
 .languagePopover{
   position:absolute;
@@ -1535,52 +1560,58 @@ tr:last-child td{border-bottom:0}
 }
 
 .loginPanelBody{
-  padding:19px 18px 18px
+  padding:20px 20px 18px
 }
 .loginHeading{
-  margin:0 0 14px;
+  margin:0 0 16px;
   text-align:center
+}
+.loginEyebrow{
+  display:block;
+  margin-bottom:5px;
+  color:#10B981;
+  font:800 7px/1.2 "Inter",sans-serif;
+  letter-spacing:1.6px
 }
 .loginHeading h1{
   margin:0;
   color:#0F172A;
-  font-size:20px;
+  font-size:21px;
   line-height:1.3;
-  font-weight:800;
-  letter-spacing:-.2px
+  font-weight:800
 }
 .loginForm{
   width:100%;
   margin:0;
   display:grid;
-  gap:10px
+  gap:11px
 }
 .loginField{
   display:grid;
   gap:5px
 }
 .loginField>span{
-  color:#526173;
+  color:#475569;
   font-size:8px;
   font-weight:700;
   text-align:right
 }
 .loginField input{
   width:100%;
-  height:43px;
-  min-height:43px;
+  height:44px;
+  min-height:44px;
   padding:0 12px;
-  border:1px solid #DDE4EB;
-  border-radius:10px;
+  border:1px solid #D9E1EA;
+  border-radius:11px;
   background:#FFFFFF;
   color:#0F172A;
   font-size:12.5px;
-  box-shadow:none
+  box-shadow:0 1px 0 rgba(15,23,42,.01)
 }
-.loginField input::placeholder{color:#A7B1BE}
+.loginField input::placeholder{color:#A8B2BF}
 .loginField input:focus{
-  border-color:#94A3B8;
-  box-shadow:0 0 0 3px rgba(15,23,42,.04)
+  border-color:#64748B;
+  box-shadow:0 0 0 3px rgba(15,23,42,.045)
 }
 .loginField input:-webkit-autofill,
 .loginField input:-webkit-autofill:hover,
@@ -1605,13 +1636,13 @@ tr:last-child td{border-bottom:0}
   display:grid;
   place-items:center;
   padding:0;
-  border:0;
+  border:1px solid #E8EDF3;
   border-radius:8px;
-  background:#F7F9FB;
+  background:#F8FAFC;
   color:#64748B
 }
 .passwordToggle:hover{
-  background:#EEF2F6;
+  background:#F1F5F9;
   color:#334155
 }
 .passwordToggle svg{
@@ -1624,7 +1655,7 @@ tr:last-child td{border-bottom:0}
   stroke-linejoin:round
 }
 
-/* Native Cloudflare Turnstile */
+/* native Cloudflare Turnstile */
 .loginVerify{
   width:100%;
   display:grid;
@@ -1638,7 +1669,7 @@ tr:last-child td{border-bottom:0}
   display:grid;
   place-items:center;
   overflow:hidden;
-  border-radius:10px;
+  border-radius:11px;
   direction:ltr
 }
 .turnstileHost.native>div,
@@ -1660,24 +1691,24 @@ tr:last-child td{border-bottom:0}
 }
 .loginSubmit{
   width:100%;
-  height:43px;
-  min-height:43px;
-  border-radius:10px;
-  background:#0F172A;
+  height:44px;
+  min-height:44px;
+  border-radius:11px;
+  background:linear-gradient(135deg,#0F172A 0%,#172033 100%);
   color:#fff;
   font-size:10.5px;
   font-weight:800;
-  box-shadow:0 8px 18px -15px rgba(15,23,42,.70);
-  transition:background .15s ease,transform .15s ease,opacity .15s ease
+  box-shadow:0 11px 22px -17px rgba(15,23,42,.70);
+  transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease
 }
 .loginSubmit:hover:not(:disabled){
-  background:#172033;
-  transform:translateY(-1px)
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px -18px rgba(15,23,42,.72)
 }
 .loginSubmit:disabled{
-  background:#1E293B;
-  color:#D8DEE8;
-  opacity:.58;
+  background:#253044;
+  color:#CBD5E1;
+  opacity:.52;
   cursor:not-allowed;
   transform:none;
   box-shadow:none
@@ -1688,9 +1719,10 @@ tr:last-child td{border-bottom:0}
   align-items:center;
   justify-content:center;
   gap:8px;
-  padding:7px 12px;
-  border-top:1px solid #F0F3F6;
-  color:#9AA5B3
+  padding:8px 12px;
+  border-top:1px solid #EEF2F6;
+  color:#94A3B8;
+  background:#FCFDFE
 }
 .loginPanelFooter>span{
   font-size:6.4px;
@@ -1721,22 +1753,21 @@ html[dir="ltr"] .passwordToggle{
   right:5px
 }
 
-@media(max-width:370px){
+@media(max-width:380px){
   .loginPanel{
-    width:min(340px,calc(100vw - 18px))
+    width:min(344px,calc(100vw - 18px))
   }
-  .loginPanelHeader{
-    min-height:82px;
-    padding:12px 54px 11px
+  .loginHero{
+    min-height:118px;
+    padding:18px 18px 16px
   }
   .loginPanelBody{
-    padding:17px 15px 16px
+    padding:18px 16px 16px
   }
-  .loginHeading h1{font-size:19px}
-  .loginField input,
-  .loginSubmit{
-    height:42px;
-    min-height:42px
+  .loginHeading h1{font-size:20px}
+  .loginHero .acmPremiumLogoEmblem{
+    width:48px;
+    height:48px
   }
 }
 
