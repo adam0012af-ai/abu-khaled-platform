@@ -119,7 +119,6 @@ function PremiumLoginLogo() {
     <div className="acmPremiumLogoCopy">
       <strong>ACTIVE CODE</strong>
       <span>MULTI</span>
-      <small>SECURE CONTROL PLATFORM</small>
     </div>
   </div>;
 }
@@ -612,7 +611,7 @@ function Panel({ user, csrf, onLogout }) {
             <span className="sidebarLogoutIcon">↪</span>
             <span>{l('تسجيل الخروج','Sign out')}</span>
           </button>
-          <small>ACTIVE CODE MULTI</small>
+          <small>Developed by TTV4K</small>
         </div>
       </aside>
 
@@ -1469,11 +1468,10 @@ function ForcePasswordChange({ csrf, onDone }) {
   }
 
   return <div className="authPage">
-    <header className="authTopbar"><Logo compact/><span>OWNER SECURITY</span></header>
+    <header className="authTopbar"><Logo compact/><LanguageSwitcher compact/></header>
     <main className="authMain">
       <form className="authCard authPasswordCard" onSubmit={submit}>
         <div className="authCardHead">
-          <span>SECURITY</span>
           <h1>{l('تغيير كلمة المرور','Change password')}</h1>
         </div>
         <div className="authForm">
