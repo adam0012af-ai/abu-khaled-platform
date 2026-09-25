@@ -564,18 +564,33 @@ function Codes({codes,admin=false}) {
       </div>
 
       <div className="mobileCodes">
-        {codes.map(c=><article className="myCodeCard" key={c.id}>
-          <div className="myCodeTop">
-            <div><span>السيرفر</span><b>{c.server_name}</b></div>
-            <small>{fmt(c.issued_at)}</small>
-          </div>
-          <button className="myCodeValue mono" onClick={()=>copy(c.code)}>{c.code}</button>
-          <div className="myCodeMeta">
-            {admin&&<div><span>الموزع</span><b>{c.reseller_name||c.reseller_username}</b></div>}
-            <div><span>العميل</span><b>{c.customer_ref||'—'}</b></div>
-          </div>
-          <button className="copyCodeBtn" onClick={()=>copy(c.code)}>نسخ الكود</button>
-        </article>)}
+        {codes.map(c=>{
+          const d=c.issued_at?new Date(c.issued_at):null;
+          const dateText=d&&!Number.isNaN(d.getTime())?d.toLocaleDateString('ar-EG',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
+          const timeText=d&&!Number.isNaN(d.getTime())?d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'—';
+          return <article className="myCodeCard" key={c.id}>
+            <div className="myCodeHeader">
+              <div className="serverIdentity">
+                <span>السيرفر</span>
+                <b>{c.server_name}</b>
+              </div>
+              <span className="activeCodeStatus">مفعّل</span>
+            </div>
+
+            <div className="codeLabel">الكود</div>
+            <button className="myCodeValue mono" onClick={()=>copy(c.code)}>{c.code}</button>
+
+            <div className="myCodeDetails">
+              {admin&&<div><span>الموزع</span><b>{c.reseller_name||c.reseller_username}</b></div>}
+              <div><span>العميل</span><b>{c.customer_ref||'—'}</b></div>
+              <div><span>تاريخ السحب</span><b>{dateText}</b></div>
+              <div><span>الوقت</span><b>{timeText}</b></div>
+              <div><span>التكلفة</span><b>{num(c.unit_cost||0)} Credit</b></div>
+            </div>
+
+            <button className="copyCodeBtn" onClick={()=>copy(c.code)}>نسخ الكود</button>
+          </article>
+        })}
       </div>
     </>}
   </section>;
