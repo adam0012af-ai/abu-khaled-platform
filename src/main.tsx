@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const fmt = (v) => v ? new Date(v).toLocaleString('ar-EG') : '—';
+const fmt = (v,lang='ar') => v ? new Date(v).toLocaleString(lang==='en'?'en-US':'ar-EG') : '—';
 const num = (v) => Number(v || 0).toLocaleString('en-US');
 
 const panelStateKey = (role, key) => `acm:${role}:${key}`;
@@ -657,24 +657,24 @@ function Panel({ user, csrf, onLogout }) {
 }
 
 function AdminOverview({data}) {
+  const {l}=useLanguage();
   const c=data.dashboard?.counts||{};
   const stats=[
-    {label:'إجمالي الأكواد',value:c.total_codes,tone:'blue'},
-    {label:'الأكواد المتاحة',value:c.available,tone:'green'},
-    {label:'الأكواد المفعلة',value:c.issued,tone:'violet'},
-    {label:'الموزعون',value:c.resellers,tone:'orange'},
-    {label:'طلبات الكريدت',value:c.pending_requests,tone:'pink'},
-    {label:'رصيد الموزعين',value:c.reseller_credits,tone:'cyan'}
+    {label:l('إجمالي الأكواد','Total codes'),value:c.total_codes,tone:'blue'},
+    {label:l('الأكواد المتاحة','Available codes'),value:c.available,tone:'green'},
+    {label:l('الأكواد المفعلة','Issued codes'),value:c.issued,tone:'violet'},
+    {label:l('الموزعون','Resellers'),value:c.resellers,tone:'orange'},
+    {label:l('طلبات الكريدت','Credit requests'),value:c.pending_requests,tone:'pink'},
+    {label:l('رصيد الموزعين','Reseller credit'),value:c.reseller_credits,tone:'cyan'}
   ];
 
   return <section className="section dashboardSummary premiumDashboard">
     <div className="dashboardHeader">
       <div>
-        <h2>الرئيسية</h2>
-        <span>آخر حالة مسجلة للوحة</span>
+        <h2>{l('الرئيسية','Dashboard')}</h2>
       </div>
       <div className="adminBalanceOpen">
-        <span>رصيد الإدارة</span>
+        <span>{l('رصيد الإدارة','Admin balance')}</span>
         <b>∞</b>
       </div>
     </div>
@@ -689,6 +689,7 @@ function AdminOverview({data}) {
 }
 
 function ResellerOverview({data}) {
+  const {lang,l}=useLanguage();
   const c=data.dashboard?.counts||{};
   const balance=Number(data.dashboard?.user?.credits||0);
   const recentCodes=(data.codes||[]).slice(0,4);
@@ -698,43 +699,43 @@ function ResellerOverview({data}) {
     <section className="section resellerHome">
       <div className="resellerHomeTop">
         <div>
-          <h2>الرئيسية</h2>
+          <h2>{l('الرئيسية','Dashboard')}</h2>
           <span>{data.dashboard?.user?.displayName||data.dashboard?.user?.username||''}</span>
         </div>
         <div className="resellerMainBalance">
-          <span>الرصيد</span>
+          <span>{l('الرصيد','Balance')}</span>
           <strong>{num(balance)}</strong>
           <small>CREDIT</small>
         </div>
       </div>
 
       <div className="resellerQuickStats">
-        <div><span>أكوادي</span><strong>{num(c.issued)}</strong></div>
-        <div><span>طلبات الرصيد المعلقة</span><strong>{num(c.pending_requests)}</strong></div>
+        <div><span>{l('أكوادي','My codes')}</span><strong>{num(c.issued)}</strong></div>
+        <div><span>{l('طلبات الرصيد المعلقة','Pending credit requests')}</span><strong>{num(c.pending_requests)}</strong></div>
       </div>
     </section>
 
     <div className="twoCol dashboardDetails">
       <section className="section">
-        <div className="sectionHead"><div><h2>آخر الأكواد</h2></div></div>
-        {recentCodes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> :
+        <div className="sectionHead"><div><h2>{l('آخر الأكواد','Recent codes')}</h2></div></div>
+        {recentCodes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد.','No codes yet.')}</div> :
           <div className="list">
             {recentCodes.map(x=><div className="listRow recentCodeRow" key={x.id}>
               <div><b>{x.server_name}</b><span>{x.customer_ref||'—'}</span></div>
               <code>{x.code}</code>
-              <small>{fmt(x.issued_at)}</small>
+              <small>{fmt(x.issued_at,lang)}</small>
             </div>)}
           </div>}
       </section>
 
       <section className="section">
-        <div className="sectionHead"><div><h2>طلبات الرصيد</h2></div></div>
-        {recentRequests.length===0 ? <div className="emptyState compact">لا توجد طلبات رصيد.</div> :
+        <div className="sectionHead"><div><h2>{l('طلبات الرصيد','Credit requests')}</h2></div></div>
+        {recentRequests.length===0 ? <div className="emptyState compact">{l('لا توجد طلبات.','No requests.')}</div> :
           <div className="list">
             {recentRequests.map(r=><div className="listRow" key={r.id}>
               <b>{num(r.amount)} Credit</b>
               <span className={'badge '+r.status}>{r.status}</span>
-              <small>{fmt(r.created_at)}</small>
+              <small>{fmt(r.created_at,lang)}</small>
             </div>)}
           </div>}
       </section>
@@ -743,35 +744,37 @@ function ResellerOverview({data}) {
 }
 
 function Servers({action,busy}) {
+  const {l}=useLanguage();
   const [server,setServer]=useState({name:'',lowStockThreshold:10,creditCost:1});
 
   return <section className="section focusedForm">
-    <div className="sectionHead"><div><h2>إضافة سيرفر</h2></div></div>
+    <div className="sectionHead"><div><h2>{l('إضافة سيرفر','Add server')}</h2></div></div>
 
     <form className="formGrid" onSubmit={async e=>{
       e.preventDefault();
       await action('/api/admin/servers',server);
       setServer({name:'',lowStockThreshold:10,creditCost:1});
     }}>
-      <label>اسم السيرفر</label>
-      <input placeholder="مثال: Nova" value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
+      <label>{l('اسم السيرفر','Server name')}</label>
+      <input placeholder={l('مثال: Nova','Example: Nova')} value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
 
-      <label>تكلفة الكود بالكريدت</label>
+      <label>{l('تكلفة الكود بالكريدت','Code credit cost')}</label>
       <input type="number" min="0" value={server.creditCost} onChange={e=>setServer({...server,creditCost:e.target.value})} required/>
 
-      <label>تنبيه انخفاض المخزون</label>
+      <label>{l('تنبيه انخفاض المخزون','Low stock alert')}</label>
       <input type="number" min="0" value={server.lowStockThreshold} onChange={e=>setServer({...server,lowStockThreshold:e.target.value})}/>
 
-      <button className="primary" disabled={busy}>إضافة سيرفر</button>
+      <button className="primary" disabled={busy}>{l('إضافة سيرفر','Add server')}</button>
     </form>
   </section>;
 }
 
 function Inventory({data}) {
+  const {l}=useLanguage();
   return <section className="section">
     <div className="sectionHead">
-      <div><h2>المخزون</h2></div>
-      <small>{num(data.servers.length)} سيرفر</small>
+      <div><h2>{l('المخزون','Inventory')}</h2></div>
+      <small>{num(data.servers.length)} {l('سيرفر','servers')}</small>
     </div>
 
     <div className="inventoryGrid">
@@ -780,17 +783,17 @@ function Inventory({data}) {
         const low=Number(s.available_codes)<=Number(s.low_stock_threshold||0);
         return <article className={'inventoryCard '+(low?'low':'')} key={s.id}>
           <div className="inventoryCardHead">
-            <div><span>السيرفر</span><b>{s.name}</b></div>
-            <em>{Number(s.active)===1?'نشط':'متوقف'}</em>
+            <div><span>{l('السيرفر','Server')}</span><b>{s.name}</b></div>
+            <em>{Number(s.active)===1?l('نشط','Active'):l('متوقف','Disabled')}</em>
           </div>
           <div className="inventoryNumbers">
-            <div><span>المتاح</span><strong>{num(s.available_codes)}</strong></div>
-            <div><span>المفعّل</span><strong>{num(s.issued_codes)}</strong></div>
-            <div><span>الإجمالي</span><strong>{num(s.total_codes)}</strong></div>
+            <div><span>{l('المتاح','Available')}</span><strong>{num(s.available_codes)}</strong></div>
+            <div><span>{l('المفعّل','Issued')}</span><strong>{num(s.issued_codes)}</strong></div>
+            <div><span>{l('الإجمالي','Total')}</span><strong>{num(s.total_codes)}</strong></div>
           </div>
           <div className="inventoryFoot">
             <span>{num(p?.credit_cost||0)} Credit</span>
-            <span>تنبيه عند {num(s.low_stock_threshold||0)}</span>
+            <span>{l('تنبيه عند','Alert at')} {num(s.low_stock_threshold||0)}</span>
           </div>
         </article>
       })}
@@ -799,6 +802,7 @@ function Inventory({data}) {
 }
 
 function ImportCodes({data,action,busy}) {
+  const {l}=useLanguage();
   const [form,setForm]=useState({serverId:'',filename:'codes.txt',text:''});
   const lines=form.text.replace(/\r/g,'').split('\n');
   const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
@@ -812,7 +816,7 @@ function ImportCodes({data,action,busy}) {
 
   return <section className="section">
     <div className="sectionHead">
-      <div><h2>رفع الأكواد</h2></div>
+      <div><h2>{l('رفع الأكواد','Import codes')}</h2></div>
     </div>
 
     <div className="importGrid">
@@ -821,32 +825,32 @@ function ImportCodes({data,action,busy}) {
         await action('/api/admin/import-codes',form);
         setForm({...form,text:''});
       }}>
-        <label>السيرفر</label>
+        <label>{l('السيرفر','Server')}</label>
         <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value})} required>
-          <option value="">اختر السيرفر</option>
+          <option value="">{l('اختر السيرفر','Select server')}</option>
           {data.servers.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}
         </select>
 
-        <label className="filePick">اختيار ملف TXT<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
-        <textarea rows="14" placeholder="أو الصق الأكواد هنا — كود واحد في كل سطر" value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
-        <button className="primary" disabled={busy||unique.size===0||!form.serverId}>استيراد المخزون</button>
+        <label className="filePick">{l('اختيار ملف TXT','Choose TXT file')}<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
+        <textarea rows="14" placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')} value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
+        <button className="primary" disabled={busy||unique.size===0||!form.serverId}>{l('استيراد','Import')}</button>
       </form>
 
       <div className="previewBox">
-        <span>معاينة قبل الرفع</span>
+        <span>{l('معاينة','Preview')}</span>
         <strong>{num(unique.size)}</strong>
-        <b>كود فريد</b>
+        <b>{l('كود فريد','unique codes')}</b>
         <div>
-          <em>{num(lines.length)} سطر</em>
-          <em>{num(lines.length-nonBlank.length)} فارغ</em>
-          <em>{num(nonBlank.length-unique.size)} مكرر داخل الملف</em>
+          <em>{num(lines.length)} {l('سطر','lines')}</em>
+          <em>{num(lines.length-nonBlank.length)} {l('فارغ','blank')}</em>
+          <em>{num(nonBlank.length-unique.size)} {l('مكرر','duplicates')}</em>
         </div>
-        <p>المكرر يتم تجاهله تلقائيًا.</p>
       </div>
     </div>
   </section>;
 }
 function CreateReseller({action,busy}) {
+  const {l}=useLanguage();
   const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
   const [showPassword,setShowPassword]=useState(false);
 
@@ -861,14 +865,13 @@ function CreateReseller({action,busy}) {
     <div className="acmCreateHead">
       <div className="acmCreateIcon"><NavIcon name="userPlus"/></div>
       <div>
-        <h2>إنشاء موزع</h2>
-        <span>حساب موزع جديد</span>
+        <h2>{l('إنشاء موزع','Create reseller')}</h2>
       </div>
     </div>
 
     <form className="acmCreateGrid" onSubmit={submit}>
       <label className="acmField">
-        <span>اسم المستخدم</span>
+        <span>{l('اسم المستخدم','Username')}</span>
         <input
           dir="ltr"
           placeholder="Username"
@@ -880,7 +883,7 @@ function CreateReseller({action,busy}) {
       </label>
 
       <label className="acmField">
-        <span>كلمة المرور</span>
+        <span>{l('كلمة المرور','Password')}</span>
         <div className="acmPasswordBox">
           <input
             dir="ltr"
@@ -892,22 +895,22 @@ function CreateReseller({action,busy}) {
             required
           />
           <button type="button" onClick={()=>setShowPassword(v=>!v)}>
-            {showPassword?'إخفاء':'إظهار'}
+            {showPassword?l('إخفاء','Hide'):l('إظهار','Show')}
           </button>
         </div>
       </label>
 
       <label className="acmField">
-        <span>اسم الموزع <em>اختياري</em></span>
+        <span>{l('اسم الموزع','Display name')} <em>{l('اختياري','Optional')}</em></span>
         <input
-          placeholder="اسم العرض"
+          placeholder={l('اسم العرض','Display name')}
           value={form.displayName}
           onChange={e=>setForm({...form,displayName:e.target.value})}
         />
       </label>
 
       <label className="acmField">
-        <span>البريد الإلكتروني <em>اختياري</em></span>
+        <span>{l('البريد الإلكتروني','Email')} <em>{l('اختياري','Optional')}</em></span>
         <input
           dir="ltr"
           type="email"
@@ -918,7 +921,7 @@ function CreateReseller({action,busy}) {
       </label>
 
       <label className="acmField acmStartCredit">
-        <span>رصيد البداية</span>
+        <span>{l('رصيد البداية','Starting credit')}</span>
         <div className="acmCreditInput">
           <input
             dir="ltr"
@@ -933,10 +936,9 @@ function CreateReseller({action,busy}) {
       </label>
 
       <div className="acmCreateActions">
-        <span className="acmStatusNote"><i/> الحساب يُنشأ نشطًا</span>
         <button className="acmPrimaryBtn acmCreateBtn" disabled={busy}>
           <NavIcon name="userPlus"/>
-          <span>{busy?'جارٍ الإنشاء…':'إنشاء الموزع'}</span>
+          <span>{busy?l('جارٍ الإنشاء…','Creating…'):l('إنشاء الموزع','Create reseller')}</span>
         </button>
       </div>
     </form>
@@ -944,13 +946,14 @@ function CreateReseller({action,busy}) {
 }
 
 function ManageResellers({data,action,busy}) {
+  const {lang,l}=useLanguage();
   const [amounts,setAmounts]=useState({});
   const [openId,setOpenId]=useState(null);
 
   function countryName(code){
-    if(!code) return 'غير متاح';
+    if(!code) return l('غير متاح','Unavailable');
     try{
-      return new Intl.DisplayNames(['ar'],{type:'region'}).of(String(code).toUpperCase())||code;
+      return new Intl.DisplayNames([lang==='en'?'en':'ar'],{type:'region'}).of(String(code).toUpperCase())||code;
     }catch{return code;}
   }
 
@@ -961,7 +964,7 @@ function ManageResellers({data,action,busy}) {
     await action('/api/admin/credit-adjust',{
       resellerId:reseller.id,
       amount,
-      note:direction==='minus'?'خصم رصيد من إدارة الموزعين':'إضافة رصيد من إدارة الموزعين'
+      note:direction==='minus'?l('خصم رصيد','Credit deduction'):l('إضافة رصيد','Credit addition')
     });
     setAmounts(v=>({...v,[reseller.id]:''}));
   }
@@ -969,23 +972,23 @@ function ManageResellers({data,action,busy}) {
   return <section className="section resellerManagementPage">
     <div className="resellerManagementHeader">
       <div>
-        <h2>إدارة الموزعين</h2>
-        <span>{num(data.resellers.length)} موزع</span>
+        <h2>{l('إدارة الموزعين','Manage resellers')}</h2>
+        <span>{num(data.resellers.length)} {l('موزع','resellers')}</span>
       </div>
       <div className="managementSummary">
-        <div><span>إجمالي الرصيد</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.credits||0),0))}</b></div>
-        <div><span>إجمالي الأكواد</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.issued_codes||0),0))}</b></div>
+        <div><span>{l('إجمالي الرصيد','Total credit')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.credits||0),0))}</b></div>
+        <div><span>{l('إجمالي الأكواد','Total codes')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.issued_codes||0),0))}</b></div>
       </div>
     </div>
 
-    {data.resellers.length===0 ? <div className="emptyState compact">لا يوجد موزعون حتى الآن.</div> :
+    {data.resellers.length===0 ? <div className="emptyState compact">{l('لا يوجد موزعون.','No resellers.')}</div> :
       <div className="resellerAccordion">
         {data.resellers.map(r=>{
           const open=openId===r.id;
           const d=r.last_login_at?new Date(r.last_login_at):null;
           const lastLogin=d&&!Number.isNaN(d.getTime())
-            ? d.toLocaleString('ar-EG',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
-            : 'لم يسجل دخول بعد';
+            ? d.toLocaleString(lang==='en'?'en-US':'ar-EG',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+            : l('لم يسجل دخول بعد','No login yet');
 
           return <article className={'resellerAccordionCard '+(open?'open':'')} key={r.id}>
             <button
@@ -1004,11 +1007,11 @@ function ManageResellers({data,action,busy}) {
 
               <div className="resellerCompactStats">
                 <div><strong>{num(r.credits)}</strong><span>Credit</span></div>
-                <div><strong>{num(r.issued_codes)}</strong><span>كود</span></div>
+                <div><strong>{num(r.issued_codes)}</strong><span>{l('كود','codes')}</span></div>
               </div>
 
               <span className={'resellerStatus '+(r.status==='active'?'active':'blocked')}>
-                {r.status==='active'?'نشط':'متوقف'}
+                {r.status==='active'?l('نشط','Active'):l('متوقف','Disabled')}
               </span>
 
               <span className="resellerAccordionToggle">{open?'−':'+'}</span>
@@ -1016,17 +1019,17 @@ function ManageResellers({data,action,busy}) {
 
             {open&&<div className="resellerAccordionDetails">
               <div className="resellerDetailGrid">
-                <div><span>الدولة</span><b>{countryName(r.last_country)}</b></div>
-                <div><span>IP آخر دخول</span><b className="mono resellerIp">{r.last_login_ip||'—'}</b></div>
-                <div><span>آخر دخول</span><b>{lastLogin}</b></div>
+                <div><span>{l('الدولة','Country')}</span><b>{countryName(r.last_country)}</b></div>
+                <div><span>{l('IP آخر دخول','Last login IP')}</span><b className="mono resellerIp">{r.last_login_ip||'—'}</b></div>
+                <div><span>{l('آخر دخول','Last login')}</span><b>{lastLogin}</b></div>
                 <div><span>Email</span><b>{r.email||'—'}</b></div>
-                <div><span>الرصيد الحالي</span><b>{num(r.credits)} Credit</b></div>
-                <div><span>إجمالي الأكواد</span><b>{num(r.issued_codes)}</b></div>
+                <div><span>{l('الرصيد الحالي','Current credit')}</span><b>{num(r.credits)} Credit</b></div>
+                <div><span>{l('إجمالي الأكواد','Total codes')}</span><b>{num(r.issued_codes)}</b></div>
               </div>
 
               <div className="resellerCreditPocket">
                 <div className="resellerCreditField">
-                  <span>تعديل الرصيد</span>
+                  <span>{l('تعديل الرصيد','Adjust credit')}</span>
                   <div className="creditMiniInput">
                     <input
                       type="number"
@@ -1046,13 +1049,13 @@ function ManageResellers({data,action,busy}) {
                     className="creditAddBtn"
                     disabled={busy||Number(amounts[r.id]||0)<=0}
                     onClick={()=>adjustCredit(r,'plus')}
-                  ><span>+</span> إضافة</button>
+                  ><span>+</span> {l('إضافة','Add')}</button>
                   <button
                     type="button"
                     className="creditMinusBtn"
                     disabled={busy||Number(amounts[r.id]||0)<=0}
                     onClick={()=>adjustCredit(r,'minus')}
-                  ><span>−</span> خصم</button>
+                  ><span>−</span> {l('خصم','Deduct')}</button>
                 </div>
               </div>
             </div>}
