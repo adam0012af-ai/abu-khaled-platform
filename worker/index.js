@@ -212,6 +212,29 @@ async function stock(env){
   return {servers,packages};
 }
 
+async function resellerCatalog(env){
+  const servers=(await env.DB.prepare("SELECT s.id,s.name,s.slug,s.active,s.sort_order,p.id package_id,p.credit_cost FROM servers s JOIN packages p ON p.server_id=s.id AND p.active=1 WHERE s.active=1 GROUP BY s.id ORDER BY s.sort_order,s.name").all()).results||[];
+  return {
+    servers:servers.map(s=>({
+      id:s.id,
+      name:s.name,
+      slug:s.slug,
+      active:Number(s.active),
+      sort_order:Number(s.sort_order||0),
+      package_id:s.package_id,
+      credit_cost:Number(s.credit_cost||0)
+    })),
+    packages:servers.map(s=>({
+      id:s.package_id,
+      server_id:s.id,
+      name:'سنوي',
+      duration_label:'12 Months',
+      credit_cost:Number(s.credit_cost||0),
+      active:1
+    }))
+  };
+}
+
 async function login(request,env){
   const body=await bodyJson(request);
   const identifier=clean(body.identifier||body.username,120);
@@ -261,7 +284,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-db-auth-v5',
+      version:'worker-annual-credit-split-v1',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
@@ -313,7 +336,9 @@ async function api(request,env){
   }
 
   if(path==='/api/me' && method==='GET') return json({user:publicUser(user),csrf:user.csrf_token});
-  if(path==='/api/servers' && method==='GET') return json(await stock(env));
+  if(path==='/api/servers' && method==='GET'){
+    return json(user.role==='admin' ? await stock(env) : await resellerCatalog(env));
+  }
 
   if(path==='/api/apps' && method==='GET'){
     const rows=(await env.DB.prepare("SELECT id,name,platform,version,description,download_url,visibility,created_at FROM apps WHERE active=1 AND (visibility='all' OR visibility=?) ORDER BY created_at DESC LIMIT 100").bind(user.role).all()).results||[];
@@ -354,7 +379,7 @@ async function api(request,env){
   if(path==='/api/credit-requests' && method==='POST'){
     if(user.role!=='reseller') return json({error:'RESELLER_ONLY'},403);
     const body=await bodyJson(request), amount=Math.trunc(Number(body.amount));
-    if(!Number.isFinite(amount)||amount<=0||amount>100000) return json({error:'INVALID_AMOUNT'},400);
+    if(!Number.isSafeInteger(amount)||amount<=0) return json({error:'INVALID_AMOUNT'},400);
     const id=uid('crq');
     await env.DB.prepare("INSERT INTO credit_requests(id,reseller_id,amount,note,status,created_at) VALUES(?,?,?,?,'pending',?)").bind(id,user.id,amount,clean(body.note,300),now()).run();
     await audit(env,request,user,'CREDIT_REQUEST_CREATED','credit_request',id,{amount});
@@ -364,19 +389,20 @@ async function api(request,env){
   if(path==='/api/issue' && method==='POST'){
     if(user.role!=='reseller') return json({error:'RESELLER_ONLY'},403);
     const body=await bodyJson(request);
-    const serverId=clean(body.serverId,80), packageId=clean(body.packageId,80), customerRef=clean(body.customerRef,120);
+    const serverId=clean(body.serverId,80), customerRef=clean(body.customerRef,120);
     const quantity=Math.trunc(Number(body.quantity||1));
-    if(!serverId||!packageId||quantity<1||quantity>100) return json({error:'INVALID_ISSUE_REQUEST'},400);
+    if(!serverId||quantity<1||quantity>100) return json({error:'INVALID_ISSUE_REQUEST'},400);
 
-    const pack=await env.DB.prepare("SELECT p.*,s.name server_name FROM packages p JOIN servers s ON s.id=p.server_id WHERE p.id=? AND p.server_id=? AND p.active=1 AND s.active=1 LIMIT 1").bind(packageId,serverId).first();
+    const pack=await env.DB.prepare("SELECT p.*,s.name server_name FROM packages p JOIN servers s ON s.id=p.server_id WHERE p.server_id=? AND p.active=1 AND s.active=1 ORDER BY p.sort_order,p.created_at LIMIT 1").bind(serverId).first();
     if(!pack) return json({error:'SERVER_PACKAGE_MISMATCH'},409);
+    const packageId=pack.id;
 
     const fresh=await env.DB.prepare("SELECT id,credits,status FROM users WHERE id=? AND role='reseller'").bind(user.id).first();
     const total=Number(pack.credit_cost)*quantity;
     if(!fresh||fresh.status!=='active'||Number(fresh.credits)<total) return json({error:'INSUFFICIENT_CREDIT'},409);
 
     const available=await env.DB.prepare("SELECT COUNT(*) count FROM codes WHERE server_id=? AND package_id=? AND status='available'").bind(serverId,packageId).first();
-    if(Number(available?.count||0)<quantity) return json({error:'INSUFFICIENT_STOCK',available:Number(available?.count||0)},409);
+    if(Number(available?.count||0)<quantity) return json({error:'INSUFFICIENT_STOCK'},409);
 
     const orderId=uid('ord'), txId=uid('ctx'), guardCredit=uid('grd'), guardStock=uid('grd'), at=now();
     const before=Number(fresh.credits), after=before-total;
@@ -411,7 +437,7 @@ async function api(request,env){
     const username=clean(body.username,80), email=clean(body.email,120).toLowerCase(), password=String(body.password||'');
     const displayName=clean(body.displayName,80)||username;
     const credits=Math.max(0,Math.trunc(Number(body.credits||0)));
-    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||credits>1000000) return json({error:'INVALID_RESELLER'},400);
+    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||!Number.isSafeInteger(credits)) return json({error:'INVALID_RESELLER'},400);
     const salt=randomToken(18), id=uid('usr'), at=now();
     try{
       await env.DB.batch([
@@ -424,7 +450,7 @@ async function api(request,env){
 
   if(path==='/api/admin/credit-adjust' && method==='POST'){
     const body=await bodyJson(request), resellerId=clean(body.resellerId,80), amount=Math.trunc(Number(body.amount));
-    if(!resellerId||!Number.isFinite(amount)||amount===0||Math.abs(amount)>1000000) return json({error:'INVALID_ADJUSTMENT'},400);
+    if(!resellerId||!Number.isSafeInteger(amount)||amount===0) return json({error:'INVALID_ADJUSTMENT'},400);
     const target=await env.DB.prepare("SELECT id,credits FROM users WHERE id=? AND role='reseller'").bind(resellerId).first();
     if(!target) return json({error:'RESELLER_NOT_FOUND'},404);
     const before=Number(target.credits), after=before+amount;
@@ -444,12 +470,16 @@ async function api(request,env){
 
   if(path==='/api/admin/servers' && method==='POST'){
     const body=await bodyJson(request), name=clean(body.name,60), slug=slugify(body.slug||body.name), threshold=Math.max(0,Math.trunc(Number(body.lowStockThreshold||10)));
-    if(!name||!slug) return json({error:'INVALID_SERVER'},400);
-    const id=uid('srv');
+    const creditCost=Math.max(0,Math.trunc(Number(body.creditCost??1)));
+    if(!name||!slug||!Number.isSafeInteger(creditCost)) return json({error:'INVALID_SERVER'},400);
+    const id=uid('srv'), packageId=uid('pkg'), at=now();
     try{
-      await env.DB.prepare("INSERT INTO servers(id,name,slug,active,low_stock_threshold,sort_order,created_at) VALUES(?,?,?,1,?,?,?)").bind(id,name,slug,threshold,Math.trunc(Number(body.sortOrder||100)),now()).run();
-      await audit(env,request,user,'SERVER_CREATED','server',id,{name,slug,threshold});
-      return json({ok:true,id},201);
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO servers(id,name,slug,active,low_stock_threshold,sort_order,created_at) VALUES(?,?,?,1,?,?,?)").bind(id,name,slug,threshold,Math.trunc(Number(body.sortOrder||100)),at),
+        env.DB.prepare("INSERT INTO packages(id,server_id,name,duration_label,credit_cost,active,sort_order,created_at) VALUES(?,?,'سنوي','12 Months',?,1,10,?)").bind(packageId,id,creditCost,at)
+      ]);
+      await audit(env,request,user,'SERVER_CREATED','server',id,{name,slug,threshold,creditCost,duration:'12 Months'});
+      return json({ok:true,id,packageId},201);
     }catch{return json({error:'SERVER_EXISTS'},409);}
   }
 
