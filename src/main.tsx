@@ -72,6 +72,7 @@ const ADMIN_ROUTE_TO_TAB = {
   codes:'issued',
   credit:'credit',
   apps:'apps',
+  sharing:'sharing',
   logs:'logs',
   profile:'profile'
 };
@@ -81,6 +82,7 @@ const RESELLER_ROUTE_TO_TAB = {
   codes:'mycodes',
   credit:'credit',
   apps:'apps',
+  sharing:'sharing',
   logs:'logs',
   profile:'profile'
 };
@@ -427,6 +429,7 @@ function NavIcon({name}) {
     issue:<><path d="M6 4h9l3 3v13H6z"/><path d="M14 4v4h4M9 13h6M12 10v6"/></>,
     credit:<><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h18M7 15h4"/></>,
     apps:<><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
+    sharing:<><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.9 7.6-3.8M8.2 13.1l7.6 3.8"/></>,
     logs:<><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></>,
     profile:<><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></>
   };
@@ -448,6 +451,7 @@ function Panel({ user, csrf, onLogout }) {
     {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
     {id:'credit',label:l('طلبات الكريدت','Credit requests'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
+    {id:'sharing',label:l('الشيرنج','Sharing'),icon:'sharing'},
     {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'},
     {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
@@ -457,6 +461,7 @@ function Panel({ user, csrf, onLogout }) {
     {id:'mycodes',label:l('أكوادي','My codes'),icon:'codes'},
     {id:'credit',label:l('طلب كريدت','Request credit'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
+    {id:'sharing',label:l('الشيرنج','Sharing'),icon:'sharing'},
     {id:'logs',label:l('السجل','Activity'),icon:'logs'},
     {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
@@ -744,7 +749,8 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
-            {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+            {tab==='sharing' && <Sharing/>}
+            {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
             {tab==='profile' && <ProfilePage profile={data.profile||user} user={user} call={call} logout={logout}/>}
           </section>}
         </div>
@@ -753,6 +759,38 @@ function Panel({ user, csrf, onLogout }) {
   );
 }
 
+
+function Sharing(){
+  const {l}=useLanguage();
+  const services=[
+    {key:'gosat-plus',nameAr:'جو سات بلس',nameEn:'GoSat Plus',tag:'PLUS'},
+    {key:'nasher',nameAr:'ناشر عادي',nameEn:'Nasher',tag:'STANDARD'},
+    {key:'nasher-pro-osn',nameAr:'ناشر برو OSN',nameEn:'Nasher Pro OSN',tag:'PRO'},
+    {key:'nasher-pro-bein',nameAr:'ناشر برو beIN Sports',nameEn:'Nasher Pro beIN Sports',tag:'PRO'}
+  ];
+
+  return <section className="section sharingSection">
+    <div className="sectionHead sharingHead">
+      <div>
+        <h2>{l('الشيرنج','Sharing')}</h2>
+      </div>
+      <small>{services.length}</small>
+    </div>
+
+    <div className="sharingGrid">
+      {services.map((service,index)=><article className="sharingCard" key={service.key}>
+        <div className="sharingCardIcon">
+          <NavIcon name="sharing"/>
+        </div>
+        <div className="sharingCardCopy">
+          <span>{String(index+1).padStart(2,'0')}</span>
+          <h3>{l(service.nameAr,service.nameEn)}</h3>
+          <small>{service.tag}</small>
+        </div>
+      </article>)}
+    </div>
+  </section>;
+}
 
 function ProfilePage({profile,user,call,logout}) {
   const {lang,l}=useLanguage();
