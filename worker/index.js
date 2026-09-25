@@ -497,14 +497,15 @@ async function api(request,env){
   }
 
   if(path==='/api/admin/import-codes' && method==='POST'){
-    const body=await bodyJson(request), serverId=clean(body.serverId,80), packageId=clean(body.packageId,80), filename=clean(body.filename||'codes.txt',120);
+    const body=await bodyJson(request), serverId=clean(body.serverId,80), filename=clean(body.filename||'codes.txt',120);
     const lines=String(body.text||'').replace(/\r/g,'').split('\n');
     const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
     const unique=Array.from(new Set(nonBlank));
-    if(!serverId||!packageId||unique.length===0) return json({error:'EMPTY_IMPORT'},400);
+    if(!serverId||unique.length===0) return json({error:'EMPTY_IMPORT'},400);
     if(unique.length>700) return json({error:'IMPORT_LIMIT_700'},413);
-    const pack=await env.DB.prepare("SELECT id FROM packages WHERE id=? AND server_id=?").bind(packageId,serverId).first();
+    const pack=await env.DB.prepare("SELECT id FROM packages WHERE server_id=? AND active=1 ORDER BY sort_order,created_at LIMIT 1").bind(serverId).first();
     if(!pack) return json({error:'SERVER_PACKAGE_MISMATCH'},409);
+    const packageId=pack.id;
 
     const existingRows=(await env.DB.prepare("SELECT code FROM codes WHERE code IN ("+unique.slice(0,90).map(()=>'?').join(',')+")").bind(...unique.slice(0,90)).all()).results||[];
     const existing=new Set(existingRows.map(r=>r.code));
