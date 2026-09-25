@@ -532,6 +532,8 @@ function Resellers({data,action,busy}) {
 }
 
 function Codes({codes,admin=false}) {
+  const [openId,setOpenId]=useState(null);
+
   async function copy(v){await navigator.clipboard.writeText(v);}
   function download(){
     const text=codes.map(x=>x.code).join('\n');
@@ -548,51 +550,47 @@ function Codes({codes,admin=false}) {
       {codes.length>0&&<button className="secondary" onClick={download}>تنزيل TXT</button>}
     </div>
 
-    {codes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> : <>
-      <div className="desktopCodes">
-        <Table>
-          <thead><tr><th>الكود</th><th>السيرفر</th>{admin&&<th>الموزع</th>}<th>العميل</th><th>التاريخ</th>{admin&&<th>عملية</th>}</tr></thead>
-          <tbody>{codes.map(c=><tr key={c.id}>
-            <td><button className="codeBtn mono" onClick={()=>copy(c.code)}>{c.code}</button></td>
-            <td>{c.server_name}</td>
-            {admin&&<td>{c.reseller_name||c.reseller_username}</td>}
-            <td>{c.customer_ref||'—'}</td>
-            <td>{fmt(c.issued_at)}</td>
-            {admin&&<td className="mono tiny">{c.order_id}</td>}
-          </tr>)}</tbody>
-        </Table>
-      </div>
-
-      <div className="mobileCodes">
+    {codes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> :
+      <div className="codesAccordion">
         {codes.map(c=>{
+          const isOpen=openId===c.id;
           const d=c.issued_at?new Date(c.issued_at):null;
           const dateText=d&&!Number.isNaN(d.getTime())?d.toLocaleDateString('ar-EG',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
           const timeText=d&&!Number.isNaN(d.getTime())?d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'—';
-          return <article className="myCodeCard" key={c.id}>
-            <div className="myCodeHeader">
-              <div className="serverIdentity">
+
+          return <article className={'codeAccordionCard '+(isOpen?'open':'')} key={c.id}>
+            <button
+              type="button"
+              className="codeAccordionSummary"
+              onClick={()=>setOpenId(isOpen?null:c.id)}
+              aria-expanded={isOpen}
+            >
+              <div className="codeAccordionServer">
                 <span>السيرفر</span>
                 <b>{c.server_name}</b>
               </div>
-              <span className="activeCodeStatus">مفعّل</span>
-            </div>
 
-            <div className="codeLabel">الكود</div>
-            <button className="myCodeValue mono" onClick={()=>copy(c.code)}>{c.code}</button>
+              <div className="codeAccordionCode mono">{c.code}</div>
 
-            <div className="myCodeDetails">
-              {admin&&<div><span>الموزع</span><b>{c.reseller_name||c.reseller_username}</b></div>}
-              <div><span>العميل</span><b>{c.customer_ref||'—'}</b></div>
-              <div><span>تاريخ السحب</span><b>{dateText}</b></div>
-              <div><span>الوقت</span><b>{timeText}</b></div>
-              <div><span>التكلفة</span><b>{num(c.unit_cost||0)} Credit</b></div>
-            </div>
+              <span className="codeAccordionStatus">مفعّل</span>
+              <span className="codeAccordionToggle">{isOpen?'−':'+'}</span>
+            </button>
 
-            <button className="copyCodeBtn" onClick={()=>copy(c.code)}>نسخ الكود</button>
+            {isOpen&&<div className="codeAccordionDetails">
+              <div className="codeDetailGrid">
+                {admin&&<div><span>الموزع</span><b>{c.reseller_name||c.reseller_username||'—'}</b></div>}
+                <div><span>العميل</span><b>{c.customer_ref||'—'}</b></div>
+                <div><span>تاريخ السحب</span><b>{dateText}</b></div>
+                <div><span>الوقت</span><b>{timeText}</b></div>
+                <div><span>المدة</span><b>سنوي</b></div>
+              </div>
+
+              <button type="button" className="copyCodeBtn" onClick={()=>copy(c.code)}>نسخ الكود</button>
+            </div>}
           </article>
         })}
       </div>
-    </>}
+    }
   </section>;
 }
 function Issue({data,action,busy}) {
