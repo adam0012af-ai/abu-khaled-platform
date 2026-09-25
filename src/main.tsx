@@ -87,28 +87,33 @@ function Table({ children }) {
 
 function Panel({ user, csrf, onLogout }) {
   const isAdmin = user.role === 'admin';
-  const adminTabs = [
-    ['overview','الرئيسية','⌂'],
-    ['servers','السيرفرات والباقات','◉'],
-    ['import','رفع الأكواد','⇧'],
-    ['resellers','الموزعون','♟'],
-    ['issued','الأكواد المفعلة','▣'],
-    ['credit','طلبات الكريدت','◈'],
-    ['apps','التطبيقات والسوفت وير','A'],
-    ['logs','السجل الكامل','◷']
+  const adminNav = [
+    {id:'overview',label:'الرئيسية',icon:'⌂'},
+    {id:'servers',label:'إضافة سيرفر',icon:'◉'},
+    {id:'inventory',label:'المخزون',icon:'▦'},
+    {id:'import',label:'رفع الأكواد',icon:'⇧'},
+    {id:'resellers',label:'الموزعون',icon:'♟',children:[
+      {id:'reseller-create',label:'إنشاء موزع'},
+      {id:'reseller-manage',label:'إدارة الموزعين'}
+    ]},
+    {id:'issued',label:'الأكواد المفعلة',icon:'▣'},
+    {id:'credit',label:'طلبات الكريدت',icon:'◈'},
+    {id:'apps',label:'التطبيقات والسوفت وير',icon:'A'},
+    {id:'logs',label:'السجل الكامل',icon:'◷'}
   ];
-  const resellerTabs = [
-    ['overview','الرئيسية','⌂'],
-    ['issue','إنشاء الأكواد','＋'],
-    ['mycodes','أكوادي','▣'],
-    ['credit','طلب كريدت','◈'],
-    ['apps','التطبيقات والسوفت وير','A'],
-    ['logs','السجل','◷']
+  const resellerNav = [
+    {id:'overview',label:'الرئيسية',icon:'⌂'},
+    {id:'issue',label:'إنشاء الأكواد',icon:'＋'},
+    {id:'mycodes',label:'أكوادي',icon:'▣'},
+    {id:'credit',label:'طلب كريدت',icon:'◈'},
+    {id:'apps',label:'التطبيقات والسوفت وير',icon:'A'},
+    {id:'logs',label:'السجل',icon:'◷'}
   ];
-  const tabs = isAdmin ? adminTabs : resellerTabs;
+  const navItems = isAdmin ? adminNav : resellerNav;
 
-  const [tab,setTab] = useState(tabs[0][0]);
+  const [tab,setTab] = useState('overview');
   const [menuOpen,setMenuOpen] = useState(false);
+  const [resellerPocketOpen,setResellerPocketOpen] = useState(false);
   const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
@@ -149,7 +154,7 @@ function Panel({ user, csrf, onLogout }) {
       setData(next);
     } catch (e) {
       if (String(e.message).includes('UNAUTHORIZED')) onLogout(true);
-      else setNotice('تعذر تحديث بعض البيانات.');
+      else setNotice('تعذر تحديث البيانات.');
     }
   }
 
@@ -160,12 +165,7 @@ function Panel({ user, csrf, onLogout }) {
     const y=window.scrollY;
     const body=document.body;
     const html=document.documentElement;
-    const oldBody={
-      position:body.style.position,
-      top:body.style.top,
-      width:body.style.width,
-      overflow:body.style.overflow
-    };
+    const oldBody={position:body.style.position,top:body.style.top,width:body.style.width,overflow:body.style.overflow};
     const oldHtmlOverflow=html.style.overflow;
     const oldOverscroll=html.style.overscrollBehavior;
 
@@ -198,12 +198,13 @@ function Panel({ user, csrf, onLogout }) {
       const map = {
         INSUFFICIENT_CREDIT:'الرصيد غير كافٍ.',
         INSUFFICIENT_STOCK:'',
-        SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
-        ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
+        SERVER_PACKAGE_MISMATCH:'تعذر تحديد السيرفر.',
+        ISSUE_CONFLICT_RETRY:'تعذر التفعيل. حاول مرة أخرى.',
         IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع.',
         NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.',
-        INVALID_RESELLER:'اكتب Username وPassword. لا يوجد حد أدنى.',
-        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.'
+        INVALID_RESELLER:'تحقق من بيانات الموزع.',
+        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.',
+        INVALID_APP:'تحقق من رابط الصورة ورابط التحميل.'
       };
       if(e.message==='INSUFFICIENT_STOCK'){
         setNotice('');
@@ -219,7 +220,10 @@ function Panel({ user, csrf, onLogout }) {
     onLogout();
   }
 
-  const activeLabel=tabs.find(x=>x[0]===tab)?.[1]||'الرئيسية';
+  function goTo(id){
+    setTab(id);
+    setMenuOpen(false);
+  }
 
   return (
     <div className="panelShell">
@@ -232,25 +236,48 @@ function Panel({ user, csrf, onLogout }) {
         <div className="sidebarLabel">NAVIGATION</div>
 
         <nav className="sidebarNav">
-          {tabs.map(([id,label,icon])=>
-            <button
-              key={id}
-              className={tab===id?'active':''}
-              onClick={()=>{setTab(id);setMenuOpen(false);}}
+          {navItems.map(item=>{
+            if(item.children){
+              const childActive=item.children.some(x=>x.id===tab);
+              return <div className={'sidebarPocket '+(childActive?'active':'')} key={item.id}>
+                <button
+                  type="button"
+                  className={'sidebarPocketHead '+(childActive?'active':'')}
+                  onClick={()=>setResellerPocketOpen(v=>!v)}
+                >
+                  <span className="sidebarIcon">{item.icon}</span>
+                  <span className="sidebarText">{item.label}</span>
+                  <span className="sidebarPocketArrow">{resellerPocketOpen?'−':'+'}</span>
+                </button>
+                {resellerPocketOpen&&<div className="sidebarSubnav">
+                  {item.children.map(child=><button
+                    type="button"
+                    key={child.id}
+                    className={tab===child.id?'active':''}
+                    onClick={()=>goTo(child.id)}
+                  >{child.label}</button>)}
+                </div>}
+              </div>;
+            }
+            return <button
+              type="button"
+              key={item.id}
+              className={tab===item.id?'active':''}
+              onClick={()=>goTo(item.id)}
             >
-              <span className="sidebarIcon">{icon}</span>
-              <span className="sidebarText">{label}</span>
-              {id==='overview' && isAdmin &&
+              <span className="sidebarIcon">{item.icon}</span>
+              <span className="sidebarText">{item.label}</span>
+              {item.id==='overview' && isAdmin &&
                 <span className="sidebarBadge">{num(data.dashboard?.counts?.available||0)}</span>}
-            </button>
-          )}
+            </button>;
+          })}
         </nav>
 
         <div className="sidebarUser">
           <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
           <div>
             <b>{user.displayName||user.username}</b>
-            <span>{isAdmin?'UNLIMITED CREDIT':num(data.dashboard?.user?.credits ?? user.credits)+' CREDIT'}</span>
+            <span>{isAdmin?'ADMIN':num(data.dashboard?.user?.credits ?? user.credits)+' CREDIT'}</span>
           </div>
         </div>
 
@@ -262,9 +289,8 @@ function Panel({ user, csrf, onLogout }) {
       <main className="contentArea">
         <header className="contentHeader">
           <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
-          <div>
+          <div className="contentBrand">
             <span>ACTIVE CODE MULTI</span>
-            <h1>{activeLabel}</h1>
           </div>
         </header>
 
@@ -273,9 +299,11 @@ function Panel({ user, csrf, onLogout }) {
         <div className="pageContent">
           {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
           {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
-          {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>} 
+          {tab==='servers' && isAdmin && <Servers action={action} busy={busy}/>}
+          {tab==='inventory' && isAdmin && <Inventory data={data}/>}
           {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
-          {tab==='resellers' && isAdmin && <Resellers data={data} action={action} busy={busy}/>}
+          {tab==='reseller-create' && isAdmin && <CreateReseller action={action} busy={busy}/>}
+          {tab==='reseller-manage' && isAdmin && <ManageResellers data={data} action={action} busy={busy}/>}
           {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
           {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
           {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
@@ -292,89 +320,64 @@ function Panel({ user, csrf, onLogout }) {
 function AdminOverview({data}) {
   const c=data.dashboard?.counts||{};
   const stats=[
-    ['إجمالي الأكواد',c.total_codes],
-    ['الأكواد المتاحة',c.available],
-    ['الأكواد المفعلة',c.issued],
-    ['الموزعون',c.resellers],
-    ['طلبات الكريدت',c.pending_requests],
-    ['رصيد الموزعين',c.reseller_credits]
+    {label:'إجمالي الأكواد',value:c.total_codes,tone:'blue'},
+    {label:'الأكواد المتاحة',value:c.available,tone:'green'},
+    {label:'الأكواد المفعلة',value:c.issued,tone:'violet'},
+    {label:'الموزعون',value:c.resellers,tone:'orange'},
+    {label:'طلبات الكريدت',value:c.pending_requests,tone:'pink'},
+    {label:'رصيد الموزعين',value:c.reseller_credits,tone:'cyan'}
   ];
 
-  return <>
-    <section className="section dashboardSummary">
-      <div className="sectionHead">
-        <div><span>DASHBOARD</span><h2>ملخص اللوحة</h2></div>
-        <div className="adminUnlimited"><span>رصيد الإدارة</span><b>∞</b><small>UNLIMITED</small></div>
+  return <section className="section dashboardSummary premiumDashboard">
+    <div className="dashboardHeader">
+      <div>
+        <h2>الرئيسية</h2>
+        <span>آخر حالة مسجلة للوحة</span>
       </div>
+      <div className="adminBalanceOpen">
+        <span>رصيد الإدارة</span>
+        <b>∞</b>
+      </div>
+    </div>
 
-      <div className="dashboardStats">
-        {stats.map(([label,value])=><div className="dashboardStat" key={label}>
-          <span>{label}</span>
-          <strong>{num(value)}</strong>
-        </div>)}
-      </div>
-    </section>
-
-    <section className="section referenceInventory">
-      <div className="referenceSectionTitle">
-        <h2>السيرفرات</h2>
-        <span>{num(data.servers.length)} سيرفر</span>
-      </div>
-      <div className="serverGrid">{data.servers.map(s=>{
-        const p=data.packages.find(p=>p.server_id===s.id&&Number(p.active)===1);
-        return <div className="serverCard" key={s.id}>
-          <div className="serverTop"><b>{s.name}</b><span>{Number(s.active)===1?'ACTIVE':'OFF'}</span></div>
-          <strong>{num(s.available_codes)}</strong>
-          <small>متاح</small>
-          <div className="serverFoot">
-            <span>الإجمالي {num(s.total_codes)}</span>
-            <span>المفعّل {num(s.issued_codes)}</span>
-          </div>
-          <div className="packageMini">
-            <div><span>سنوي</span><b>{num(p?.credit_cost||0)} Credit</b><em>12 Months</em></div>
-          </div>
-        </div>
-      })}</div>
-    </section>
-  </>;
+    <div className="dashboardStats premiumStats">
+      {stats.map(item=><div className={'dashboardStat '+item.tone} key={item.label}>
+        <span>{item.label}</span>
+        <strong>{num(item.value)}</strong>
+      </div>)}
+    </div>
+  </section>;
 }
 
 function ResellerOverview({data}) {
   const c=data.dashboard?.counts||{};
   const balance=Number(data.dashboard?.user?.credits||0);
-  const recentCodes=(data.codes||[]).slice(0,5);
-  const recentRequests=(data.requests||[]).slice(0,5);
+  const recentCodes=(data.codes||[]).slice(0,4);
+  const recentRequests=(data.requests||[]).slice(0,4);
 
   return <>
-    <section className="section dashboardSummary">
-      <div className="sectionHead">
-        <div><span>DASHBOARD</span><h2>ملخص الحساب</h2></div>
-      </div>
-
-      <div className="dashboardStats resellerStats">
-        <div className="dashboardStat balanceStat">
+    <section className="section resellerHome">
+      <div className="resellerHomeTop">
+        <div>
+          <h2>الرئيسية</h2>
+          <span>{data.dashboard?.user?.displayName||data.dashboard?.user?.username||''}</span>
+        </div>
+        <div className="resellerMainBalance">
           <span>الرصيد</span>
           <strong>{num(balance)}</strong>
           <small>CREDIT</small>
         </div>
-        <div className="dashboardStat">
-          <span>أكوادي</span>
-          <strong>{num(c.issued)}</strong>
-        </div>
-        <div className="dashboardStat">
-          <span>طلبات الرصيد المعلقة</span>
-          <strong>{num(c.pending_requests)}</strong>
-        </div>
-        <div className="dashboardStat">
-          <span>السيرفرات</span>
-          <strong>{num(data.servers.length)}</strong>
-        </div>
+      </div>
+
+      <div className="resellerQuickStats">
+        <div><span>أكوادي</span><strong>{num(c.issued)}</strong></div>
+        <div><span>طلبات الرصيد المعلقة</span><strong>{num(c.pending_requests)}</strong></div>
       </div>
     </section>
 
     <div className="twoCol dashboardDetails">
       <section className="section">
-        <div className="sectionHead"><div><span>RECENT CODES</span><h2>آخر الأكواد</h2></div></div>
+        <div className="sectionHead"><div><h2>آخر الأكواد</h2></div></div>
         {recentCodes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> :
           <div className="list">
             {recentCodes.map(x=><div className="listRow recentCodeRow" key={x.id}>
@@ -386,7 +389,7 @@ function ResellerOverview({data}) {
       </section>
 
       <section className="section">
-        <div className="sectionHead"><div><span>CREDIT</span><h2>طلبات الرصيد</h2></div></div>
+        <div className="sectionHead"><div><h2>طلبات الرصيد</h2></div></div>
         {recentRequests.length===0 ? <div className="emptyState compact">لا توجد طلبات رصيد.</div> :
           <div className="list">
             {recentRequests.map(r=><div className="listRow" key={r.id}>
@@ -399,14 +402,12 @@ function ResellerOverview({data}) {
     </div>
   </>;
 }
-function Servers({data,action,busy}) {
+
+function Servers({action,busy}) {
   const [server,setServer]=useState({name:'',lowStockThreshold:10,creditCost:1});
 
-  return <section className="section">
-    <div className="sectionHead">
-      <div><span>SERVERS</span><h2>السيرفرات السنوية</h2></div>
-      <small>كل سيرفر = اشتراك سنوي واحد</small>
-    </div>
+  return <section className="section focusedForm">
+    <div className="sectionHead"><div><h2>إضافة سيرفر</h2></div></div>
 
     <form className="formGrid" onSubmit={async e=>{
       e.preventDefault();
@@ -417,37 +418,47 @@ function Servers({data,action,busy}) {
       <input placeholder="مثال: Nova" value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
 
       <label>تكلفة الكود بالكريدت</label>
-      <input type="number" min="0" placeholder="مثال: 1" value={server.creditCost} onChange={e=>setServer({...server,creditCost:e.target.value})} required/>
+      <input type="number" min="0" value={server.creditCost} onChange={e=>setServer({...server,creditCost:e.target.value})} required/>
 
-      <label>تنبيه المخزون المنخفض</label>
-      <input type="number" min="0" placeholder="مثال: 10" value={server.lowStockThreshold} onChange={e=>setServer({...server,lowStockThreshold:e.target.value})}/>
+      <label>تنبيه انخفاض المخزون</label>
+      <input type="number" min="0" value={server.lowStockThreshold} onChange={e=>setServer({...server,lowStockThreshold:e.target.value})}/>
 
-      <button className="primary" disabled={busy}>إضافة سيرفر سنوي</button>
+      <button className="primary" disabled={busy}>إضافة سيرفر</button>
     </form>
+  </section>;
+}
 
-    <div className="serverGrid adminServerGrid">
+function Inventory({data}) {
+  return <section className="section">
+    <div className="sectionHead">
+      <div><h2>المخزون</h2></div>
+      <small>{num(data.servers.length)} سيرفر</small>
+    </div>
+
+    <div className="inventoryGrid">
       {data.servers.map(s=>{
         const p=data.packages.find(p=>p.server_id===s.id&&Number(p.active)===1);
-        return <div className="serverCard" key={s.id}>
-          <div className="serverTop"><b>{s.name}</b><span>{Number(s.active)===1?'ACTIVE':'OFF'}</span></div>
-          <strong>{num(s.available_codes)}</strong>
-          <small>كود متاح</small>
-          <div className="serverFoot">
-            <span>الإجمالي {num(s.total_codes)}</span>
-            <span>المفعّل {num(s.issued_codes)}</span>
+        const low=Number(s.available_codes)<=Number(s.low_stock_threshold||0);
+        return <article className={'inventoryCard '+(low?'low':'')} key={s.id}>
+          <div className="inventoryCardHead">
+            <div><span>السيرفر</span><b>{s.name}</b></div>
+            <em>{Number(s.active)===1?'نشط':'متوقف'}</em>
           </div>
-          <div className="packageMini">
-            <div>
-              <span>سنوي · 12 Months</span>
-              <b>{num(p?.credit_cost||0)} Credit</b>
-              <em>ثابت للسيرفر</em>
-            </div>
+          <div className="inventoryNumbers">
+            <div><span>المتاح</span><strong>{num(s.available_codes)}</strong></div>
+            <div><span>المفعّل</span><strong>{num(s.issued_codes)}</strong></div>
+            <div><span>الإجمالي</span><strong>{num(s.total_codes)}</strong></div>
           </div>
-        </div>
+          <div className="inventoryFoot">
+            <span>{num(p?.credit_cost||0)} Credit</span>
+            <span>تنبيه عند {num(s.low_stock_threshold||0)}</span>
+          </div>
+        </article>
       })}
     </div>
   </section>;
 }
+
 function ImportCodes({data,action,busy}) {
   const [form,setForm]=useState({serverId:'',filename:'codes.txt',text:''});
   const lines=form.text.replace(/\r/g,'').split('\n');
@@ -462,8 +473,7 @@ function ImportCodes({data,action,busy}) {
 
   return <section className="section">
     <div className="sectionHead">
-      <div><span>ANNUAL TXT STOCK</span><h2>رفع الأكواد السنوية</h2></div>
-      <small>اختر السيرفر فقط — النظام يربط الباقة السنوية تلقائيًا</small>
+      <div><h2>رفع الأكواد</h2></div>
     </div>
 
     <div className="importGrid">
@@ -486,47 +496,70 @@ function ImportCodes({data,action,busy}) {
       <div className="previewBox">
         <span>معاينة قبل الرفع</span>
         <strong>{num(unique.size)}</strong>
-        <b>كود سنوي فريد</b>
+        <b>كود فريد</b>
         <div>
           <em>{num(lines.length)} سطر</em>
           <em>{num(lines.length-nonBlank.length)} فارغ</em>
           <em>{num(nonBlank.length-unique.size)} مكرر داخل الملف</em>
         </div>
-        <p>المكرر الموجود مسبقًا يتم تجاهله تلقائيًا. الأكواد تظل مرتبطة بالسيرفر المحدد فقط.</p>
+        <p>المكرر يتم تجاهله تلقائيًا.</p>
       </div>
     </div>
   </section>;
 }
-function Resellers({data,action,busy}) {
+function CreateReseller({action,busy}) {
   const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
+  return <section className="section focusedForm">
+    <div className="sectionHead"><div><h2>إنشاء موزع</h2></div></div>
+    <form className="formGrid" onSubmit={async e=>{
+      e.preventDefault();
+      await action('/api/admin/resellers',form);
+      setForm({username:'',email:'',displayName:'',password:'',credits:0});
+    }}>
+      <label>Username</label>
+      <input placeholder="اسم الدخول" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
+      <label>Email - اختياري</label>
+      <input type="email" placeholder="يمكن تركه فارغًا" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+      <label>اسم الموزع - اختياري</label>
+      <input placeholder="اسم العرض" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})}/>
+      <label>Password</label>
+      <input type="password" placeholder="كلمة المرور" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} autoComplete="new-password" required/>
+      <label>رصيد البداية</label>
+      <input type="number" min="0" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
+      <button className="primary" disabled={busy}>إنشاء الموزع</button>
+    </form>
+  </section>;
+}
+
+function ManageResellers({data,action,busy}) {
   const [credit,setCredit]=useState({resellerId:'',amount:1,note:''});
   return <div className="twoCol">
     <section className="section">
-      <div className="sectionHead"><div><span>ACCOUNTS</span><h2>إضافة موزع</h2></div></div>
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/resellers',form);setForm({username:'',email:'',displayName:'',password:'',credits:0});}}>
-        <label>Username للدخول</label>
-        <input placeholder="اكتب اليوزر كما تريد" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
-        <label>Email - اختياري</label>
-        <input type="email" placeholder="يمكن تركه فارغًا" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-        <label>اسم الموزع - اختياري</label>
-        <input placeholder="لو سيبته فاضي هياخد نفس Username" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})}/>
-        <label>Password</label>
-        <input type="password" placeholder="اكتب الباسورد كما تريد" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} autoComplete="new-password" required/>
-        <label>رصيد البداية</label>
-        <input type="number" min="0" placeholder="مثال: 50" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
-        <button className="primary" disabled={busy}>إنشاء الموزع</button>
-      </form>
-      <hr/>
+      <div className="sectionHead"><div><h2>تعديل الرصيد</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/credit-adjust',credit);}}>
-        <select value={credit.resellerId} onChange={e=>setCredit({...credit,resellerId:e.target.value})} required><option value="">اختر موزع</option>{data.resellers.map(r=><option value={r.id} key={r.id}>{r.display_name} — {r.credits}</option>)}</select>
+        <label>الموزع</label>
+        <select value={credit.resellerId} onChange={e=>setCredit({...credit,resellerId:e.target.value})} required>
+          <option value="">اختر موزع</option>
+          {data.resellers.map(r=><option value={r.id} key={r.id}>{r.display_name} — {r.credits} Credit</option>)}
+        </select>
+        <label>التعديل</label>
         <input type="number" placeholder="+10 أو -5" value={credit.amount} onChange={e=>setCredit({...credit,amount:e.target.value})} required/>
-        <input placeholder="ملاحظة" value={credit.note} onChange={e=>setCredit({...credit,note:e.target.value})}/>
-        <button className="secondary" disabled={busy}>تعديل الرصيد</button>
+        <label>ملاحظة</label>
+        <input placeholder="اختياري" value={credit.note} onChange={e=>setCredit({...credit,note:e.target.value})}/>
+        <button className="primary" disabled={busy}>حفظ الرصيد</button>
       </form>
     </section>
+
     <section className="section">
-      <div className="sectionHead"><div><span>RESELLERS</span><h2>الحسابات</h2></div></div>
-      <Table><thead><tr><th>الموزع</th><th>Username</th><th>Email</th><th>الرصيد</th><th>الحالة</th></tr></thead><tbody>{data.resellers.map(r=><tr key={r.id}><td>{r.display_name}</td><td>{r.username}</td><td>{r.email||'—'}</td><td className="mono">{r.credits}</td><td><span className="badge">{r.status}</span></td></tr>)}</tbody></Table>
+      <div className="sectionHead"><div><h2>إدارة الموزعين</h2></div><small>{num(data.resellers.length)} موزع</small></div>
+      <div className="resellerCards">
+        {data.resellers.map(r=><article className="resellerManageCard" key={r.id}>
+          <div><span>الموزع</span><b>{r.display_name}</b><small>{r.username}</small></div>
+          <div><span>الرصيد</span><strong>{num(r.credits)}</strong></div>
+          <div><span>الحالة</span><em>{r.status==='active'?'نشط':'متوقف'}</em></div>
+          {r.email&&<div className="resellerEmail">{r.email}</div>}
+        </article>)}
+      </div>
     </section>
   </div>;
 }
@@ -570,7 +603,7 @@ function Codes({codes,admin=false}) {
                 <b>{c.server_name}</b>
               </div>
 
-              <div className="codeAccordionCode mono">{c.code}</div>
+              <div className={'codeAccordionCode mono '+(admin?'adminUsedCode':'')}>{c.code}</div>
 
               <span className="codeAccordionStatus">مفعّل</span>
               <span className="codeAccordionToggle">{isOpen?'−':'+'}</span>
@@ -657,7 +690,7 @@ function Issue({data,action,busy}) {
         <div><span>رصيدك</span><b>{num(balance)} Credit</b></div>
       </div>
 
-      <button className="primary wide" disabled={busy||!selected}>{busy?'جاري الصرف…':'تفعيل واستخراج'}</button>
+      <button className="primary wide" disabled={busy||!selected}>تفعيل</button>
     </form>
 
     <div className={'inlineResult '+(result?'hasResult':'')}>
@@ -709,50 +742,183 @@ function RequestCredit({data,action,busy}) {
 }
 
 function Apps({data,action,busy,admin}) {
-  const [form,setForm]=useState({name:'',platform:'android',version:'',description:'',downloadUrl:'',visibility:'all'});
-  return <div className={admin?'twoCol':''}>
+  const [form,setForm]=useState({name:'',platform:'android',version:'',description:'',imageUrl:'',downloadUrl:'',visibility:'all'});
+
+  return <div className={admin?'twoCol appsLayout':'appsSingle'}>
     {admin&&<section className="section">
-      <div className="sectionHead"><div><span>SOFTWARE CENTER</span><h2>إضافة تطبيق أو سوفت وير</h2></div></div>
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/apps',form);setForm({...form,name:'',version:'',description:'',downloadUrl:''});}}>
-        <input placeholder="الاسم" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/>
-        <select value={form.platform} onChange={e=>setForm({...form,platform:e.target.value})}><option value="android">Android</option><option value="windows">Windows</option><option value="receiver">Receiver Software</option><option value="other">Other</option></select>
-        <input placeholder="Version" value={form.version} onChange={e=>setForm({...form,version:e.target.value})}/>
-        <input placeholder="https:// download link" value={form.downloadUrl} onChange={e=>setForm({...form,downloadUrl:e.target.value})} required/>
-        <textarea rows="4" placeholder="الوصف" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
-        <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}><option value="all">للجميع</option><option value="reseller">للموزعين</option><option value="admin">للإدارة</option></select>
+      <div className="sectionHead"><div><h2>إضافة تطبيق أو سوفت وير</h2></div></div>
+      <form className="formGrid" onSubmit={async e=>{
+        e.preventDefault();
+        await action('/api/admin/apps',form);
+        setForm({...form,name:'',version:'',description:'',imageUrl:'',downloadUrl:''});
+      }}>
+        <label>الاسم</label>
+        <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/>
+
+        <label>النوع</label>
+        <select value={form.platform} onChange={e=>setForm({...form,platform:e.target.value})}>
+          <option value="android">Android</option>
+          <option value="windows">Windows</option>
+          <option value="receiver">Receiver Software</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label>Version</label>
+        <input value={form.version} onChange={e=>setForm({...form,version:e.target.value})}/>
+
+        <label>رابط الصورة / البوستر</label>
+        <input type="url" placeholder="https://..." value={form.imageUrl} onChange={e=>setForm({...form,imageUrl:e.target.value})}/>
+        {form.imageUrl&&<div className="appPosterPreview"><img src={form.imageUrl} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></div>}
+
+        <label>رابط التحميل</label>
+        <input type="url" placeholder="https://..." value={form.downloadUrl} onChange={e=>setForm({...form,downloadUrl:e.target.value})} required/>
+
+        <label>الوصف</label>
+        <textarea rows="4" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
+
+        <label>الظهور</label>
+        <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}>
+          <option value="all">للجميع</option>
+          <option value="reseller">للموزعين</option>
+          <option value="admin">للإدارة</option>
+        </select>
+
         <button className="primary" disabled={busy}>إضافة</button>
       </form>
     </section>}
+
     <section className="section">
-      <div className="sectionHead"><div><span>DOWNLOADS</span><h2>التطبيقات والسوفت وير</h2></div></div>
-      <div className="appGrid">{data.apps.map(a=><a className="downloadCard" href={a.download_url} target="_blank" rel="noreferrer" key={a.id}><span>{a.platform.toUpperCase()}</span><h3>{a.name}</h3><p>{a.description||'بدون وصف'}</p><div><b>{a.version||'Latest'}</b><em>تحميل ↗</em></div></a>)}</div>
+      <div className="sectionHead"><div><h2>التطبيقات والسوفت وير</h2></div></div>
+      {data.apps.length===0 ? <div className="emptyState compact">لا توجد عناصر مضافة.</div> :
+        <div className="softwareFeed">
+          {data.apps.map(a=><article className="softwarePost" key={a.id}>
+            <div className="softwarePoster">
+              {a.image_url?<img src={a.image_url} alt={a.name}/>:<div className="softwarePosterFallback">A</div>}
+            </div>
+            <div className="softwareBody">
+              <div className="softwareMeta">
+                <span>{a.platform==='receiver'?'Receiver':a.platform}</span>
+                {a.version&&<em>v{a.version}</em>}
+              </div>
+              <h3>{a.name}</h3>
+              {a.description&&<p>{a.description}</p>}
+              <a className="downloadAction" href={a.download_url} target="_blank" rel="noreferrer">تحميل</a>
+            </div>
+          </article>)}
+        </div>}
     </section>
   </div>;
 }
 
 function Logs({logs,admin}) {
-  return <section className="section logsSection">
-    <div className="sectionHead"><div><span>AUDIT TRAIL</span><h2>{admin?'السجل المتكامل':'سجل حسابي'}</h2></div></div>
+  const [query,setQuery]=useState('');
+  const [kind,setKind]=useState('all');
+  const [openId,setOpenId]=useState(null);
 
-    <div className="desktopLogs">
-      <Table><thead><tr>{admin&&<th>المستخدم</th>}<th>الحدث</th><th>النوع</th><th>التفاصيل</th><th>الوقت</th></tr></thead>
-      <tbody>{logs.map(l=><tr key={l.id||l.created_at+l.action}>{admin&&<td>{l.actor_name||l.actor_username||'SYSTEM'}</td>}<td><span className="event">{l.action}</span></td><td>{l.entity_type||'—'}</td><td className="logDetails">{l.details_json||'{}'}</td><td>{fmt(l.created_at)}</td></tr>)}</tbody></Table>
+  const actionMeta={
+    LOGIN_SUCCESS:['تسجيل دخول','session'],
+    LOGOUT:['تسجيل خروج','session'],
+    CREDIT_REQUEST_CREATED:['طلب رصيد جديد','credit'],
+    CREDIT_REQUEST_APPROVED:['تم قبول طلب الرصيد','credit'],
+    CREDIT_REQUEST_REJECTED:['تم رفض طلب الرصيد','credit'],
+    CREDIT_ADJUSTED:['تعديل رصيد موزع','credit'],
+    RESELLER_CREATED:['إنشاء موزع','account'],
+    CODES_IMPORTED:['رفع أكواد','codes'],
+    CODES_ISSUED:['تفعيل أكواد','codes'],
+    SERVER_CREATED:['إضافة سيرفر','system'],
+    PACKAGE_CREATED:['إضافة باقة','system'],
+    APP_ADDED:['إضافة تطبيق أو سوفت وير','system'],
+    ADMIN_PASSWORD_CHANGED:['تغيير كلمة مرور الإدارة','account']
+  };
+  const entityNames={
+    session:'جلسة',
+    credit_request:'طلب رصيد',
+    user:'حساب',
+    code_batch:'دفعة أكواد',
+    issue_order:'تفعيل أكواد',
+    server:'سيرفر',
+    package:'باقة',
+    app:'تطبيق'
+  };
+  const detailNames={
+    amount:'الرصيد',
+    before:'قبل',
+    after:'بعد',
+    quantity:'العدد',
+    totalCost:'الإجمالي',
+    customerRef:'العميل',
+    filename:'الملف',
+    inserted:'تمت الإضافة',
+    duplicateCount:'المكرر',
+    displayName:'الاسم',
+    username:'Username',
+    initialCredits:'رصيد البداية',
+    name:'الاسم',
+    platform:'النوع',
+    visibility:'الظهور'
+  };
+
+  function meta(log){
+    const x=actionMeta[log.action]||[log.action,'system'];
+    return {label:x[0],kind:x[1]};
+  }
+
+  const filtered=logs.filter(log=>{
+    const mm=meta(log);
+    const hay=[mm.label,log.action,log.actor_name,log.actor_username,log.entity_type,log.details_json].join(' ').toLowerCase();
+    return (kind==='all'||mm.kind===kind) && (!query||hay.includes(query.toLowerCase()));
+  });
+
+  return <section className="section logsSection">
+    <div className="sectionHead">
+      <div><h2>{admin?'السجل الكامل':'السجل'}</h2></div>
+      <small>{num(filtered.length)} عملية</small>
     </div>
 
-    <div className="mobileLogs">
-      {logs.length===0 ? <div className="emptyState compact">لا توجد عمليات مسجلة بعد.</div> :
-        logs.map(l=><article className="logCard" key={l.id||l.created_at+l.action}>
-          <div className="logCardTop">
-            <span className="event">{l.action}</span>
-            <time>{fmt(l.created_at)}</time>
-          </div>
-          {admin&&<div className="logLine"><span>المستخدم</span><b>{l.actor_name||l.actor_username||'SYSTEM'}</b></div>}
-          <div className="logLine"><span>النوع</span><b>{l.entity_type||'—'}</b></div>
-          <details>
-            <summary>التفاصيل</summary>
-            <pre>{l.details_json||'{}'}</pre>
-          </details>
-        </article>)
+    <div className="logToolbar">
+      <input placeholder="بحث في السجل" value={query} onChange={e=>setQuery(e.target.value)}/>
+      <select value={kind} onChange={e=>setKind(e.target.value)}>
+        <option value="all">كل العمليات</option>
+        <option value="codes">الأكواد</option>
+        <option value="credit">الرصيد</option>
+        <option value="account">الحسابات</option>
+        <option value="session">الدخول والخروج</option>
+        <option value="system">النظام</option>
+      </select>
+    </div>
+
+    <div className="professionalLogs">
+      {filtered.length===0 ? <div className="emptyState compact">لا توجد نتائج.</div> :
+        filtered.map(log=>{
+          const mm=meta(log);
+          const id=log.id||log.created_at+log.action;
+          const open=openId===id;
+          let details={};
+          try{details=JSON.parse(log.details_json||'{}')||{};}catch{}
+          const visibleDetails=Object.entries(details).filter(([key])=>!key.toLowerCase().endsWith('id')&&!['serverLocked','mode','forced'].includes(key));
+
+          return <article className={'proLogCard '+mm.kind+' '+(open?'open':'')} key={id}>
+            <button className="proLogSummary" type="button" onClick={()=>setOpenId(open?null:id)}>
+              <span className="logTone"/>
+              <div className="proLogMain">
+                <b>{mm.label}</b>
+                <small>{admin?(log.actor_name||log.actor_username||'SYSTEM'):'حسابي'} · {fmt(log.created_at)}</small>
+              </div>
+              <span className="proLogEntity">{entityNames[log.entity_type]||log.entity_type||'عملية'}</span>
+              <span className="proLogToggle">{open?'−':'+'}</span>
+            </button>
+
+            {open&&<div className="proLogDetails">
+              {admin&&<div><span>المستخدم</span><b>{log.actor_name||log.actor_username||'SYSTEM'}</b></div>}
+              <div><span>النوع</span><b>{entityNames[log.entity_type]||log.entity_type||'—'}</b></div>
+              <div><span>التاريخ</span><b>{fmt(log.created_at)}</b></div>
+              {visibleDetails.map(([key,value])=><div key={key}>
+                <span>{detailNames[key]||key}</span>
+                <b>{typeof value==='object'?JSON.stringify(value):String(value)}</b>
+              </div>)}
+            </div>}
+          </article>;
+        })
       }
     </div>
   </section>;
