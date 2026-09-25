@@ -94,6 +94,9 @@ textarea{resize:vertical}
   background:var(--drawer);
   color:var(--drawerText);
   overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
   z-index:50
 }
 .sidebarTop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 4px 24px}
@@ -124,7 +127,7 @@ textarea{resize:vertical}
 .sidebarUser span{margin-top:3px;font:700 8px Inter,sans-serif;letter-spacing:1.2px;color:#7a8796}
 .sidebarLogout{display:flex;align-items:center;gap:9px;margin-top:6px;padding:11px 7px;background:transparent;color:#a5aebb;text-align:left}
 .sidebarLogout span{font-size:14px}
-.sidebarBackdrop{display:none}
+.sidebarBackdrop{display:none;touch-action:none;overscroll-behavior:none}
 
 .contentArea{direction:rtl;min-width:0;background:var(--bg)}
 .contentHeader{
@@ -283,7 +286,9 @@ tr:last-child td{border-bottom:0}
     width:min(82vw,360px);max-width:360px;height:100dvh;
     padding:22px 18px 18px;
     transform:translateX(-105%);transition:transform .22s ease;
-    box-shadow:14px 0 30px rgba(0,0,0,.22)
+    box-shadow:14px 0 30px rgba(0,0,0,.22);
+    overscroll-behavior:contain;
+    touch-action:pan-y
   }
   .fullSidebar.open{transform:translateX(0)}
   .sidebarClose{display:block}
