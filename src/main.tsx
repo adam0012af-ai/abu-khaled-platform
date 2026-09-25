@@ -1322,51 +1322,52 @@ function Apps({data,action,busy,admin}) {
 }
 
 function Logs({logs,admin}) {
+  const {lang,l}=useLanguage();
   const [query,setQuery]=useState('');
   const [kind,setKind]=useState('all');
   const [openId,setOpenId]=useState(null);
 
   const actionMeta={
-    LOGIN_SUCCESS:['تسجيل دخول','session'],
-    LOGOUT:['تسجيل خروج','session'],
-    CREDIT_REQUEST_CREATED:['طلب رصيد جديد','credit'],
-    CREDIT_REQUEST_APPROVED:['تم قبول طلب الرصيد','credit'],
-    CREDIT_REQUEST_REJECTED:['تم رفض طلب الرصيد','credit'],
-    CREDIT_ADJUSTED:['تعديل رصيد موزع','credit'],
-    RESELLER_CREATED:['إنشاء موزع','account'],
-    CODES_IMPORTED:['رفع أكواد','codes'],
-    CODES_ISSUED:['تفعيل أكواد','codes'],
-    SERVER_CREATED:['إضافة سيرفر','system'],
-    PACKAGE_CREATED:['إضافة باقة','system'],
-    APP_ADDED:['إضافة تطبيق أو سوفت وير','system'],
-    ADMIN_PASSWORD_CHANGED:['تغيير كلمة مرور الإدارة','account']
+    LOGIN_SUCCESS:[l('تسجيل دخول','Login'),'session'],
+    LOGOUT:[l('تسجيل خروج','Logout'),'session'],
+    CREDIT_REQUEST_CREATED:[l('طلب رصيد','Credit request'),'credit'],
+    CREDIT_REQUEST_APPROVED:[l('قبول طلب رصيد','Credit approved'),'credit'],
+    CREDIT_REQUEST_REJECTED:[l('رفض طلب رصيد','Credit rejected'),'credit'],
+    CREDIT_ADJUSTED:[l('تعديل رصيد','Credit adjusted'),'credit'],
+    RESELLER_CREATED:[l('إنشاء موزع','Reseller created'),'account'],
+    CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
+    CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
+    SERVER_CREATED:[l('إضافة سيرفر','Server added'),'system'],
+    PACKAGE_CREATED:[l('إضافة باقة','Package added'),'system'],
+    APP_ADDED:[l('إضافة تطبيق','App added'),'system'],
+    ADMIN_PASSWORD_CHANGED:[l('تغيير كلمة المرور','Password changed'),'account']
   };
   const entityNames={
-    session:'جلسة',
-    credit_request:'طلب رصيد',
-    user:'حساب',
-    code_batch:'دفعة أكواد',
-    issue_order:'تفعيل أكواد',
-    server:'سيرفر',
-    package:'باقة',
-    app:'تطبيق'
+    session:l('جلسة','Session'),
+    credit_request:l('طلب رصيد','Credit request'),
+    user:l('حساب','Account'),
+    code_batch:l('دفعة أكواد','Code batch'),
+    issue_order:l('تفعيل أكواد','Code issue'),
+    server:l('سيرفر','Server'),
+    package:l('باقة','Package'),
+    app:l('تطبيق','App')
   };
   const detailNames={
-    amount:'الرصيد',
-    before:'قبل',
-    after:'بعد',
-    quantity:'العدد',
-    totalCost:'الإجمالي',
-    customerRef:'العميل',
-    filename:'الملف',
-    inserted:'تمت الإضافة',
-    duplicateCount:'المكرر',
-    displayName:'الاسم',
+    amount:l('الرصيد','Credit'),
+    before:l('قبل','Before'),
+    after:l('بعد','After'),
+    quantity:l('العدد','Quantity'),
+    totalCost:l('الإجمالي','Total'),
+    customerRef:l('العميل','Customer'),
+    filename:l('الملف','File'),
+    inserted:l('تمت الإضافة','Inserted'),
+    duplicateCount:l('المكرر','Duplicates'),
+    displayName:l('الاسم','Name'),
     username:'Username',
-    initialCredits:'رصيد البداية',
-    name:'الاسم',
-    platform:'النوع',
-    visibility:'الظهور'
+    initialCredits:l('رصيد البداية','Starting credit'),
+    name:l('الاسم','Name'),
+    platform:l('النوع','Type'),
+    visibility:l('الظهور','Visibility')
   };
 
   function meta(log){
@@ -1382,24 +1383,24 @@ function Logs({logs,admin}) {
 
   return <section className="section logsSection">
     <div className="sectionHead">
-      <div><h2>{admin?'السجل الكامل':'السجل'}</h2></div>
-      <small>{num(filtered.length)} عملية</small>
+      <div><h2>{admin?l('السجل الكامل','Activity log'):l('السجل','Activity')}</h2></div>
+      <small>{num(filtered.length)} {l('عملية','events')}</small>
     </div>
 
     <div className="logToolbar">
-      <input placeholder="بحث في السجل" value={query} onChange={e=>setQuery(e.target.value)}/>
+      <input placeholder={l('بحث','Search')} value={query} onChange={e=>setQuery(e.target.value)}/>
       <select value={kind} onChange={e=>setKind(e.target.value)}>
-        <option value="all">كل العمليات</option>
-        <option value="codes">الأكواد</option>
-        <option value="credit">الرصيد</option>
-        <option value="account">الحسابات</option>
-        <option value="session">الدخول والخروج</option>
-        <option value="system">النظام</option>
+        <option value="all">{l('كل العمليات','All')}</option>
+        <option value="codes">{l('الأكواد','Codes')}</option>
+        <option value="credit">{l('الرصيد','Credit')}</option>
+        <option value="account">{l('الحسابات','Accounts')}</option>
+        <option value="session">{l('الدخول والخروج','Sessions')}</option>
+        <option value="system">{l('النظام','System')}</option>
       </select>
     </div>
 
     <div className="professionalLogs">
-      {filtered.length===0 ? <div className="emptyState compact">لا توجد نتائج.</div> :
+      {filtered.length===0 ? <div className="emptyState compact">{l('لا توجد نتائج.','No results.')}</div> :
         filtered.map(log=>{
           const mm=meta(log);
           const id=log.id||log.created_at+log.action;
@@ -1413,16 +1414,16 @@ function Logs({logs,admin}) {
               <span className="logTone"/>
               <div className="proLogMain">
                 <b>{mm.label}</b>
-                <small>{admin?(log.actor_name||log.actor_username||'SYSTEM'):'حسابي'} · {fmt(log.created_at)}</small>
+                <small>{admin?(log.actor_name||log.actor_username||'SYSTEM'):l('حسابي','My account')} · {fmt(log.created_at,lang)}</small>
               </div>
-              <span className="proLogEntity">{entityNames[log.entity_type]||log.entity_type||'عملية'}</span>
+              <span className="proLogEntity">{entityNames[log.entity_type]||log.entity_type||l('عملية','Event')}</span>
               <span className="proLogToggle">{open?'−':'+'}</span>
             </button>
 
             {open&&<div className="proLogDetails">
-              {admin&&<div><span>المستخدم</span><b>{log.actor_name||log.actor_username||'SYSTEM'}</b></div>}
-              <div><span>النوع</span><b>{entityNames[log.entity_type]||log.entity_type||'—'}</b></div>
-              <div><span>التاريخ</span><b>{fmt(log.created_at)}</b></div>
+              {admin&&<div><span>{l('المستخدم','User')}</span><b>{log.actor_name||log.actor_username||'SYSTEM'}</b></div>}
+              <div><span>{l('النوع','Type')}</span><b>{entityNames[log.entity_type]||log.entity_type||'—'}</b></div>
+              <div><span>{l('التاريخ','Date')}</span><b>{fmt(log.created_at,lang)}</b></div>
               {visibleDetails.map(([key,value])=><div key={key}>
                 <span>{detailNames[key]||key}</span>
                 <b>{typeof value==='object'?JSON.stringify(value):String(value)}</b>
