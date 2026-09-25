@@ -1067,6 +1067,7 @@ function ManageResellers({data,action,busy}) {
 }
 
 function Codes({codes,admin=false}) {
+  const {lang,l}=useLanguage();
   const [openId,setOpenId]=useState(null);
 
   async function copy(v){await navigator.clipboard.writeText(v);}
@@ -1081,17 +1082,17 @@ function Codes({codes,admin=false}) {
 
   return <section className="section codesSection">
     <div className="sectionHead">
-      <div><span>ISSUED CODES</span><h2>{admin?'كل الأكواد المفعلة':'أكوادي'}</h2></div>
-      {codes.length>0&&<button className="secondary" onClick={download}>تنزيل TXT</button>}
+      <div><h2>{admin?l('كل الأكواد المفعلة','Issued codes'):l('أكوادي','My codes')}</h2></div>
+      {codes.length>0&&<button className="secondary" onClick={download}>{l('تنزيل TXT','Download TXT')}</button>}
     </div>
 
-    {codes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> :
+    {codes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد.','No codes.')}</div> :
       <div className="codesAccordion">
         {codes.map(c=>{
           const isOpen=openId===c.id;
           const d=c.issued_at?new Date(c.issued_at):null;
-          const dateText=d&&!Number.isNaN(d.getTime())?d.toLocaleDateString('ar-EG',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
-          const timeText=d&&!Number.isNaN(d.getTime())?d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}):'—';
+          const dateText=d&&!Number.isNaN(d.getTime())?d.toLocaleDateString(lang==='en'?'en-US':'ar-EG',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
+          const timeText=d&&!Number.isNaN(d.getTime())?d.toLocaleTimeString(lang==='en'?'en-US':'ar-EG',{hour:'2-digit',minute:'2-digit'}):'—';
 
           return <article className={'codeAccordionCard '+(isOpen?'open':'')} key={c.id}>
             <button
@@ -1101,26 +1102,26 @@ function Codes({codes,admin=false}) {
               aria-expanded={isOpen}
             >
               <div className="codeAccordionServer">
-                <span>السيرفر</span>
+                <span>{l('السيرفر','Server')}</span>
                 <b>{c.server_name}</b>
               </div>
 
               <div className={'codeAccordionCode mono '+(admin?'adminUsedCode':'')}>{c.code}</div>
 
-              <span className="codeAccordionStatus">مفعّل</span>
+              <span className="codeAccordionStatus">{l('مفعّل','Issued')}</span>
               <span className="codeAccordionToggle">{isOpen?'−':'+'}</span>
             </button>
 
             {isOpen&&<div className="codeAccordionDetails">
               <div className="codeDetailGrid">
-                {admin&&<div><span>الموزع</span><b>{c.reseller_name||c.reseller_username||'—'}</b></div>}
-                <div><span>العميل</span><b>{c.customer_ref||'—'}</b></div>
-                <div><span>تاريخ السحب</span><b>{dateText}</b></div>
-                <div><span>الوقت</span><b>{timeText}</b></div>
-                <div><span>المدة</span><b>سنوي</b></div>
+                {admin&&<div><span>{l('الموزع','Reseller')}</span><b>{c.reseller_name||c.reseller_username||'—'}</b></div>}
+                <div><span>{l('العميل','Customer')}</span><b>{c.customer_ref||'—'}</b></div>
+                <div><span>{l('التاريخ','Date')}</span><b>{dateText}</b></div>
+                <div><span>{l('الوقت','Time')}</span><b>{timeText}</b></div>
+                <div><span>{l('المدة','Duration')}</span><b>{l('سنوي','Annual')}</b></div>
               </div>
 
-              <button type="button" className="copyCodeBtn" onClick={()=>copy(c.code)}>نسخ الكود</button>
+              <button type="button" className="copyCodeBtn" onClick={()=>copy(c.code)}>{l('نسخ الكود','Copy code')}</button>
             </div>}
           </article>
         })}
@@ -1129,6 +1130,7 @@ function Codes({codes,admin=false}) {
   </section>;
 }
 function Issue({data,action,busy}) {
+  const {l}=useLanguage();
   const [form,setForm]=useState({serverId:'',customerRef:'',quantity:1});
   const [mode,setMode]=useState('single');
   const [result,setResult]=useState(null);
@@ -1155,25 +1157,24 @@ function Issue({data,action,busy}) {
   return <section className="acmIssueCard">
     <div className="acmIssueHead">
       <div>
-        <h2>تفعيل كود</h2>
-        <span>اشتراك سنوي</span>
+        <h2>{l('تفعيل كود','Issue code')}</h2>
       </div>
       <div className="acmBalancePill">
-        <span>الرصيد</span>
+        <span>{l('الرصيد','Balance')}</span>
         <div dir="ltr"><strong>{num(balance)}</strong><small>Credit</small></div>
       </div>
     </div>
 
     <div className="acmIssueTabs">
-      <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button>
-      <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button>
+      <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>{l('كود واحد','Single code')}</button>
+      <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>{l('مجموعة أكواد','Multiple codes')}</button>
     </div>
 
     <form className="acmIssueForm" onSubmit={submit}>
       <label className="acmField">
-        <span>السيرفر</span>
+        <span>{l('السيرفر','Server')}</span>
         <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
-          <option value="">اختر السيرفر</option>
+          <option value="">{l('اختر السيرفر','Select server')}</option>
           {data.servers.filter(s=>Number(s.active)===1).map(s=>
             <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
           )}
@@ -1181,23 +1182,23 @@ function Issue({data,action,busy}) {
       </label>
 
       <label className="acmField">
-        <span>اسم العميل أو رقم الهاتف</span>
-        <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="اسم أو رقم"/>
+        <span>{l('اسم العميل أو رقم الهاتف','Customer name or phone')}</span>
+        <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder={l('اسم أو رقم','Name or phone')}/>
       </label>
 
       {mode==='bulk'&&<label className="acmField">
-        <span>عدد الأكواد</span>
+        <span>{l('عدد الأكواد','Number of codes')}</span>
         <input dir="ltr" type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/>
       </label>}
 
       <div className="acmIssueStats">
-        <div><span>العدد</span><b dir="ltr">{q}</b></div>
-        <div><span>التكلفة</span><b dir="ltr">{num(total)} Credit</b></div>
-        <div><span>بعد التفعيل</span><b dir="ltr">{num(Math.max(0,balance-total))} Credit</b></div>
+        <div><span>{l('العدد','Quantity')}</span><b dir="ltr">{q}</b></div>
+        <div><span>{l('التكلفة','Cost')}</span><b dir="ltr">{num(total)} Credit</b></div>
+        <div><span>{l('بعد التفعيل','After issue')}</span><b dir="ltr">{num(Math.max(0,balance-total))} Credit</b></div>
       </div>
 
       <button className="acmPrimaryBtn acmActivateBtn" disabled={busy||!selected}>
-        {busy?'جارٍ التفعيل…':'تفعيل'}
+        {busy?l('جارٍ التفعيل…','Issuing…'):l('تفعيل','Issue')}
       </button>
     </form>
 
@@ -1205,10 +1206,10 @@ function Issue({data,action,busy}) {
       <div className="acmResultTop">
         <div>
           <b>{result.order.server}</b>
-          <span>تم التفعيل بنجاح</span>
+          <span>{l('تم التفعيل','Issued')}</span>
         </div>
         <div className="acmResultBtns">
-          <button type="button" onClick={copyAll}>نسخ</button>
+          <button type="button" onClick={copyAll}>{l('نسخ','Copy')}</button>
           {result.codes.length>1&&<button type="button" onClick={download}>TXT</button>}
         </div>
       </div>
