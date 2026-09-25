@@ -42,3 +42,108 @@ aside{position:sticky;top:0;height:100vh;border-left:1px solid #1a2c42;padding:2
 .packageMini{display:grid;gap:6px;margin-top:13px}.packageMini>div{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding-top:7px;border-top:1px solid #1c3148;font-size:10px}.packageMini span{color:#9db0c4}.packageMini b{color:#dbe6f1}.packageMini em{font-style:normal;color:#46d5a0;font-family:Inter,sans-serif}.stockAlert{position:absolute;left:10px;top:47px;font-size:9px;color:#f0c56f;font-style:normal}
 .dashboardBottom{margin-top:18px}.emptyState.mini{min-height:120px}.logMini{grid-template-columns:1fr auto auto}
 @media(max-width:820px){.demoBanner{align-items:flex-start;flex-direction:column}.demoBanner>b{font-size:14px}}
+
+
+/* ===== Admin clarity upgrade ===== */
+.sideHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sideHeader .logout{margin:0;padding:9px 11px;white-space:nowrap}
+.userMini{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.userMini>div{display:grid;gap:4px;min-width:0}
+.userMini>div span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adminState{display:flex;align-items:center;gap:6px;color:#58daa9;font:700 10px Inter,sans-serif;white-space:nowrap}
+.adminState i{width:7px;height:7px;border-radius:50%;background:#37d39a;box-shadow:0 0 12px rgba(55,211,154,.75)}
+
+.overviewHero{display:flex;align-items:center;justify-content:space-between;gap:28px;padding:25px 26px;margin-bottom:16px;border:1px solid #22405d;border-radius:22px;background:radial-gradient(circle at 86% 10%,rgba(52,121,196,.18),transparent 34%),linear-gradient(135deg,#0e1d30,#0a1726);box-shadow:0 18px 50px rgba(0,0,0,.14)}
+.overviewEyebrow{font:800 9px Inter,sans-serif;letter-spacing:2.2px;color:#5fb8ff}
+.overviewIntro h2{margin:7px 0 7px;font-size:27px}
+.overviewIntro p{margin:0;max-width:680px;color:#8296ad;font-size:12px;line-height:1.8}
+.overviewHealth{min-width:170px;padding:15px 18px;border:1px solid #24415d;border-radius:17px;background:#091727;text-align:center}
+.overviewHealth>span{display:flex;justify-content:center;align-items:center;gap:7px;color:#65dbae;font-size:10px}
+.overviewHealth>span i{width:7px;height:7px;border-radius:50%;background:#37d39a;box-shadow:0 0 12px rgba(55,211,154,.8)}
+.overviewHealth strong{display:block;font:800 35px Inter,sans-serif;margin:9px 0 1px}
+.overviewHealth small{color:#688097;font-size:9px}
+
+.primaryStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.metricCard{min-width:0;text-align:right;padding:18px;border:1px solid #1d344d;border-radius:17px;background:linear-gradient(145deg,#0d1a2a,#091624);color:inherit;box-shadow:0 12px 34px rgba(0,0,0,.1);transition:.18s}
+.metricCard:hover{transform:translateY(-2px);border-color:#315676}
+.metricCard span{display:block;color:#8498af;font-size:11px}
+.metricCard strong{display:block;margin:13px 0 4px;font:800 34px Inter,sans-serif;color:#f6f9fc}
+.metricCard small{color:#58718a;font-size:9px}
+.metricAvailable{border-color:#244c43}.metricAvailable strong{color:#65ddae}
+.metricIssued{border-color:#2b4661}.metricIssued strong{color:#82c5ff}
+.metricResellers strong{color:#e8edf5}
+
+.secondaryStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.secondaryStats>div,.secondaryStats>button{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 15px;border:1px solid #1a3047;border-radius:13px;background:#0a1726;color:inherit;text-align:right}
+.secondaryStats span{color:#7c91a8;font-size:10px}
+.secondaryStats b{font:800 16px Inter,sans-serif}
+.secondaryStats b small{font-size:8px;color:#50d2a1}
+.secondaryStats button:hover{border-color:#315676}
+
+.quickPanel{margin-bottom:18px;padding:18px;border:1px solid #1c3047;border-radius:18px;background:linear-gradient(180deg,#0c1929,#091522)}
+.quickGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.quickGrid button{min-height:92px;padding:14px;text-align:right;border:1px solid #213a53;border-radius:14px;background:linear-gradient(145deg,#0d1d2f,#0a1725);color:inherit;transition:.18s}
+.quickGrid button:hover{transform:translateY(-2px);border-color:#3b678e;background:#10243a}
+.quickGrid b{display:block;font-size:13px;margin-bottom:7px;color:#edf5fc}
+.quickGrid span{display:block;color:#6f849a;font-size:9px;line-height:1.55}
+.textAction{background:transparent;color:#69baff;font-size:10px;padding:4px 0}
+
+.inventorySection{margin-top:0}
+.serverCard{display:block;width:100%;text-align:right;color:inherit}
+.serverNumbers{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:17px}
+.serverNumbers>div{padding:10px;border:1px solid #1b3148;border-radius:11px;background:#091522}
+.serverNumbers strong{display:block;font:800 22px Inter,sans-serif}
+.serverNumbers small{color:#6c8197;font-size:9px}
+.serverNumbers>div:first-child strong{color:#63daa9}
+.serverNumbers>div:last-child strong{color:#8dcaff}
+.serverCard>.meter{margin:12px 0 10px}
+.serverCard>.serverFoot{font-size:9px}
+.serverCard .packageMini{margin-top:10px}
+
+@media(max-width:1100px){
+  .primaryStats{grid-template-columns:repeat(2,1fr)}
+  .quickGrid{grid-template-columns:repeat(2,1fr)}
+}
+
+@media(max-width:820px){
+  .appShell aside{position:sticky;top:0;z-index:20;padding:10px 12px 8px;background:rgba(7,18,31,.96);backdrop-filter:blur(16px);box-shadow:0 10px 28px rgba(0,0,0,.18)}
+  .appShell aside>.sideHeader{display:flex;margin-bottom:8px}
+  .appShell aside .sideHeader>.brand{display:flex;padding:0;border:0}
+  .appShell aside .sideHeader .brandMark{width:36px;height:36px;border-radius:11px}
+  .appShell aside .sideHeader .brand strong{font-size:12px}
+  .appShell aside .sideHeader .brand em{font-size:7px}
+  .sideHeader .logout{position:static!important;padding:7px 9px!important;font-size:9px!important;margin:0!important}
+  .userMini{margin:0 0 8px;padding:9px 11px;border-radius:11px}
+  .userMini>div span{font-size:12px}.userMini>div b{font-size:7px}.adminState{font-size:8px}
+  .appShell aside nav{display:flex;overflow-x:auto;gap:6px;padding:0 0 2px;scrollbar-width:none}
+  .appShell aside nav::-webkit-scrollbar{display:none}
+  .appShell aside nav button{flex:0 0 auto;padding:9px 12px;font-size:11px;border:1px solid transparent}
+  .appShell aside nav button.active{border-color:#2d5273}
+  .panelMain{padding-top:14px}
+  .overviewHero{padding:18px;gap:14px}
+  .overviewIntro h2{font-size:21px}.overviewIntro p{font-size:10px}
+  .overviewHealth{min-width:125px;padding:12px}
+  .overviewHealth strong{font-size:29px}
+  .primaryStats{grid-template-columns:repeat(2,1fr);gap:8px}
+  .metricCard{padding:14px;min-height:118px}
+  .metricCard strong{font-size:29px}
+  .secondaryStats{grid-template-columns:1fr}
+  .quickGrid{grid-template-columns:repeat(2,1fr)}
+  .serverGrid{grid-template-columns:repeat(2,1fr)}
+}
+
+@media(max-width:560px){
+  .overviewHero{display:block}
+  .overviewHealth{display:grid;grid-template-columns:auto auto 1fr;align-items:center;gap:8px;text-align:right;margin-top:14px;min-width:0}
+  .overviewHealth>span{justify-content:flex-start}.overviewHealth strong{font-size:24px;margin:0}.overviewHealth small{text-align:right}
+  .primaryStats{grid-template-columns:1fr 1fr}
+  .metricCard{min-height:105px;padding:12px}
+  .metricCard span{font-size:10px}.metricCard strong{font-size:26px;margin-top:10px}.metricCard small{font-size:8px}
+  .quickGrid{grid-template-columns:1fr 1fr}
+  .quickGrid button{min-height:85px;padding:12px}
+  .serverGrid{grid-template-columns:1fr}
+  .serverCard{padding:15px}
+  .serverNumbers{grid-template-columns:1fr 1fr}
+  .demoBanner{padding:14px}.demoBanner p{font-size:10px}.demoBanner>b{font-size:12px}
+  .panelHeader{padding-bottom:13px}
+}
