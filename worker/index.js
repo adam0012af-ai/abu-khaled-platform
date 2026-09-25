@@ -551,11 +551,26 @@ export default {
     const url=new URL(request.url);
     try{
       if(url.pathname.startsWith('/api/')) return await api(request,env);
-      return env.ASSETS.fetch(request);
+
+      const asset=await env.ASSETS.fetch(request);
+      const headers=new Headers(asset.headers);
+      const type=headers.get('content-type')||'';
+
+      if(type.includes('text/html')){
+        headers.set('cache-control','no-store, no-cache, must-revalidate, max-age=0');
+        headers.set('pragma','no-cache');
+        headers.set('expires','0');
+        headers.set('x-acm-ui-version','sidebar-clean-v1');
+      }
+
+      return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers});
     }catch(error){
       console.error('ACTIVE CODE MULTI',error);
       if(url.pathname.startsWith('/api/')) return json({error:'INTERNAL_ERROR'},500);
-      return env.ASSETS.fetch(request);
+      const asset=await env.ASSETS.fetch(request);
+      const headers=new Headers(asset.headers);
+      headers.set('cache-control','no-store');
+      return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers});
     }
   }
 };
