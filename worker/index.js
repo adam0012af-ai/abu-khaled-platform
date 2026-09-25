@@ -411,7 +411,118 @@ async function api(request,env){
   if(method!=='GET' && method!=='HEAD' && !csrfOk(request,user)) return json({error:'CSRF'},403);
 
   if(path==='/api/admin/change-password' && method==='POST'){
-    if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
+  
+  if(path==='/api/sharing' && method==='GET'){
+    if(user.role==='admin'){
+      const services=(await env.DB.prepare("SELECT s.id,s.name_ar,s.name_en,s.slug,s.credit_cost,s.active,s.sort_order,COUNT(c.id) total_codes,COALESCE(SUM(CASE WHEN c.status='available' THEN 1 ELSE 0 END),0) available_codes,COALESCE(SUM(CASE WHEN c.status='issued' THEN 1 ELSE 0 END),0) issued_codes FROM sharing_services s LEFT JOIN sharing_codes c ON c.service_id=s.id GROUP BY s.id ORDER BY s.sort_order,s.name_en").all()).results||[];
+      const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,u.username reseller_username,u.display_name reseller_name,o.quantity,o.unit_cost,o.total_cost,o.credits_before,o.credits_after,b.filename batch_filename FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id JOIN users u ON u.id=c.reseller_id JOIN sharing_orders o ON o.id=c.order_id JOIN sharing_batches b ON b.id=c.batch_id WHERE c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").all()).results||[];
+      return json({services,codes});
+    }
+
+    const services=(await env.DB.prepare("SELECT id,name_ar,name_en,slug,credit_cost,active,sort_order FROM sharing_services WHERE active=1 ORDER BY sort_order,name_en").all()).results||[];
+    const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,o.quantity,o.unit_cost,o.total_cost FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id LEFT JOIN sharing_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").bind(user.id).all()).results||[];
+    const wallet=await env.DB.prepare("SELECT credits FROM users WHERE id=? LIMIT 1").bind(user.id).first();
+    return json({services,codes,balance:Number(wallet?.credits||0)});
+  }
+
+  if(path==='/api/sharing/issue' && method==='POST'){
+    if(user.role!=='reseller') return json({error:'RESELLER_ONLY'},403);
+
+    const body=await bodyJson(request);
+    const serviceId=clean(body.serviceId,80);
+    const customerRef=clean(body.customerRef,120);
+    const quantity=Math.trunc(Number(body.quantity||1));
+    if(!serviceId||quantity<1||quantity>100) return json({error:'INVALID_ISSUE_REQUEST'},400);
+
+    const service=await env.DB.prepare("SELECT * FROM sharing_services WHERE id=? AND active=1 LIMIT 1").bind(serviceId).first();
+    if(!service) return json({error:'SHARING_SERVICE_NOT_FOUND'},404);
+
+    const fresh=await env.DB.prepare("SELECT id,credits,status FROM users WHERE id=? AND role='reseller'").bind(user.id).first();
+    const total=Number(service.credit_cost)*quantity;
+    if(!fresh||fresh.status!=='active'||Number(fresh.credits)<total) return json({error:'INSUFFICIENT_CREDIT'},409);
+
+    const candidates=(await env.DB.prepare("SELECT id,code FROM sharing_codes WHERE service_id=? AND status='available' ORDER BY created_at,id LIMIT ?")
+      .bind(serviceId,quantity).all()).results||[];
+    if(candidates.length<quantity) return json({error:'INSUFFICIENT_STOCK'},409);
+
+    const orderId=uid('sord'), txId=uid('ctx'), at=now();
+    const before=Number(fresh.credits), after=before-total;
+    const codeIds=candidates.map(c=>c.id);
+    const idSlots=codeIds.map(()=>'?').join(',');
+
+    try{
+      const batch=await env.DB.batch([
+        env.DB.prepare("INSERT INTO sharing_orders(id,reseller_id,service_id,customer_ref,quantity,unit_cost,total_cost,credits_before,credits_after,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,'completed',?)")
+          .bind(orderId,user.id,serviceId,customerRef,quantity,Number(service.credit_cost),total,before,after,at),
+
+        env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=?,updated_at=? WHERE id=? AND credits=? AND credits>=? AND status='active'")
+          .bind(after,txId,at,user.id,before,total),
+
+        env.DB.prepare("UPDATE sharing_codes SET status='issued',reseller_id=?,order_id=?,customer_ref=?,issued_at=? WHERE id IN ("+idSlots+") AND service_id=? AND status='available'")
+          .bind(user.id,orderId,customerRef,at,...codeIds,serviceId),
+
+        env.DB.prepare("INSERT INTO credit_transactions(id,reseller_id,amount,type,reference_id,note,balance_before,balance_after,created_at) SELECT ?,?,?,'sharing_issue',?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=? AND last_credit_tx_id=? AND credits=?)")
+          .bind(txId,user.id,-total,orderId,'Sharing code issue: '+service.name_en,before,after,at,user.id,txId,after)
+      ]);
+
+      const creditChanges=Number(batch?.[1]?.meta?.changes||0);
+      const codeChanges=Number(batch?.[2]?.meta?.changes||0);
+      const exactCount=await env.DB.prepare("SELECT COUNT(*) count FROM sharing_codes WHERE order_id=? AND reseller_id=? AND service_id=? AND status='issued'")
+        .bind(orderId,user.id,serviceId).first();
+      const wrongCount=await env.DB.prepare("SELECT COUNT(*) count FROM sharing_codes WHERE order_id=? AND reseller_id=? AND service_id<>?")
+        .bind(orderId,user.id,serviceId).first();
+
+      if(creditChanges!==1||codeChanges!==quantity||Number(exactCount?.count||0)!==quantity||Number(wrongCount?.count||0)!==0){
+        if(creditChanges===1){
+          await env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=NULL,updated_at=? WHERE id=? AND credits=? AND last_credit_tx_id=?")
+            .bind(before,now(),user.id,after,txId).run();
+        }
+        await env.DB.prepare("UPDATE sharing_codes SET status='available',reseller_id=NULL,order_id=NULL,customer_ref=NULL,issued_at=NULL WHERE order_id=? AND reseller_id=?")
+          .bind(orderId,user.id).run();
+        await env.DB.prepare("DELETE FROM credit_transactions WHERE id=?").bind(txId).run();
+        await env.DB.prepare("DELETE FROM sharing_orders WHERE id=?").bind(orderId).run();
+        return json({error:'ISSUE_CONFLICT_RETRY'},409);
+      }
+
+      await audit(env,request,user,'SHARING_CODES_ISSUED','sharing_order',orderId,{
+        serviceId,
+        service:service.name_en,
+        quantity,
+        totalCost:total,
+        customerRef,
+        serviceLocked:true
+      });
+
+      return json({
+        ok:true,
+        order:{
+          id:orderId,
+          serviceId,
+          serviceAr:service.name_ar,
+          serviceEn:service.name_en,
+          quantity,
+          unitCost:Number(service.credit_cost),
+          totalCost:total,
+          creditsBefore:before,
+          creditsAfter:after,
+          customerRef,
+          createdAt:at
+        },
+        codes:candidates.map(c=>({id:c.id,code:c.code}))
+      });
+    }catch(error){
+      console.error('SHARING_ISSUE_FAILED',String(error?.message||error));
+      try{
+        await env.DB.prepare("UPDATE sharing_codes SET status='available',reseller_id=NULL,order_id=NULL,customer_ref=NULL,issued_at=NULL WHERE order_id=? AND reseller_id=?")
+          .bind(orderId,user.id).run();
+        await env.DB.prepare("DELETE FROM credit_transactions WHERE id=?").bind(txId).run();
+        await env.DB.prepare("DELETE FROM sharing_orders WHERE id=?").bind(orderId).run();
+      }catch{}
+      return json({error:'ISSUE_CONFLICT_RETRY'},409);
+    }
+  }
+
+  if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
     const body=await bodyJson(request);
     const currentPassword=String(body.currentPassword||'');
     const newPassword=String(body.newPassword||'');
@@ -620,7 +731,7 @@ async function api(request,env){
   if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
 
   if(path==='/api/admin/resellers' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,COUNT(c.id) issued_codes FROM users u LEFT JOIN codes c ON c.reseller_id=u.id AND c.status='issued' WHERE u.role='reseller' GROUP BY u.id ORDER BY u.created_at DESC LIMIT 500").all()).results||[];
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u WHERE u.role='reseller' ORDER BY u.created_at DESC LIMIT 500").all()).results||[];
     return json({resellers:rows});
   }
 
@@ -720,6 +831,64 @@ async function api(request,env){
     await env.DB.prepare("UPDATE code_batches SET inserted_count=?,duplicate_count=? WHERE id=?").bind(inserted,duplicateCount,batchId).run();
     await audit(env,request,user,'CODES_IMPORTED','code_batch',batchId,{serverId,packageId,filename,totalLines:lines.length,inserted,duplicateCount});
     return json({ok:true,batch:{id:batchId,filename,total_lines:lines.length,blank_count:blank,inserted_count:inserted,duplicate_count:duplicateCount,created_at:at}},201);
+  }
+
+
+  if(path==='/api/admin/sharing/import' && method==='POST'){
+    const body=await bodyJson(request);
+    const serviceId=clean(body.serviceId,80);
+    const filename=clean(body.filename||'sharing-codes.txt',120);
+    const lines=String(body.text||'').replace(/\r/g,'').split('\n');
+    const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
+    const unique=Array.from(new Set(nonBlank));
+
+    if(!serviceId||unique.length===0) return json({error:'EMPTY_IMPORT'},400);
+    if(unique.length>700) return json({error:'IMPORT_LIMIT_700'},413);
+
+    const service=await env.DB.prepare("SELECT id,name_ar,name_en FROM sharing_services WHERE id=? AND active=1 LIMIT 1").bind(serviceId).first();
+    if(!service) return json({error:'SHARING_SERVICE_NOT_FOUND'},404);
+
+    const batchId=uid('sbat'), at=now(), blank=lines.length-nonBlank.length;
+    await env.DB.prepare("INSERT INTO sharing_batches(id,service_id,filename,imported_by,total_lines,blank_count,inserted_count,duplicate_count,created_at) VALUES(?,?,?,?,?,?,0,0,?)")
+      .bind(batchId,serviceId,filename,user.id,lines.length,blank,at).run();
+
+    let inserted=0;
+    for(let offset=0;offset<unique.length;offset+=16){
+      const chunk=unique.slice(offset,offset+16);
+      const params=[];
+      for(const code of chunk) params.push(uid('scod'),serviceId,batchId,code,at);
+      try{
+        const result=await env.DB.prepare("INSERT OR IGNORE INTO sharing_codes(id,service_id,batch_id,code,created_at) VALUES "+chunk.map(()=>"(?,?,?,?,?)").join(','))
+          .bind(...params).run();
+        inserted+=Number(result.meta?.changes||0);
+      }catch{}
+    }
+
+    const duplicateCount=Math.max(0,nonBlank.length-inserted);
+    await env.DB.prepare("UPDATE sharing_batches SET inserted_count=?,duplicate_count=? WHERE id=?")
+      .bind(inserted,duplicateCount,batchId).run();
+
+    await audit(env,request,user,'SHARING_CODES_IMPORTED','sharing_batch',batchId,{
+      serviceId,
+      service:service.name_en,
+      filename,
+      totalLines:lines.length,
+      inserted,
+      duplicateCount
+    });
+
+    return json({
+      ok:true,
+      batch:{
+        id:batchId,
+        filename,
+        total_lines:lines.length,
+        blank_count:blank,
+        inserted_count:inserted,
+        duplicate_count:duplicateCount,
+        created_at:at
+      }
+    },201);
   }
 
   if(path==='/api/admin/codes' && method==='GET'){
