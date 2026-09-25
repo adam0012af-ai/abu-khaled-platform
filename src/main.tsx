@@ -171,6 +171,8 @@ function Login({ onAuth }) {
   const [showPassword,setShowPassword]=useState(false);
   const [turnstile,setTurnstile]=useState({enabled:false,siteKey:''});
   const [turnstileToken,setTurnstileToken]=useState('');
+  const [turnstileStarted,setTurnstileStarted]=useState(false);
+  const [turnstileError,setTurnstileError]=useState('');
   const turnstileNode=useRef(null);
   const turnstileWidget=useRef(null);
 
@@ -204,12 +206,29 @@ function Login({ onAuth }) {
           turnstileWidget.current=window.turnstile.render(turnstileNode.current,{
             sitekey:turnstile.siteKey,
             theme:'light',
-            size:'flexible',
+            size:'normal',
             language:lang==='en'?'en':'ar',
             action:'login',
-            callback:(token)=>setTurnstileToken(token||''),
-            'expired-callback':()=>setTurnstileToken(''),
-            'error-callback':()=>setTurnstileToken('')
+            execution:'execute',
+            appearance:'execute',
+            retry:'never',
+            'refresh-expired':'manual',
+            'refresh-timeout':'manual',
+            callback:(token)=>{
+              setTurnstileToken(token||'');
+              setTurnstileStarted(false);
+              setTurnstileError('');
+            },
+            'expired-callback':()=>{
+              setTurnstileToken('');
+              setTurnstileStarted(false);
+              setTurnstileError(l('انتهى التحقق. اضغط للتحقق مرة أخرى.','Verification expired. Verify again.'));
+            },
+            'error-callback':()=>{
+              setTurnstileToken('');
+              setTurnstileStarted(false);
+              setTurnstileError(l('تعذر التحقق. حاول مرة أخرى.','Verification failed. Try again.'));
+            }
           });
         }catch{}
       }else timer=window.setTimeout(render,120);
@@ -226,8 +245,25 @@ function Login({ onAuth }) {
     };
   },[turnstile.enabled,turnstile.siteKey,lang]);
 
+  function startTurnstile(){
+    setTurnstileError('');
+    setTurnstileToken('');
+    if(turnstileWidget.current===null||!window.turnstile?.execute){
+      setTurnstileError(l('التحقق غير جاهز بعد.','Verification is not ready yet.'));
+      return;
+    }
+    try{
+      setTurnstileStarted(true);
+      window.turnstile.execute(turnstileWidget.current);
+    }catch{
+      setTurnstileStarted(false);
+      setTurnstileError(l('تعذر بدء التحقق.','Unable to start verification.'));
+    }
+  }
+
   function resetTurnstile(){
     setTurnstileToken('');
+    setTurnstileStarted(false);
     try{
       if(turnstileWidget.current!==null&&window.turnstile?.reset) window.turnstile.reset(turnstileWidget.current);
     }catch{}
@@ -320,7 +356,25 @@ function Login({ onAuth }) {
               </div>
             </label>
 
-            {turnstile.enabled&&<div className="turnstileSlot" ref={turnstileNode}/>}
+            {turnstile.enabled&&<div className="turnstileManualBlock">
+              {!turnstileToken&&
+                <button
+                  type="button"
+                  className="turnstileStartBtn"
+                  onClick={startTurnstile}
+                  disabled={turnstileStarted}
+                >
+                  <span className="turnstileShield">✓</span>
+                  <span>{turnstileStarted?l('جارٍ التحقق…','Verifying…'):l('تحقق من الأمان','Verify security')}</span>
+                </button>
+              }
+              <div className={'turnstileSlot '+(turnstileStarted?'active':'')+(turnstileToken?' verified':'')} ref={turnstileNode}/>
+              {turnstileToken&&<div className="turnstileVerified">
+                <span>✓</span>
+                <b>{l('تم التحقق','Verified')}</b>
+              </div>}
+              {turnstileError&&<div className="turnstileInlineError">{turnstileError}</div>}
+            </div>}
 
             {error&&<div className="acmAuthError">{error}</div>}
 
