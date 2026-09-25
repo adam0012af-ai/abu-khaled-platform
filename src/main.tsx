@@ -1763,6 +1763,8 @@ function Logs({logs,admin}) {
     RESELLER_CREATED:[l('إنشاء موزع','Reseller created'),'account'],
     CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
     CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
+    SHARING_CODES_IMPORTED:[l('رفع أكواد شيرنج','Sharing codes imported'),'codes'],
+    SHARING_CODES_ISSUED:[l('تفعيل شيرنج','Sharing codes issued'),'codes'],
     SERVER_CREATED:[l('إضافة سيرفر','Server added'),'system'],
     PACKAGE_CREATED:[l('إضافة باقة','Package added'),'system'],
     APP_ADDED:[l('إضافة تطبيق','App added'),'system'],
@@ -1774,6 +1776,8 @@ function Logs({logs,admin}) {
     user:l('حساب','Account'),
     code_batch:l('دفعة أكواد','Code batch'),
     issue_order:l('تفعيل أكواد','Code issue'),
+    sharing_batch:l('دفعة شيرنج','Sharing batch'),
+    sharing_order:l('تفعيل شيرنج','Sharing issue'),
     server:l('سيرفر','Server'),
     package:l('باقة','Package'),
     app:l('تطبيق','App')
@@ -1793,7 +1797,8 @@ function Logs({logs,admin}) {
     initialCredits:l('رصيد البداية','Starting credit'),
     name:l('الاسم','Name'),
     platform:l('النوع','Type'),
-    visibility:l('الظهور','Visibility')
+    visibility:l('الظهور','Visibility'),
+    service:l('الخدمة','Service')
   };
 
   function meta(log){
