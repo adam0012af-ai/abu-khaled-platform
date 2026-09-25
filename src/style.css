@@ -1060,46 +1060,182 @@ tr:last-child td{border-bottom:0}
 
 /* Dedicated authentication UI */
 .acmAuthScreen{
+  position:relative;
   min-height:100dvh;
   width:100%;
   display:grid;
-  place-items:center;
-  padding:max(18px,env(safe-area-inset-top)) 14px max(18px,env(safe-area-inset-bottom));
+  grid-template-rows:minmax(0,1fr) auto;
+  overflow:hidden;
   background:
-    radial-gradient(circle at 50% -10%,rgba(59,130,246,.08),transparent 34%),
-    var(--bg)
+    radial-gradient(circle at 50% -16%,rgba(59,130,246,.12),transparent 34%),
+    radial-gradient(circle at 92% 18%,rgba(16,185,129,.08),transparent 22%),
+    linear-gradient(180deg,#F8FAFC 0%,#F4F7FB 100%)
 }
-.acmAuthWrap{width:min(410px,100%);display:grid;gap:10px}
-.acmAuthBrand{display:flex;align-items:center;justify-content:center;min-height:50px}
+.acmAuthGlow{
+  position:fixed;
+  pointer-events:none;
+  border-radius:999px;
+  filter:blur(10px);
+  opacity:.65
+}
+.acmAuthGlowOne{
+  width:320px;height:320px;
+  top:-170px;right:-120px;
+  background:radial-gradient(circle,rgba(59,130,246,.10),transparent 68%)
+}
+.acmAuthGlowTwo{
+  width:280px;height:280px;
+  left:-130px;bottom:20px;
+  background:radial-gradient(circle,rgba(16,185,129,.08),transparent 68%)
+}
+.acmAuthStage{
+  position:relative;
+  z-index:1;
+  min-height:0;
+  display:grid;
+  place-items:center;
+  padding:
+    max(24px,env(safe-area-inset-top))
+    14px
+    18px
+}
+.acmAuthCenter{
+  width:min(430px,100%);
+  display:grid;
+  gap:17px;
+  transform:translateY(8px)
+}
+
+/* Premium login identity */
+.acmPremiumLogo{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  min-width:0;
+  direction:ltr
+}
+.acmPremiumLogoEmblem{
+  position:relative;
+  width:78px;
+  height:78px;
+  flex:0 0 auto;
+  filter:drop-shadow(0 16px 24px rgba(15,23,42,.13))
+}
+.acmPremiumLogoEmblem svg{
+  display:block;
+  width:100%;
+  height:100%
+}
+.acmPremiumLogoMini{
+  position:absolute;
+  left:50%;
+  bottom:10px;
+  transform:translateX(-50%);
+  color:rgba(248,250,252,.88);
+  font:800 7px/1 "Inter",sans-serif;
+  letter-spacing:2.3px
+}
+.acmPremiumLogoCopy{
+  display:grid;
+  gap:2px;
+  min-width:0
+}
+.acmPremiumLogoCopy strong{
+  color:#0F172A;
+  font:800 20px/1.05 "Inter",sans-serif;
+  letter-spacing:.25px;
+  white-space:nowrap
+}
+.acmPremiumLogoCopy>span{
+  color:var(--emerald);
+  font:800 9px/1.2 "Inter",sans-serif;
+  letter-spacing:4.4px
+}
+.acmPremiumLogoCopy small{
+  margin-top:4px;
+  color:#94A3B8;
+  font:700 6.5px/1.2 "Inter",sans-serif;
+  letter-spacing:1.45px;
+  white-space:nowrap
+}
+
 .acmAuthCard{
   width:100%;
-  padding:18px;
-  border:1px solid var(--line);
-  border-radius:17px;
-  background:#fff;
-  box-shadow:var(--shadow-lg)
+  padding:21px;
+  border:1px solid rgba(226,232,240,.95);
+  border-radius:19px;
+  background:rgba(255,255,255,.94);
+  box-shadow:
+    0 24px 60px -30px rgba(15,23,42,.30),
+    0 4px 18px -6px rgba(15,23,42,.08);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px)
 }
-.acmAuthHeading{margin-bottom:14px}
-.acmAuthHeading h1{margin:0;font-size:23px;line-height:1.35}
-.acmAuthHeading p{margin:4px 0 0;color:var(--muted-2);font-size:9px}
-.acmAuthForm{display:grid;gap:10px}
-.acmField{display:grid;gap:5px;min-width:0}
-.acmField>span{color:var(--muted);font-size:9px;font-weight:700}
-.acmField>span em{margin-right:4px;color:var(--muted-2);font-size:8px;font-style:normal}
+.acmAuthHeading{
+  margin-bottom:16px;
+  text-align:right
+}
+.acmAuthHeading>span{
+  display:block;
+  margin-bottom:3px;
+  color:#3B82F6;
+  font:800 7px/1.3 "Inter",sans-serif;
+  letter-spacing:1.8px
+}
+.acmAuthHeading h1{
+  margin:0;
+  color:var(--text);
+  font-size:24px;
+  line-height:1.35
+}
+.acmAuthHeading p{
+  margin:4px 0 0;
+  color:var(--muted-2);
+  font-size:9px
+}
+.acmAuthForm{
+  display:grid;
+  gap:11px
+}
+.acmField{
+  display:grid;
+  gap:5px;
+  min-width:0
+}
+.acmField>span{
+  color:var(--muted);
+  font-size:9px;
+  font-weight:700
+}
+.acmField>span em{
+  margin-right:4px;
+  color:var(--muted-2);
+  font-size:8px;
+  font-style:normal
+}
 .acmField input,.acmField select{
-  min-height:44px;
+  min-height:45px;
   padding:9px 11px;
   border-radius:10px;
   background:#FBFDFF;
   font-size:13px
 }
-.acmPasswordBox{position:relative;min-width:0}
-.acmPasswordBox input{padding-left:64px}
+.acmPasswordBox{
+  position:relative;
+  min-width:0
+}
+.acmPasswordBox input{padding-left:66px}
 .acmPasswordBox button{
-  position:absolute;left:6px;top:50%;transform:translateY(-50%);
-  min-width:52px;height:31px;
+  position:absolute;
+  left:6px;
+  top:50%;
+  transform:translateY(-50%);
+  min-width:54px;
+  height:32px;
+  padding:0 8px;
   border:1px solid var(--line);
-  border-radius:7px;
+  border-radius:8px;
   background:#F1F5F9;
   color:var(--muted);
   font-size:8px;
@@ -1113,23 +1249,75 @@ tr:last-child td{border-bottom:0}
   color:#BE123C;
   font-size:9px
 }
+.acmAuthSubmit{
+  width:100%;
+  min-height:46px;
+  margin-top:2px;
+  box-shadow:0 12px 24px -14px rgba(16,185,129,.85)
+}
 .acmSecureNote,.acmStatusNote{
-  display:flex;align-items:center;gap:7px;
+  display:flex;
+  align-items:center;
+  gap:7px;
   color:var(--muted-2);
   font-size:8px
 }
 .acmSecureNote{
   justify-content:center;
-  margin-top:11px;
-  padding-top:11px;
+  margin-top:12px;
+  padding-top:12px;
   border-top:1px solid #EEF2F7
 }
-.acmSecureNote i,.acmStatusNote i{
-  width:7px;height:7px;
+.acmSecureDot,.acmStatusNote i{
+  width:7px;
+  height:7px;
   flex:0 0 auto;
   border-radius:50%;
   background:var(--emerald);
   box-shadow:0 0 0 4px rgba(16,185,129,.09)
+}
+
+/* Login footer */
+.acmAuthFooter{
+  position:relative;
+  z-index:1;
+  width:100%;
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
+  padding:15px max(16px,env(safe-area-inset-right)) max(15px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  border-top:1px solid rgba(226,232,240,.82);
+  background:rgba(248,250,252,.72);
+  color:#94A3B8;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px)
+}
+.acmAuthFooterCopyright{
+  font-size:8px;
+  font-weight:600
+}
+.acmAuthFooterSecurity{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 8px;
+  border:1px solid #D1FAE5;
+  border-radius:999px;
+  background:rgba(236,253,245,.82);
+  color:#047857;
+  font:700 7px "Inter",sans-serif;
+  white-space:nowrap
+}
+.acmAuthFooterSecurity svg{
+  width:12px;
+  height:12px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round
 }
 
 /* Forced password screen */
@@ -1428,13 +1616,31 @@ tr:last-child td{border-bottom:0}
   .proLogEntity{display:none}
   .proLogDetails{grid-template-columns:1fr}
 
-  .acmAuthScreen{place-items:start center;padding:14px 11px max(14px,env(safe-area-inset-bottom))}
-  .acmAuthWrap{width:100%;max-width:390px;gap:7px}
-  .acmAuthBrand{min-height:44px}
-  .acmAuthCard{padding:14px;border-radius:14px}
-  .acmAuthHeading{margin-bottom:11px}
-  .acmAuthHeading h1{font-size:20px}
-  .acmField input,.acmField select{min-height:42px;font-size:14px}
+  .acmAuthStage{
+    padding:max(16px,env(safe-area-inset-top)) 11px 12px
+  }
+  .acmAuthCenter{
+    width:100%;
+    max-width:390px;
+    gap:12px;
+    transform:translateY(4px)
+  }
+  .acmPremiumLogo{gap:10px}
+  .acmPremiumLogoEmblem{width:64px;height:64px}
+  .acmPremiumLogoCopy strong{font-size:16px}
+  .acmPremiumLogoCopy>span{font-size:8px;letter-spacing:3.6px}
+  .acmPremiumLogoCopy small{font-size:5.7px;letter-spacing:1px}
+  .acmAuthCard{padding:15px;border-radius:15px}
+  .acmAuthHeading{margin-bottom:12px}
+  .acmAuthHeading h1{font-size:21px}
+  .acmField input,.acmField select{min-height:43px;font-size:14px}
+  .acmAuthFooter{
+    min-height:66px;
+    flex-direction:column;
+    gap:5px;
+    padding:10px 12px max(12px,env(safe-area-inset-bottom))
+  }
+  .acmAuthFooterCopyright{font-size:7px}
   .acmCreateCard,.acmIssueCard{padding:12px;border-radius:13px}
   .acmCreateHead,.acmIssueHead{padding-bottom:9px;margin-bottom:9px}
   .acmCreateHead h2,.acmIssueHead h2{font-size:17px}
