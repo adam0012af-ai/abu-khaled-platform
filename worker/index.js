@@ -43,7 +43,7 @@ function securityHeaders(extra={}){
     'x-content-type-options':'nosniff',
     'x-frame-options':'DENY',
     'referrer-policy':'no-referrer',
-    'permissions-policy':'camera=(), microphone=(), geolocation=()',
+    'permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()',
     'cross-origin-opener-policy':'same-origin',
     'cross-origin-resource-policy':'same-origin',
     'content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
@@ -285,7 +285,7 @@ async function login(request,env){
   const body=await bodyJson(request);
   const identifier=clean(body.identifier||body.username,120);
   const password=String(body.password||'');
-  if(!identifier || !password) return json({error:'INVALID_LOGIN'},401);
+  if(!identifier || !password || password.length>256) return json({error:'INVALID_LOGIN'},401);
 
   const key=await sha256(identifier.toLowerCase()+'|'+(request.headers.get('cf-connecting-ip')||'unknown'));
   const gate=await env.DB.prepare("SELECT * FROM login_attempts WHERE key=?").bind(key).first();
@@ -328,21 +328,15 @@ async function api(request,env){
   if(method!=='GET' && method!=='HEAD'){
     const origin=request.headers.get('origin');
     const fetchSite=(request.headers.get('sec-fetch-site')||'').toLowerCase();
-    if(origin && origin!==url.origin) return json({error:'ORIGIN_NOT_ALLOWED'},403);
+    if(origin!==url.origin) return json({error:'ORIGIN_NOT_ALLOWED'},403);
     if(fetchSite==='cross-site') return json({error:'CROSS_SITE_NOT_ALLOWED'},403);
   }
 
   if(path==='/api/health'){
-    const admin=await env.DB.prepare("SELECT username,status FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-secure-session-v7',
-      db:true,
-      adminConfigured:true,
-      adminExists:Boolean(admin),
-      adminUsername:admin?.username||null,
-      adminStatus:admin?.status||null
+      version:'worker-security-session-v8'
     });
   }
 
@@ -388,7 +382,13 @@ async function api(request,env){
     return json({error:'PASSWORD_CHANGE_REQUIRED'},403);
   }
 
-  if(path==='/api/me' && method==='GET') return json({user:publicUser(user),csrf:user.csrf_token});
+  if(path==='/api/me' && method==='GET'){
+    const token=cookieValue(request,SESSION_COOKIE);
+    const at=now();
+    const expires=new Date(Date.now()+SESSION_HOURS*3600*1000).toISOString();
+    await env.DB.prepare("UPDATE sessions SET last_seen_at=?,expires_at=? WHERE id=?").bind(at,expires,user.session_id).run();
+    return json({user:publicUser(user),csrf:user.csrf_token},200,{'set-cookie':sessionCookie(token)});
+  }
   if(path==='/api/servers' && method==='GET'){
     return json(user.role==='admin' ? await stock(env) : await resellerCatalog(env));
   }
@@ -532,7 +532,7 @@ async function api(request,env){
     const username=clean(body.username,80), email=clean(body.email,120).toLowerCase(), password=String(body.password||'');
     const displayName=clean(body.displayName,80)||username;
     const credits=Math.max(0,Math.trunc(Number(body.credits||0)));
-    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||!Number.isSafeInteger(credits)) return json({error:'INVALID_RESELLER'},400);
+    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||password.length>256||!Number.isSafeInteger(credits)) return json({error:'INVALID_RESELLER'},400);
     const salt=randomToken(18), id=uid('usr'), at=now();
     try{
       await env.DB.batch([
