@@ -705,18 +705,6 @@ tr:last-child td{border-bottom:0}
   .mobileBrand{display:block;margin-bottom:24px}
 
   .panelShell{display:block;width:100%;max-width:100%;overflow-x:hidden}
-  .fullSidebar{
-    position:fixed;top:0;left:0;right:auto;
-    width:min(82vw,360px);max-width:360px;height:100dvh;
-    padding:22px 18px 18px;
-    transform:translateX(-105%);transition:transform .22s ease;
-    box-shadow:14px 0 30px rgba(0,0,0,.22);
-    overscroll-behavior:contain;
-    touch-action:pan-y
-  }
-  .fullSidebar.open{transform:translateX(0)}
-  .sidebarClose{display:block}
-  .sidebarBackdrop{display:block;position:fixed;inset:0;z-index:45;background:rgba(28,31,35,.58)}
   .sidebarOpen{display:grid;place-items:center;flex:0 0 auto}
 
   .contentArea{width:100%;max-width:100%}
