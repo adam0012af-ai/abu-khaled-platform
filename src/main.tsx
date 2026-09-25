@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client';
 
 const fmt = (v,lang='ar') => v ? new Date(v).toLocaleString(lang==='en'?'en-US':'ar-EG') : '—';
 const num = (v) => Number(v || 0).toLocaleString('en-US');
+const balanceUnit = (config,lang='ar') => {
+  const mode=config?.mode==='credit'?'credit':'currency';
+  if(mode==='credit') return lang==='en'?'CREDIT':'كريدت';
+  const currency=String(config?.currency||'EGP').toUpperCase();
+  if(currency==='USD') return lang==='en'?'USD':'$';
+  return lang==='en'?'EGP':'ج.م';
+};
 
 const panelStateKey = (role, key) => `acm:${role}:${key}`;
 
@@ -81,6 +88,8 @@ const RESELLER_ROUTE_TO_TAB = {
   dashboard:'overview',
   issue:'issue',
   codes:'mycodes',
+  'dealers/new':'reseller-create',
+  dealers:'reseller-manage',
   credit:'credit',
   apps:'apps',
   sharing:'sharing',
@@ -440,7 +449,10 @@ function NavIcon({name}) {
 function Panel({ user, csrf, onLogout }) {
   const {lang,l}=useLanguage();
   const isAdmin = user.role === 'admin';
-  const isOwner = isAdmin && String(user.username||'').toLowerCase()==='owner';
+  const accountType = user.accountType || (isAdmin?(String(user.username||'').toLowerCase()==='owner'?'owner':'admin'):'reseller');
+  const isOwner = accountType === 'owner';
+  const isAgent = accountType === 'agent';
+  const canManageResellers = isAdmin || isAgent;
   const adminNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
     {id:'servers',label:l('إضافة سيرفر','Add server'),icon:'server'},
@@ -460,11 +472,15 @@ function Panel({ user, csrf, onLogout }) {
   ];
   const resellerNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
-    {id:'issue',label:l('إنشاء الأكواد','Issue codes'),icon:'issue'},
+    {id:'issue',label:l('إنشاء كود IPTV','Issue IPTV code'),icon:'issue'},
+    {id:'sharing',label:l('إنشاء كود شيرنج','Issue sharing code'),icon:'sharing'},
     {id:'mycodes',label:l('أكوادي','My codes'),icon:'codes'},
-    {id:'credit',label:l('طلب كريدت','Request credit'),icon:'credit'},
+    ...(isAgent?[{id:'resellers',label:l('موزعيني','My resellers'),icon:'users',children:[
+      {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
+      {id:'reseller-manage',label:l('إدارة موزعيني','Manage my resellers'),icon:'manageUsers'}
+    ]}]:[]),
+    {id:'credit',label:l('طلب رصيد','Request balance'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
-    {id:'sharing',label:l('الشيرنج','Sharing'),icon:'sharing'},
     {id:'logs',label:l('السجل','Activity'),icon:'logs'},
     {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
@@ -476,7 +492,7 @@ function Panel({ user, csrf, onLogout }) {
   const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
-  const emptyData={ dashboard:null, profile:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
+  const emptyData={ dashboard:null, profile:null, balanceConfig:{mode:'currency',currency:'EGP',unit:'EGP'}, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
   const cachedData=useMemo(()=>readPanelData(user.role),[user.role]);
   const [data,setData] = useState(()=>cachedData||emptyData);
   const [dataReady,setDataReady] = useState(()=>Boolean(cachedData));
@@ -503,6 +519,7 @@ function Panel({ user, csrf, onLogout }) {
         ...data,
         dashboard:dash,
         profile:profile.profile||null,
+        balanceConfig:dash.balanceConfig||data.balanceConfig||{mode:'currency',currency:'EGP',unit:'EGP'},
         servers:servers.servers||[],
         packages:servers.packages||[],
         apps:apps.apps||[],
@@ -516,6 +533,10 @@ function Panel({ user, csrf, onLogout }) {
       } else {
         const codes = await call('/api/my-codes');
         next.codes = codes.codes||[];
+        if(isAgent){
+          const team=await call('/api/team/resellers');
+          next.resellers=team.resellers||[];
+        }
       }
       setData(next);
       writePanelData(user.role,next);
@@ -618,7 +639,10 @@ function Panel({ user, csrf, onLogout }) {
         NEGATIVE_BALANCE_NOT_ALLOWED:l('لا يمكن أن يصبح الرصيد بالسالب.','Balance cannot be negative.'),
         INVALID_RESELLER:l('تحقق من بيانات الموزع.','Check reseller details.'),
         ACCOUNT_EXISTS:l('اسم المستخدم أو البريد مستخدم.','Username or email already exists.'),
-        INVALID_APP:l('تحقق من الروابط.','Check the links.')
+        INVALID_APP:l('تحقق من الروابط.','Check the links.'),
+        INVALID_ROLE:l('اختيار الصلاحية غير صحيح.','Invalid account role.'),
+        OWNER_ROLE_LOCKED:l('لا يمكن تغيير صلاحية المالك.','Owner role cannot be changed.'),
+        AGENT_ONLY:l('هذه العملية متاحة للوكيل فقط.','This action is for agents only.')
       };
       if(e.message==='INSUFFICIENT_STOCK'){
         setNotice('');
@@ -661,9 +685,9 @@ function Panel({ user, csrf, onLogout }) {
         <div className="sidebarAccountCard">
           <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
           <div className="sidebarAccountCopy">
-            <span>{isAdmin?(isOwner?l('لوحة المالك','OWNER PANEL'):l('شريك أدمن','PARTNER ADMIN')):l('لوحة الموزع','RESELLER PANEL')}</span>
+            <span>{isAdmin?(isOwner?l('لوحة المالك','OWNER PANEL'):l('شريك أدمن','PARTNER ADMIN')):(isAgent?l('لوحة الوكيل','AGENT PANEL'):l('لوحة الموزع','RESELLER PANEL'))}</span>
             <b>{user.displayName||user.username}</b>
-            {!isAdmin&&<small>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</small>}
+            {!isAdmin&&<small>{num(data.dashboard?.user?.credits ?? user.credits)} {balanceUnit(data.balanceConfig,lang)}</small>}
           </div>
           <span className="sidebarOnlineDot" title="Online"/>
         </div>
@@ -739,20 +763,20 @@ function Panel({ user, csrf, onLogout }) {
           {!dataReady ? <div className="panelLoadingState" aria-hidden="true">
             <span className="panelLoadingLine"/>
           </div> : <section className="routeView active" data-route={tab} key={tab}>
-            {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
+            {tab==='overview' && isAdmin && <AdminOverview data={data} action={action} busy={busy} user={user}/>}
             {tab==='overview' && !isAdmin && <ResellerOverview data={data} goTo={goTo}/>}
-            {tab==='servers' && isAdmin && <Servers action={action} busy={busy}/>}
+            {tab==='servers' && isAdmin && <Servers action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
             {tab==='inventory' && isAdmin && <Inventory data={data}/>}
             {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
-            {tab==='reseller-create' && isAdmin && <CreateReseller action={action} busy={busy}/>}
-            {tab==='reseller-manage' && isAdmin && <ManageResellers data={data} action={action} busy={busy}/>}
+            {tab==='reseller-create' && canManageResellers && <CreateReseller action={action} busy={busy} endpoint={isAdmin?'/api/admin/resellers':'/api/team/resellers'} balanceConfig={data.balanceConfig} agentMode={isAgent}/>}
+            {tab==='reseller-manage' && canManageResellers && <ManageResellers data={data} action={action} busy={busy} admin={isAdmin} balanceConfig={data.balanceConfig}/>}
             {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
             {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
             {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
             {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
-            {tab==='sharing' && <Sharing admin={isAdmin} call={call} action={action} busy={busy}/>} 
+            {tab==='sharing' && <Sharing admin={isAdmin} call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
             {tab==='partners' && isAdmin && <AdminPartners call={call} action={action} busy={busy}/>}
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
             {tab==='profile' && <ProfilePage profile={data.profile||user} user={user} call={call} logout={logout}/>}
@@ -874,9 +898,9 @@ function AdminPartners({call,action,busy}){
   </div>;
 }
 
-function Sharing({admin,call,action,busy}){
+function Sharing({admin,call,action,busy,balanceConfig}){
   const {lang,l}=useLanguage();
-  const [data,setData]=useState({services:[],codes:[],balance:0});
+  const [data,setData]=useState({services:[],codes:[],balance:0,balanceConfig:balanceConfig||{mode:'currency',currency:'EGP'}});
   const [ready,setReady]=useState(false);
   const [importForm,setImportForm]=useState({serviceId:'',filename:'sharing-codes.txt',text:''});
   const [issueForm,setIssueForm]=useState({serviceId:'',customerRef:'',quantity:1});
@@ -890,7 +914,8 @@ function Sharing({admin,call,action,busy}){
       setData({
         services:out.services||[],
         codes:out.codes||[],
-        balance:Number(out.balance||0)
+        balance:Number(out.balance||0),
+        balanceConfig:out.balanceConfig||balanceConfig||{mode:'currency',currency:'EGP'}
       });
     }finally{
       setReady(true);
@@ -943,8 +968,8 @@ function Sharing({admin,call,action,busy}){
 
   return <section className="section sharingSection">
     <div className="sectionHead sharingHead">
-      <div><h2>{l('الشيرنج','Sharing')}</h2></div>
-      {!admin&&<div className="sharingBalance"><span>{l('الرصيد','Balance')}</span><b>{num(data.balance)}</b><small>Credit</small></div>}
+      <div><h2>{admin?l('إدارة الشيرنج','Sharing management'):l('إنشاء كود شيرنج','Issue sharing code')}</h2></div>
+      {!admin&&<div className="sharingBalance"><span>{l('الرصيد','Balance')}</span><b>{num(data.balance)}</b><small>{balanceUnit(data.balanceConfig,lang)}</small></div>}
     </div>
 
     <div className="sharingGrid">
@@ -958,7 +983,7 @@ function Sharing({admin,call,action,busy}){
         <div className="sharingCardCopy">
           <span>{String(index+1).padStart(2,'0')}</span>
           <h3>{lang==='en'?service.name_en:service.name_ar}</h3>
-          <small>{num(service.credit_cost)} CREDIT</small>
+          <small>{num(service.credit_cost)} {balanceUnit(data.balanceConfig,lang)}</small>
         </div>
         {admin&&<div className="sharingStock">
           <div><span>{l('المتاح','Available')}</span><b>{num(service.available_codes)}</b></div>
@@ -1008,7 +1033,7 @@ function Sharing({admin,call,action,busy}){
             <span>{l('الخدمة','Service')}</span>
             <b>{selected?(lang==='en'?selected.name_en:selected.name_ar):l('اختر خدمة من الأعلى','Select a service above')}</b>
           </div>
-          {selected&&<small>{num(selected.credit_cost)} Credit</small>}
+          {selected&&<small>{num(selected.credit_cost)} {balanceUnit(data.balanceConfig,lang)}</small>}
         </div>
 
         <div className="sharingIssueTabs">
@@ -1027,7 +1052,7 @@ function Sharing({admin,call,action,busy}){
         </label>}
 
         <button className="acmPrimaryBtn sharingSubmit" disabled={busy||!selected}>
-          {busy?l('جارٍ التفعيل…','Issuing…'):l('تفعيل','Issue')}
+          {busy?l('جارٍ الإنشاء…','Issuing…'):l('إنشاء الكود','Issue code')}
         </button>
       </form>
 
@@ -1046,8 +1071,11 @@ function Sharing({admin,call,action,busy}){
     </>}
 
     <div className="sharingDivider"/>
-    <div className="sharingCodesHead">
-      <h3>{admin?l('الأكواد المفعلة','Issued sharing codes'):l('أكواد الشيرنج الخاصة بي','My sharing codes')}</h3>
+    <div className="sharingCodesHead activePocketHead">
+      <div>
+        <span className="sharingActiveBadge">ACTIVE</span>
+        <h3>{admin?l('الأكواد المفعلة للشيرنج','Active sharing issues'):l('أكواد الشيرنج المفعلة','My active sharing codes')}</h3>
+      </div>
       <small>{num(data.codes.length)}</small>
     </div>
 
@@ -1062,9 +1090,18 @@ function Sharing({admin,call,action,busy}){
               {admin&&<small>{code.reseller_name||code.reseller_username||'—'}</small>}
               <i>{open?'−':'+'}</i>
             </button>
-            {open&&<div className="sharingCodeDetails">
+            {open&&<div className="sharingCodeDetails sharingActiveDetails">
+              <div><span>{l('الخدمة','Service')}</span><b>{serviceName}</b></div>
               <div><span>{l('العميل','Customer')}</span><b>{code.customer_ref||'—'}</b></div>
               <div><span>{l('التاريخ','Date')}</span><b>{fmt(code.issued_at,lang)}</b></div>
+              <div><span>{l('العدد','Quantity')}</span><b>{num(code.quantity||1)}</b></div>
+              <div><span>{l('سعر الوحدة','Unit cost')}</span><b>{num(code.unit_cost||0)} {balanceUnit(data.balanceConfig,lang)}</b></div>
+              <div><span>{l('الإجمالي','Total')}</span><b>{num(code.total_cost||0)} {balanceUnit(data.balanceConfig,lang)}</b></div>
+              {admin&&<div><span>{l('الموزع','Reseller')}</span><b>{code.reseller_name||code.reseller_username||'—'}</b></div>}
+              {admin&&<div><span>{l('رصيد قبل','Balance before')}</span><b>{num(code.credits_before||0)} {balanceUnit(data.balanceConfig,lang)}</b></div>}
+              {admin&&<div><span>{l('رصيد بعد','Balance after')}</span><b>{num(code.credits_after||0)} {balanceUnit(data.balanceConfig,lang)}</b></div>}
+              {admin&&<div><span>{l('ملف المصدر','Source file')}</span><b>{code.batch_filename||'—'}</b></div>}
+              <div><span>{l('رقم العملية','Order ID')}</span><b className="mono">{code.order_id||'—'}</b></div>
               <button type="button" onClick={()=>copy(code.code)}>{l('نسخ الكود','Copy code')}</button>
             </div>}
           </article>;
@@ -1132,7 +1169,7 @@ function ProfilePage({profile,user,call,logout}) {
       {user.role==='reseller'&&<div className="profileBalance">
         <span>{l('الرصيد','Balance')}</span>
         <strong>{num(p.credits)}</strong>
-        <small>CREDIT</small>
+        <small>{balanceUnit(balanceConfig,lang)}</small>
       </div>}
     </div>
 
@@ -1197,36 +1234,75 @@ function ProfilePage({profile,user,call,logout}) {
   </section>;
 }
 
-function AdminOverview({data}) {
-  const {l}=useLanguage();
+function AdminOverview({data,action,busy,user}) {
+  const {lang,l}=useLanguage();
   const c=data.dashboard?.counts||{};
+  const cfg=data.balanceConfig||{mode:'currency',currency:'EGP'};
+  const [settings,setSettings]=useState({mode:cfg.mode||'currency',currency:cfg.currency||'EGP'});
+
+  useEffect(()=>{
+    setSettings({mode:cfg.mode||'currency',currency:cfg.currency||'EGP'});
+  },[cfg.mode,cfg.currency]);
+
   const stats=[
     {label:l('إجمالي الأكواد','Total codes'),value:c.total_codes,tone:'blue'},
     {label:l('الأكواد المتاحة','Available codes'),value:c.available,tone:'green'},
     {label:l('الأكواد المفعلة','Issued codes'),value:c.issued,tone:'violet'},
     {label:l('الموزعون','Resellers'),value:c.resellers,tone:'orange'},
-    {label:l('طلبات الكريدت','Credit requests'),value:c.pending_requests,tone:'pink'},
-    {label:l('رصيد الموزعين','Reseller credit'),value:c.reseller_credits,tone:'cyan'}
+    {label:l('طلبات الرصيد','Balance requests'),value:c.pending_requests,tone:'pink'},
+    {label:l('أرصدة الموزعين','Reseller balances'),value:c.reseller_credits,tone:'cyan'}
   ];
 
-  return <section className="section dashboardSummary premiumDashboard">
-    <div className="dashboardHeader">
-      <div>
-        <h2>{l('الرئيسية','Dashboard')}</h2>
+  return <>
+    <section className="section dashboardSummary premiumDashboard">
+      <div className="dashboardHeader">
+        <div>
+          <h2>{l('الرئيسية','Dashboard')}</h2>
+        </div>
+        <div className="adminBalanceOpen">
+          <span>{l('نظام الحساب','Balance system')}</span>
+          <b>{balanceUnit(cfg,lang)}</b>
+        </div>
       </div>
-      <div className="adminBalanceOpen">
-        <span>{l('رصيد الإدارة','Admin balance')}</span>
-        <b>∞</b>
-      </div>
-    </div>
 
-    <div className="dashboardStats premiumStats">
-      {stats.map(item=><div className={'dashboardStat '+item.tone} key={item.label}>
-        <span>{item.label}</span>
-        <strong>{num(item.value)}</strong>
-      </div>)}
-    </div>
-  </section>;
+      <div className="dashboardStats premiumStats">
+        {stats.map(item=><div className={'dashboardStat '+item.tone} key={item.label}>
+          <span>{item.label}</span>
+          <strong>{num(item.value)}</strong>
+        </div>)}
+      </div>
+    </section>
+
+    <section className="section balanceSettingsCard">
+      <div className="sectionHead">
+        <div>
+          <h2>{l('نظام الرصيد والعملة','Balance & currency')}</h2>
+          <p>{l('الأساسي جنيه مصري، ويمكن التحويل إلى دولار أو الرجوع لنظام الكريدت من هنا.','EGP is the default. Switch to USD or Credit mode from here.')}</p>
+        </div>
+        <span className="balanceModeLive">{balanceUnit(cfg,lang)}</span>
+      </div>
+      <form className="balanceSettingsForm" onSubmit={async e=>{
+        e.preventDefault();
+        await action('/api/admin/balance-config',settings);
+      }}>
+        <label className="acmField">
+          <span>{l('النظام','Mode')}</span>
+          <select value={settings.mode} onChange={e=>setSettings(v=>({...v,mode:e.target.value}))}>
+            <option value="currency">{l('عملة','Currency')}</option>
+            <option value="credit">{l('كريدت','Credit')}</option>
+          </select>
+        </label>
+        <label className="acmField">
+          <span>{l('العملة','Currency')}</span>
+          <select disabled={settings.mode==='credit'} value={settings.currency} onChange={e=>setSettings(v=>({...v,currency:e.target.value}))}>
+            <option value="EGP">{l('جنيه مصري (EGP)','Egyptian Pound (EGP)')}</option>
+            <option value="USD">{l('دولار أمريكي (USD)','US Dollar (USD)')}</option>
+          </select>
+        </label>
+        <button className="acmPrimaryBtn" disabled={busy}>{l('حفظ النظام','Save mode')}</button>
+      </form>
+    </section>
+  </>;
 }
 
 function ResellerOverview({data,goTo}) {
@@ -1286,7 +1362,7 @@ function ResellerOverview({data,goTo}) {
         <div className="resellerWalletCard">
           <span>{l('الرصيد الحالي','Current balance')}</span>
           <strong>{num(balance)}</strong>
-          <small>CREDIT</small>
+          <small>{balanceUnit(data.balanceConfig,lang)}</small>
         </div>
       </div>
 
@@ -1309,7 +1385,7 @@ function ResellerOverview({data,goTo}) {
     <section className="resellerAccountStrip">
       <div>
         <span>{l('الحساب','Account')}</span>
-        <b>{profile.status==='blocked'?l('متوقف','Disabled'):l('موزع نشط','Active reseller')}</b>
+        <b>{profile.status==='blocked'?l('متوقف','Disabled'):(user.accountType==='agent'?l('وكيل نشط','Active agent'):l('موزع نشط','Active reseller'))}</b>
       </div>
       <div>
         <span>{l('آخر دخول','Last login')}</span>
@@ -1351,7 +1427,7 @@ function ResellerOverview({data,goTo}) {
         {recentRequests.length===0 ? <div className="emptyState compact">{l('لا توجد طلبات.','No requests.')}</div> :
           <div className="resellerRequestList">
             {recentRequests.map(r=><article key={r.id}>
-              <div><b>{num(r.amount)}</b><span>CREDIT</span></div>
+              <div><b>{num(r.amount)}</b><span>{balanceUnit(data.balanceConfig,lang)}</span></div>
               <span className={'badge '+r.status}>{r.status}</span>
               <small>{fmt(r.created_at,lang)}</small>
             </article>)}
@@ -1378,8 +1454,8 @@ function ResellerOverview({data,goTo}) {
   </>;
 }
 
-function Servers({action,busy}) {
-  const {l}=useLanguage();
+function Servers({action,busy,balanceConfig}) {
+  const {lang,l}=useLanguage();
   const [server,setServer]=useState({name:'',lowStockThreshold:10,creditCost:1});
 
   return <section className="section focusedForm">
@@ -1393,7 +1469,7 @@ function Servers({action,busy}) {
       <label>{l('اسم السيرفر','Server name')}</label>
       <input placeholder={l('مثال: Nova','Example: Nova')} value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
 
-      <label>{l('تكلفة الكود بالكريدت','Code credit cost')}</label>
+      <label>{l('تكلفة الكود','Code cost')} ({balanceUnit(balanceConfig,lang)})</label>
       <input type="number" min="0" value={server.creditCost} onChange={e=>setServer({...server,creditCost:e.target.value})} required/>
 
       <label>{l('تنبيه انخفاض المخزون','Low stock alert')}</label>
@@ -1405,7 +1481,7 @@ function Servers({action,busy}) {
 }
 
 function Inventory({data}) {
-  const {l}=useLanguage();
+  const {lang,l}=useLanguage();
   return <section className="section">
     <div className="sectionHead">
       <div><h2>{l('المخزون','Inventory')}</h2></div>
@@ -1427,7 +1503,7 @@ function Inventory({data}) {
             <div><span>{l('الإجمالي','Total')}</span><strong>{num(s.total_codes)}</strong></div>
           </div>
           <div className="inventoryFoot">
-            <span>{num(p?.credit_cost||0)} Credit</span>
+            <span>{num(p?.credit_cost||0)} {balanceUnit(data.balanceConfig,lang)}</span>
             <span>{l('تنبيه عند','Alert at')} {num(s.low_stock_threshold||0)}</span>
           </div>
         </article>
@@ -1484,14 +1560,14 @@ function ImportCodes({data,action,busy}) {
     </div>
   </section>;
 }
-function CreateReseller({action,busy}) {
-  const {l}=useLanguage();
+function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConfig,agentMode=false}) {
+  const {lang,l}=useLanguage();
   const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
   const [showPassword,setShowPassword]=useState(false);
 
   async function submit(e){
     e.preventDefault();
-    await action('/api/admin/resellers',form);
+    await action(endpoint,form);
     setForm({username:'',email:'',displayName:'',password:'',credits:0});
     setShowPassword(false);
   }
@@ -1500,7 +1576,7 @@ function CreateReseller({action,busy}) {
     <div className="acmCreateHead">
       <div className="acmCreateIcon"><NavIcon name="userPlus"/></div>
       <div>
-        <h2>{l('إنشاء موزع','Create reseller')}</h2>
+        <h2>{agentMode?l('إنشاء موزع تحتي','Create sub-reseller'):l('إنشاء موزع','Create reseller')}</h2>
       </div>
     </div>
 
@@ -1556,7 +1632,7 @@ function CreateReseller({action,busy}) {
       </label>
 
       <label className="acmField acmStartCredit">
-        <span>{l('رصيد البداية','Starting credit')}</span>
+        <span>{l('رصيد البداية','Starting balance')} ({balanceUnit(balanceConfig,lang)})</span>
         <div className="acmCreditInput">
           <input
             dir="ltr"
@@ -1566,7 +1642,7 @@ function CreateReseller({action,busy}) {
             value={form.credits}
             onChange={e=>setForm({...form,credits:e.target.value})}
           />
-          <b>Credit</b>
+          <b>{balanceUnit(balanceConfig,lang)}</b>
         </div>
       </label>
 
@@ -1580,7 +1656,7 @@ function CreateReseller({action,busy}) {
   </section>;
 }
 
-function ManageResellers({data,action,busy}) {
+function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
   const {lang,l}=useLanguage();
   const [amounts,setAmounts]=useState({});
   const [openId,setOpenId]=useState(null);
@@ -1611,7 +1687,7 @@ function ManageResellers({data,action,busy}) {
         <span>{num(data.resellers.length)} {l('موزع','resellers')}</span>
       </div>
       <div className="managementSummary">
-        <div><span>{l('إجمالي الرصيد','Total credit')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.credits||0),0))}</b></div>
+        <div><span>{l('إجمالي الرصيد','Total balance')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.credits||0),0))} {balanceUnit(balanceConfig,lang)}</b></div>
         <div><span>{l('إجمالي الأكواد','Total codes')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.issued_codes||0),0))}</b></div>
       </div>
     </div>
@@ -1641,7 +1717,7 @@ function ManageResellers({data,action,busy}) {
               </div>
 
               <div className="resellerCompactStats">
-                <div><strong>{num(r.credits)}</strong><span>Credit</span></div>
+                <div><strong>{num(r.credits)}</strong><span>{balanceUnit(balanceConfig,lang)}</span></div>
                 <div><strong>{num(r.issued_codes)}</strong><span>{l('كود','codes')}</span></div>
               </div>
 
@@ -1658,11 +1734,29 @@ function ManageResellers({data,action,busy}) {
                 <div><span>{l('IP آخر دخول','Last login IP')}</span><b className="mono resellerIp">{r.last_login_ip||'—'}</b></div>
                 <div><span>{l('آخر دخول','Last login')}</span><b>{lastLogin}</b></div>
                 <div><span>Email</span><b>{r.email||'—'}</b></div>
-                <div><span>{l('الرصيد الحالي','Current credit')}</span><b>{num(r.credits)} Credit</b></div>
+                <div><span>{l('الرصيد الحالي','Current balance')}</span><b>{num(r.credits)} {balanceUnit(balanceConfig,lang)}</b></div>
                 <div><span>{l('إجمالي الأكواد','Total codes')}</span><b>{num(r.issued_codes)}</b></div>
+                <div><span>{l('نوع الحساب','Account type')}</span><b>{r.account_type==='agent'?l('وكيل','Agent'):l('موزع','Reseller')}</b></div>
+                <div><span>{l('تابع لـ','Parent')}</span><b>{r.parent_name||r.parent_username||l('الإدارة','Administration')}</b></div>
               </div>
 
-              <div className="resellerCreditPocket">
+              {admin&&<div className="resellerRolePocket">
+                <div>
+                  <span>{l('تعديل الصلاحية','Change role')}</span>
+                  <small>{l('حوّل الحساب مباشرة إلى موزع أو وكيل أو أدمن كامل.','Promote this account to reseller, agent, or full administrator.')}</small>
+                </div>
+                <select
+                  value={r.account_type||'reseller'}
+                  disabled={busy}
+                  onChange={e=>action('/api/admin/user-role',{userId:r.id,accountType:e.target.value})}
+                >
+                  <option value="reseller">{l('موزع','Reseller')}</option>
+                  <option value="agent">{l('وكيل — يقدر ينشئ موزعين تحته','Agent — can create sub-resellers')}</option>
+                  <option value="admin">{l('أدمن — صلاحيات كاملة','Admin — full access')}</option>
+                </select>
+              </div>}
+
+              {admin&&<div className="resellerCreditPocket">
                 <div className="resellerCreditField">
                   <span>{l('تعديل الرصيد','Adjust credit')}</span>
                   <div className="creditMiniInput">
@@ -1692,7 +1786,7 @@ function ManageResellers({data,action,busy}) {
                     onClick={()=>adjustCredit(r,'minus')}
                   ><span>−</span> {l('خصم','Deduct')}</button>
                 </div>
-              </div>
+              </div>}
             </div>}
           </article>;
         })}
@@ -1765,7 +1859,7 @@ function Codes({codes,admin=false}) {
   </section>;
 }
 function Issue({data,action,busy}) {
-  const {l}=useLanguage();
+  const {lang,l}=useLanguage();
   const [form,setForm]=useState({serverId:'',customerRef:'',quantity:1});
   const [mode,setMode]=useState('single');
   const [result,setResult]=useState(null);
@@ -1792,11 +1886,11 @@ function Issue({data,action,busy}) {
   return <section className="acmIssueCard">
     <div className="acmIssueHead">
       <div>
-        <h2>{l('تفعيل كود','Issue code')}</h2>
+        <h2>{l('إنشاء كود IPTV','Issue IPTV code')}</h2>
       </div>
       <div className="acmBalancePill">
         <span>{l('الرصيد','Balance')}</span>
-        <div dir="ltr"><strong>{num(balance)}</strong><small>Credit</small></div>
+        <div dir="ltr"><strong>{num(balance)}</strong><small>{balanceUnit(data.balanceConfig,lang)}</small></div>
       </div>
     </div>
 
@@ -1811,7 +1905,7 @@ function Issue({data,action,busy}) {
         <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
           <option value="">{l('اختر السيرفر','Select server')}</option>
           {data.servers.filter(s=>Number(s.active)===1).map(s=>
-            <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
+            <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} {balanceUnit(data.balanceConfig,lang)}</option>
           )}
         </select>
       </label>
@@ -1828,12 +1922,12 @@ function Issue({data,action,busy}) {
 
       <div className="acmIssueStats">
         <div><span>{l('العدد','Quantity')}</span><b dir="ltr">{q}</b></div>
-        <div><span>{l('التكلفة','Cost')}</span><b dir="ltr">{num(total)} Credit</b></div>
-        <div><span>{l('بعد التفعيل','After issue')}</span><b dir="ltr">{num(Math.max(0,balance-total))} Credit</b></div>
+        <div><span>{l('التكلفة','Cost')}</span><b dir="ltr">{num(total)} {balanceUnit(data.balanceConfig,lang)}</b></div>
+        <div><span>{l('بعد الإنشاء','After issue')}</span><b dir="ltr">{num(Math.max(0,balance-total))} {balanceUnit(data.balanceConfig,lang)}</b></div>
       </div>
 
       <button className="acmPrimaryBtn acmActivateBtn" disabled={busy||!selected}>
-        {busy?l('جارٍ التفعيل…','Issuing…'):l('تفعيل','Issue')}
+        {busy?l('جارٍ الإنشاء…','Issuing…'):l('إنشاء الكود','Issue code')}
       </button>
     </form>
 
@@ -1861,7 +1955,7 @@ function Issue({data,action,busy}) {
 function AdminCredit({data,action,busy}) {
   const {lang,l}=useLanguage();
   return <section className="section">
-    <div className="sectionHead"><div><h2>{l('طلبات الكريدت','Credit requests')}</h2></div></div>
+    <div className="sectionHead"><div><h2>{l('طلبات الرصيد','Balance requests')}</h2></div></div>
     <Table><thead><tr><th>{l('الموزع','Reseller')}</th><th>{l('الكمية','Amount')}</th><th>{l('الملاحظة','Note')}</th><th>{l('الحالة','Status')}</th><th>{l('التاريخ','Date')}</th><th>{l('قرار','Action')}</th></tr></thead>
     <tbody>{data.requests.map(r=><tr key={r.id}><td>{r.display_name||r.username}</td><td>{r.amount}</td><td>{r.note||'—'}</td><td><span className={'badge '+r.status}>{r.status}</span></td><td>{fmt(r.created_at,lang)}</td><td>{r.status==='pending'?<div className="inlineBtns"><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'approved'})}>{l('قبول','Approve')}</button><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'rejected'})}>{l('رفض','Reject')}</button></div>:'—'}</td></tr>)}</tbody></Table>
   </section>;
@@ -1872,7 +1966,7 @@ function RequestCredit({data,action,busy}) {
   const [form,setForm]=useState({amount:10,note:''});
   return <div className="twoCol">
     <section className="section">
-      <div className="sectionHead"><div><h2>{l('طلب رصيد','Request credit')}</h2></div></div>
+      <div className="sectionHead"><div><h2>{l('طلب رصيد','Request balance')}</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/credit-requests',form);setForm({amount:10,note:''});}}>
         <input type="number" min="1" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} required/>
         <textarea rows="5" placeholder={l('ملاحظة','Note')} value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/>
@@ -1881,7 +1975,7 @@ function RequestCredit({data,action,busy}) {
     </section>
     <section className="section">
       <div className="sectionHead"><div><h2>{l('طلباتي','My requests')}</h2></div></div>
-      <div className="list">{data.requests.map(r=><div className="listRow" key={r.id}><b>{r.amount} Credit</b><span className={'badge '+r.status}>{r.status}</span><small>{fmt(r.created_at,lang)}</small></div>)}</div>
+      <div className="list">{data.requests.map(r=><div className="listRow" key={r.id}><b>{r.amount} {balanceUnit(data.balanceConfig,lang)}</b><span className={'badge '+r.status}>{r.status}</span><small>{fmt(r.created_at,lang)}</small></div>)}</div>
     </section>
   </div>;
 }
