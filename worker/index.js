@@ -614,7 +614,7 @@ async function api(request,env){
       const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM users WHERE role='reseller') resellers,(SELECT COUNT(*) FROM codes) total_codes,(SELECT COUNT(*) FROM codes WHERE status='available') available,(SELECT COUNT(*) FROM codes WHERE status='issued') issued,(SELECT COUNT(*) FROM packages WHERE active=1) active_packages,(SELECT COALESCE(SUM(credits),0) FROM users WHERE role='reseller') reseller_credits,(SELECT COUNT(*) FROM credit_requests WHERE status='pending') pending_requests").first();
       return json({...s,counts});
     }
-    const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued') issued,(SELECT COUNT(*) FROM credit_requests WHERE reseller_id=? AND status='pending') pending_requests").bind(user.id,user.id).first();
+    const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued') main_issued,(SELECT COUNT(*) FROM sharing_codes WHERE reseller_id=? AND status='issued') sharing_issued,((SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued')+(SELECT COUNT(*) FROM sharing_codes WHERE reseller_id=? AND status='issued')) issued,(SELECT COUNT(*) FROM credit_requests WHERE reseller_id=? AND status='pending') pending_requests").bind(user.id,user.id,user.id,user.id,user.id).first();
     return json({user:publicUser(user),counts});
   }
 
