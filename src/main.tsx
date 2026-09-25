@@ -455,20 +455,21 @@ function Panel({ user, csrf, onLogout }) {
   const canManageResellers = isAdmin || isAgent;
   const adminNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
-    {id:'servers',label:l('إضافة سيرفر','Add server'),icon:'server'},
-    {id:'inventory',label:l('المخزون','Inventory'),icon:'inventory'},
-    {id:'import',label:l('رفع الأكواد','Import codes'),icon:'upload'},
+    {id:'servers-pocket',label:l('إدارة السيرفرات','Server management'),icon:'server',children:[
+      {id:'servers',label:l('إضافة سيرفر','Add server'),icon:'server'},
+      {id:'inventory',label:l('المخزون','Inventory'),icon:'inventory'},
+      {id:'import',label:l('رفع الأكواد','Import codes'),icon:'upload'}
+    ]},
     {id:'resellers',label:l('الموزعون','Resellers'),icon:'users',children:[
       {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
       {id:'reseller-manage',label:l('إدارة الموزعين','Manage resellers'),icon:'manageUsers'}
     ]},
+    {id:'sharing',label:l('إدارة الشيرنج','Sharing management'),icon:'sharing'},
     {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
     {id:'credit',label:l('طلبات الرصيد','Balance requests'),icon:'credit'},
+    {id:'partners',label:l('الشركاء والأدمن','Partners & admins'),icon:'users'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
-    {id:'sharing',label:l('الشيرنج','Sharing'),icon:'sharing'},
-    {id:'partners',label:l('الشركاء','Administrators'),icon:'users'},
-    {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'},
-    {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
+    {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'}
   ];
   const resellerNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
@@ -483,15 +484,14 @@ function Panel({ user, csrf, onLogout }) {
     ]}]:[]),
     {id:'credit',label:l('طلب رصيد','Request balance'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
-    {id:'logs',label:l('السجل','Activity'),icon:'logs'},
-    {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
+    {id:'logs',label:l('السجل','Activity'),icon:'logs'}
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
-  const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?item.children.map(x=>x.id):[item.id]),[isAdmin,isAgent]);
+  const allowedTabs = useMemo(()=>[...navItems.flatMap(item=>item.children?item.children.map(x=>x.id):[item.id]),'profile'],[isAdmin,isAgent]);
   const initialTab = useMemo(()=>tabFromHash(user.role,allowedTabs),[user.role,allowedTabs]);
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
-  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab)}));
+  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','import'].includes(initialTab)}));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
   const emptyData={ dashboard:null, profile:null, balanceConfig:{mode:'currency',currency:'EGP',unit:'EGP'}, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
@@ -737,8 +737,24 @@ function Panel({ user, csrf, onLogout }) {
           })}
         </nav>
 
-        <div className="sidebarFooter">
-          <small>Developed by TTV4K</small>
+        <div className="sidebarBottom">
+          <button
+            type="button"
+            className={'sidebarBottomAction sidebarProfileAction '+(tab==='profile'?'active':'')}
+            onClick={()=>goTo('profile')}
+          >
+            <span className="sidebarIcon"><NavIcon name="profile"/></span>
+            <span>{l('البروفايل','Profile')}</span>
+          </button>
+          <button
+            type="button"
+            className="sidebarBottomAction sidebarLogoutAction"
+            onClick={logout}
+          >
+            <span className="sidebarLogoutGlyph">↪</span>
+            <span>{l('تسجيل الخروج','Sign out')}</span>
+          </button>
+          <div className="sidebarFooter"><small>Developed by TTV4K</small></div>
         </div>
       </aside>
 
@@ -746,14 +762,16 @@ function Panel({ user, csrf, onLogout }) {
 
       <main className="contentArea">
         <header className="contentHeader">
-          <div className="contentHeaderMeta">
-            <span>ACTIVE CODE MULTI</span>
-            <b>{currentLabel}</b>
-          </div>
-          <div className="contentHeaderActions">
+          <div className="contentHeaderLead">
             <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label={l('فتح القائمة','Open menu')}>
               <span className="hamburgerLines" aria-hidden="true"><i/><i/><i/></span>
             </button>
+            <div className="contentHeaderMeta">
+              <span>ACTIVE CODE MULTI</span>
+              <b>{currentLabel}</b>
+            </div>
+          </div>
+          <div className="contentHeaderActions">
             <button className={'headerProfileBtn '+(tab==='profile'?'active':'')} onClick={()=>goTo('profile')} aria-label={l('البروفايل','Profile')}>
               <span>{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</span>
             </button>
@@ -783,7 +801,7 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='sharing' && <Sharing admin={isAdmin} call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
             {tab==='partners' && isAdmin && <AdminPartners call={call} action={action} busy={busy}/>}
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
-            {tab==='profile' && <ProfilePage profile={data.profile||user} user={user} call={call} logout={logout}/>}
+            {tab==='profile' && <ProfilePage call={call}/>}
           </section>}
         </div>
       </main>
@@ -1116,17 +1134,12 @@ function Sharing({admin,call,action,busy,balanceConfig}){
 }
 
 
-function ProfilePage({profile,user,call,logout}) {
-  const {lang,l}=useLanguage();
+function ProfilePage({call}) {
+  const {l}=useLanguage();
   const [form,setForm]=useState({currentPassword:'',newPassword:'',confirmPassword:''});
   const [show,setShow]=useState(false);
-  const [passwordOpen,setPasswordOpen]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
-  const p=profile||user||{};
-  const country=p.lastCountry||p.last_country||'—';
-  const lastLogin=p.lastLoginAt||p.last_login_at||null;
-  const initial=(p.displayName||p.display_name||p.username||'U').slice(0,1).toUpperCase();
 
   async function changePassword(e){
     e.preventDefault();
@@ -1146,7 +1159,7 @@ function ProfilePage({profile,user,call,logout}) {
         newPassword:form.newPassword
       }});
       setForm({currentPassword:'',newPassword:'',confirmPassword:''});
-      setMessage(l('تم تغيير كلمة المرور.','Password changed.'));
+      setMessage(l('تم تغيير كلمة المرور بنجاح.','Password changed successfully.'));
     }catch(e){
       const code=String(e.message||e);
       setMessage(
@@ -1159,81 +1172,37 @@ function ProfilePage({profile,user,call,logout}) {
     }
   }
 
-  return <section className="profilePage">
-    <div className="profileHero">
-      <div className="profileAvatarLarge">{initial}</div>
-      <div className="profileIdentity">
-        <h2>{p.displayName||p.display_name||p.username}</h2>
-        <span className="mono">@{p.username}</span>
-        <div className="profileBadges">
-          <span>{user.role==='admin'?l('إدارة','Admin'):l('موزع','Reseller')}</span>
-          <span className="online">{l('نشط','Active')}</span>
+  return <section className="passwordOnlyPage">
+    <section className="profileCard passwordOnlyCard">
+      <div className="passwordOnlyHead">
+        <div className="passwordOnlyIcon"><NavIcon name="profile"/></div>
+        <div>
+          <h2>{l('تغيير كلمة المرور','Change password')}</h2>
+          <p>{l('البروفايل مخصص لتغيير كلمة المرور فقط.','Profile is dedicated to password changes only.')}</p>
         </div>
       </div>
-      {user.role==='reseller'&&<div className="profileBalance">
-        <span>{l('الرصيد','Balance')}</span>
-        <strong>{num(p.credits)}</strong>
-        <small>{balanceUnit(balanceConfig,lang)}</small>
-      </div>}
-    </div>
 
-    <div className="profileGrid">
-      <section className="profileCard">
-        <div className="profileCardHead">
-          <h3>{l('بيانات الحساب','Account')}</h3>
+      <form className="profilePasswordForm passwordOnlyForm" onSubmit={changePassword}>
+        <div className="profilePasswordGrid">
+          <label>
+            <span>{l('كلمة المرور الحالية','Current password')}</span>
+            <input type={show?'text':'password'} value={form.currentPassword} onChange={e=>setForm({...form,currentPassword:e.target.value})} autoComplete="current-password" required/>
+          </label>
+          <label>
+            <span>{l('كلمة المرور الجديدة','New password')}</span>
+            <input type={show?'text':'password'} value={form.newPassword} onChange={e=>setForm({...form,newPassword:e.target.value})} autoComplete="new-password" required/>
+          </label>
+          <label>
+            <span>{l('تأكيد كلمة المرور','Confirm password')}</span>
+            <input type={show?'text':'password'} value={form.confirmPassword} onChange={e=>setForm({...form,confirmPassword:e.target.value})} autoComplete="new-password" required/>
+          </label>
         </div>
-        <div className="profileInfoGrid">
-          <div><span>{l('اسم المستخدم','Username')}</span><b className="mono">{p.username||'—'}</b></div>
-          <div><span>{l('البريد الإلكتروني','Email')}</span><b>{p.email||'—'}</b></div>
-          <div><span>{l('الدولة','Country')}</span><b>{country}</b></div>
-          <div><span>{l('آخر IP','Last IP')}</span><b className="mono">{p.lastLoginIp||p.last_login_ip||'—'}</b></div>
-          <div><span>{l('آخر دخول','Last login')}</span><b>{lastLogin?fmt(lastLogin,lang):'—'}</b></div>
-          <div><span>{l('الحالة','Status')}</span><b>{l('نشط','Active')}</b></div>
+        <div className="profilePasswordActions">
+          <button type="button" className="profileShowBtn" onClick={()=>setShow(v=>!v)}>{show?l('إخفاء','Hide'):l('إظهار','Show')}</button>
+          <button className="primary" disabled={busy}>{busy?l('جارٍ الحفظ…','Saving…'):l('حفظ كلمة المرور','Save password')}</button>
         </div>
-      </section>
-
-      <section className={'profileCard profileSecurity '+(passwordOpen?'open':'')}>
-        <button type="button" className="profileSecurityHead" onClick={()=>setPasswordOpen(v=>!v)}>
-          <span className="securityGlyph">⌁</span>
-          <span className="securityCopy">
-            <b>{l('الأمان وكلمة المرور','Security & password')}</b>
-            <small>{l('تغيير كلمة المرور','Change password')}</small>
-          </span>
-          <span className="securityAction">{passwordOpen?'−':'+'}</span>
-        </button>
-
-        {passwordOpen&&<form className="profilePasswordForm" onSubmit={changePassword}>
-          <div className="profilePasswordGrid">
-            <label>
-              <span>{l('كلمة المرور الحالية','Current password')}</span>
-              <input type={show?'text':'password'} value={form.currentPassword} onChange={e=>setForm({...form,currentPassword:e.target.value})} autoComplete="current-password"/>
-            </label>
-            <label>
-              <span>{l('كلمة المرور الجديدة','New password')}</span>
-              <input type={show?'text':'password'} value={form.newPassword} onChange={e=>setForm({...form,newPassword:e.target.value})} autoComplete="new-password"/>
-            </label>
-            <label>
-              <span>{l('تأكيد كلمة المرور','Confirm password')}</span>
-              <input type={show?'text':'password'} value={form.confirmPassword} onChange={e=>setForm({...form,confirmPassword:e.target.value})} autoComplete="new-password"/>
-            </label>
-          </div>
-          <div className="profilePasswordActions">
-            <button type="button" className="profileShowBtn" onClick={()=>setShow(v=>!v)}>{show?l('إخفاء','Hide'):l('إظهار','Show')}</button>
-            <button className="primary" disabled={busy}>{busy?l('جارٍ الحفظ…','Saving…'):l('حفظ','Save')}</button>
-          </div>
-          {message&&<div className="profileMessage">{message}</div>}
-        </form>}
-      </section>
-    </div>
-
-    <section className="profileDangerCard">
-      <div>
-        <h3>{l('الحساب','Account')}</h3>
-      </div>
-      <button type="button" className="profileLogoutBtn" onClick={logout}>
-        <span>↪</span>
-        {l('تسجيل الخروج','Sign out')}
-      </button>
+        {message&&<div className="profileMessage">{message}</div>}
+      </form>
     </section>
   </section>;
 }
