@@ -115,6 +115,58 @@ async function ensureBootstrapOwner(env) {
       .bind(uid('log'),ownerId,'admin','OWNER_BOOTSTRAPPED','user',ownerId,JSON.stringify({username}),'system','Cloudflare bootstrap',at)
   ]);
 }
+async function ensureDemoStock(env) {
+  const existing = await env.DB.prepare("SELECT COUNT(*) count FROM code_batches WHERE id LIKE 'bat_demo_%_200'").first();
+  if (Number(existing?.count || 0) >= 5) return;
+
+  const owner = await env.DB.prepare("SELECT id FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
+  if (!owner) return;
+
+  const configs = [
+    { serverId:'srv_marvel', slug:'marvel', label:'MARVEL', order:10 },
+    { serverId:'srv_nova', slug:'nova', label:'NOVA', order:20 },
+    { serverId:'srv_x', slug:'x', label:'X', order:30 },
+    { serverId:'srv_spider', slug:'spider', label:'SPIDER', order:40 },
+    { serverId:'srv_mh', slug:'mh', label:'MH', order:50 }
+  ];
+
+  for (const cfg of configs) {
+    const packageId = 'pkg_demo_' + cfg.slug + '_12m';
+    const batchId = 'bat_demo_' + cfg.slug + '_200';
+    const at = now();
+
+    await env.DB.batch([
+      env.DB.prepare("INSERT OR IGNORE INTO packages(id,server_id,name,duration_label,credit_cost,active,sort_order,created_at) VALUES(?,?,?,'12 Months',1,1,10,?)")
+        .bind(packageId,cfg.serverId,'12 Months',at),
+      env.DB.prepare("INSERT OR IGNORE INTO code_batches(id,server_id,package_id,filename,imported_by,total_lines,blank_count,inserted_count,duplicate_count,created_at) VALUES(?,?,?,?,?,200,0,0,0,?)")
+        .bind(batchId,cfg.serverId,packageId,'DEMO-SEED-200.txt',owner.id,at)
+    ]);
+
+    const statements = [];
+    for (let offset = 1; offset <= 200; offset += 16) {
+      const chunk = [];
+      for (let i = offset; i < offset + 16 && i <= 200; i++) chunk.push(i);
+      const placeholders = chunk.map(() => '(?,?,?,?,?,?)').join(',');
+      const params = [];
+      for (const i of chunk) {
+        const n = String(i).padStart(4,'0');
+        params.push('cod_demo_'+cfg.slug+'_'+n,cfg.serverId,packageId,batchId,cfg.label+'-DEMO-'+n,at);
+      }
+      statements.push(
+        env.DB.prepare("INSERT OR IGNORE INTO codes(id,server_id,package_id,batch_id,code,created_at) VALUES " + placeholders).bind(...params)
+      );
+    }
+    for (let i = 0; i < statements.length; i += 20) {
+      await env.DB.batch(statements.slice(i,i+20));
+    }
+    await env.DB.prepare("UPDATE code_batches SET inserted_count=(SELECT COUNT(*) FROM codes WHERE batch_id=?),duplicate_count=200-(SELECT COUNT(*) FROM codes WHERE batch_id=?) WHERE id=?")
+      .bind(batchId,batchId,batchId).run();
+  }
+
+  await env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+    .bind(uid('log'),owner.id,'admin','DEMO_STOCK_SEEDED','inventory','demo-200-per-server',JSON.stringify({servers:5,codesPerServer:200,total:1000,package:'12 Months',creditCost:1}),'system','Cloudflare seed',now()).run();
+}
+
 async function audit(env, request, actor, action, entityType, entityId, details = {}) {
   await env.DB.prepare(
     'INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)'
@@ -179,6 +231,7 @@ async function listServers(env) {
 async function api(request, env) {
   await ensureSchema(env);
   await ensureBootstrapOwner(env);
+  await ensureDemoStock(env);
   const url = new URL(request.url);
   const path = url.pathname;
   const method = request.method.toUpperCase();
@@ -251,7 +304,7 @@ async function api(request, env) {
     if (user.role === 'admin') {
       const stock = await listServers(env);
       const counts = await env.DB.prepare(
-        "SELECT (SELECT COUNT(*) FROM users WHERE role='reseller') resellers,(SELECT COUNT(*) FROM codes WHERE status='available') available,(SELECT COUNT(*) FROM codes WHERE status='issued') issued,(SELECT COUNT(*) FROM credit_requests WHERE status='pending') pending_requests"
+        "SELECT (SELECT COUNT(*) FROM users WHERE role='reseller') resellers,(SELECT COUNT(*) FROM codes) total_codes,(SELECT COUNT(*) FROM codes WHERE status='available') available,(SELECT COUNT(*) FROM codes WHERE status='issued') issued,(SELECT COUNT(*) FROM packages WHERE active=1) active_packages,(SELECT COALESCE(SUM(credits),0) FROM users WHERE role='reseller') reseller_credits,(SELECT COUNT(*) FROM credit_requests WHERE status='pending') pending_requests"
       ).first();
       return json({ ...stock, counts });
     }
