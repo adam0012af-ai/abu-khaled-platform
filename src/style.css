@@ -2723,3 +2723,383 @@ html[dir="rtl"] .languagePopover{left:0;right:auto}
     grid-template-columns:1fr
   }
 }
+
+
+/* Premium reseller dashboard */
+.resellerPremiumBoard{
+  overflow:hidden;
+  padding:0
+}
+.resellerBoardHero{
+  position:relative;
+  min-height:154px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:22px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 88% 10%,rgba(52,211,153,.16),transparent 28%),
+    linear-gradient(135deg,#0B1220 0%,#111C31 58%,#0F172A 100%);
+  color:#fff
+}
+.resellerBoardHero::after{
+  content:"";
+  position:absolute;
+  inset:auto 0 0 0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,#10B981,#38BDF8,transparent);
+  opacity:.85
+}
+.resellerBoardIdentity{
+  position:relative;
+  z-index:1;
+  min-width:0
+}
+.resellerBoardIdentity>span{
+  color:#34D399;
+  font:800 7px/1.2 "Inter",sans-serif;
+  letter-spacing:2px
+}
+.resellerBoardIdentity h2{
+  margin:7px 0 1px;
+  color:#F8FAFC;
+  font-size:24px;
+  line-height:1.25
+}
+.resellerBoardIdentity small{
+  color:#94A3B8;
+  font:700 8px "Inter",sans-serif
+}
+.resellerWalletCard{
+  position:relative;
+  z-index:1;
+  min-width:140px;
+  padding:13px 15px;
+  border:1px solid rgba(110,231,183,.18);
+  border-radius:14px;
+  background:rgba(255,255,255,.06);
+  backdrop-filter:blur(8px)
+}
+.resellerWalletCard span{
+  display:block;
+  color:#A7B3C5;
+  font-size:8px
+}
+.resellerWalletCard strong{
+  display:inline-block;
+  margin-top:5px;
+  color:#6EE7B7;
+  font:900 32px/1 "Inter",sans-serif
+}
+.resellerWalletCard small{
+  margin-inline-start:6px;
+  color:#34D399;
+  font:800 7px "Inter",sans-serif
+}
+.resellerBoardStats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  padding:12px;
+  background:#fff
+}
+.resellerBoardStats article{
+  min-height:82px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:10px;
+  border:1px solid #E5EAF0;
+  border-radius:11px;
+  background:#FBFCFD
+}
+.resellerStatIcon{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:9px;
+  background:#F1F5F9;
+  color:#334155
+}
+.resellerStatIcon svg{
+  width:16px;
+  height:16px
+}
+.resellerBoardStats article>div:last-child{
+  min-width:0;
+  display:grid;
+  gap:2px
+}
+.resellerBoardStats span{
+  color:#7B8797;
+  font-size:7px;
+  line-height:1.4
+}
+.resellerBoardStats b{
+  color:#0F172A;
+  font:900 17px/1.15 "Inter",sans-serif
+}
+.resellerDashboardGrid{
+  width:min(1120px,calc(100% - 40px));
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:1.25fr .75fr;
+  gap:14px
+}
+.resellerDashboardGrid>.section{
+  width:100%;
+  margin:0
+}
+.resellerRecentPanel .sectionHead{
+  margin-bottom:10px
+}
+.resellerRecentPanel .sectionHead h2{
+  font-size:14px
+}
+.resellerRecentList,
+.resellerRequestList{
+  display:grid;
+  gap:7px
+}
+.resellerRecentList article,
+.resellerRequestList article{
+  min-height:52px;
+  display:grid;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border:1px solid #E8EDF3;
+  border-radius:10px;
+  background:#FBFCFD
+}
+.resellerRecentList article{
+  grid-template-columns:minmax(0,1fr) auto
+}
+.resellerRecentList article>div{
+  min-width:0;
+  display:grid;
+  gap:2px
+}
+.resellerRecentList span{
+  color:#64748B;
+  font-size:7px
+}
+.resellerRecentList b{
+  color:#0F172A;
+  font:800 9px "Inter",monospace;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.resellerRecentList small,
+.resellerRequestList small{
+  color:#94A3B8;
+  font-size:6.8px
+}
+.resellerRequestList article{
+  grid-template-columns:minmax(0,1fr) auto auto
+}
+.resellerRequestList article>div{
+  display:flex;
+  align-items:baseline;
+  gap:4px
+}
+.resellerRequestList article>div b{
+  color:#0F172A;
+  font:900 13px "Inter",sans-serif
+}
+.resellerRequestList article>div span{
+  color:#94A3B8;
+  font:800 6px "Inter",sans-serif
+}
+
+/* Full access administrator partners */
+.adminPartnersPage{
+  width:min(1120px,calc(100% - 40px));
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:minmax(300px,.75fr) minmax(0,1.25fr);
+  gap:14px;
+  align-items:start
+}
+.adminPartnersPage>.section{
+  width:100%;
+  margin:0
+}
+.adminPartnerCreate{
+  position:sticky;
+  top:86px
+}
+.fullAccessBadge{
+  padding:4px 7px;
+  border:1px solid #A7F3D0;
+  border-radius:999px;
+  background:#ECFDF5;
+  color:#047857;
+  font:800 6.5px "Inter",sans-serif;
+  letter-spacing:.7px
+}
+.adminPartnerForm{
+  display:grid;
+  gap:10px
+}
+.adminPartnerCreateBtn{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px
+}
+.adminPartnerCreateBtn svg{
+  width:15px;
+  height:15px
+}
+.adminPartnersList{
+  display:grid;
+  gap:8px
+}
+.adminPartnerCard{
+  display:grid;
+  grid-template-columns:40px minmax(130px,.8fr) minmax(0,1.5fr);
+  align-items:center;
+  gap:11px;
+  padding:11px;
+  border:1px solid #E2E8F0;
+  border-radius:12px;
+  background:#FCFDFE
+}
+.adminPartnerAvatar{
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  background:#0F172A;
+  color:#fff;
+  font:900 12px "Inter",sans-serif
+}
+.adminPartnerIdentity{
+  min-width:0;
+  display:grid;
+  gap:2px
+}
+.adminPartnerIdentity>div{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0
+}
+.adminPartnerIdentity b{
+  min-width:0;
+  color:#0F172A;
+  font-size:10px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.adminPartnerIdentity small{
+  color:#94A3B8;
+  font:700 7px "Inter",sans-serif
+}
+.ownerBadge,.partnerBadge{
+  flex:0 0 auto;
+  padding:2px 5px;
+  border-radius:999px;
+  font:800 5.5px "Inter",sans-serif;
+  letter-spacing:.5px
+}
+.ownerBadge{
+  background:#EFF6FF;
+  color:#2563EB
+}
+.partnerBadge{
+  background:#ECFDF5;
+  color:#047857
+}
+.adminPartnerMeta{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px
+}
+.adminPartnerMeta>div{
+  min-width:0;
+  display:grid;
+  gap:1px
+}
+.adminPartnerMeta span{
+  color:#94A3B8;
+  font-size:6.5px
+}
+.adminPartnerMeta b{
+  color:#334155;
+  font-size:7.5px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+
+@media(max-width:850px){
+  .resellerBoardStats{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  .resellerDashboardGrid,
+  .adminPartnersPage{
+    grid-template-columns:1fr
+  }
+  .adminPartnerCreate{
+    position:static
+  }
+}
+@media(max-width:560px){
+  .resellerPremiumBoard,
+  .resellerDashboardGrid,
+  .adminPartnersPage{
+    width:calc(100% - 20px)
+  }
+  .resellerBoardHero{
+    min-height:138px;
+    padding:17px;
+    gap:10px
+  }
+  .resellerBoardIdentity h2{
+    font-size:19px
+  }
+  .resellerWalletCard{
+    min-width:112px;
+    padding:10px
+  }
+  .resellerWalletCard strong{
+    font-size:25px
+  }
+  .resellerBoardStats{
+    padding:9px;
+    gap:6px
+  }
+  .resellerBoardStats article{
+    min-height:70px;
+    padding:8px;
+    gap:7px
+  }
+  .resellerStatIcon{
+    width:30px;
+    height:30px
+  }
+  .adminPartnerCard{
+    grid-template-columns:36px minmax(0,1fr);
+    align-items:start
+  }
+  .adminPartnerAvatar{
+    width:36px;
+    height:36px
+  }
+  .adminPartnerMeta{
+    grid-column:1/-1;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    padding-top:7px;
+    border-top:1px solid #EEF2F6
+  }
+}
