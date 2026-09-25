@@ -164,7 +164,7 @@ function Panel({ user, csrf, onLogout }) {
         SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
         USERNAME_EXISTS:'اسم المستخدم مستخدم من قبل.',
-        IMPORT_LIMIT_1000:'الحد الحالي 1000 كود في كل عملية رفع.',
+        IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع. للملفات الأكبر يتم تقسيمها على أكثر من دفعة.',
         NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.'
       };
       setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
