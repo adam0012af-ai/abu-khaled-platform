@@ -1737,7 +1737,10 @@ function CodeStockManager({kind,call}) {
   const [filters,setFilters]=useState({sourceId:'',status:'all'});
   const [search,setSearch]=useState('');
   const [appliedSearch,setAppliedSearch]=useState('');
-  const [addForm,setAddForm]=useState({sourceId:'',code:''});
+  const [bulkOpen,setBulkOpen]=useState(false);
+  const [bulkForm,setBulkForm]=useState({sourceId:'',filename:isSharing?'sharing-codes.txt':'iptv-codes.txt',text:''});
+  const [selectedIds,setSelectedIds]=useState([]);
+  const [confirmSelected,setConfirmSelected]=useState(false);
   const [editId,setEditId]=useState('');
   const [editValue,setEditValue]=useState('');
   const [deleteId,setDeleteId]=useState('');
@@ -1758,6 +1761,10 @@ function CodeStockManager({kind,call}) {
     return row.source_name||'—';
   };
 
+  const bulkLines=bulkForm.text.replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const bulkUnique=Array.from(new Set(bulkLines));
+  const allVisibleSelected=data.codes.length>0&&data.codes.every(row=>selectedIds.includes(row.id));
+
   async function load(next=filters,q=appliedSearch){
     setReady(false);
     try{
@@ -1770,7 +1777,9 @@ function CodeStockManager({kind,call}) {
         counts:out.counts||{total:0,available:0,issued:0,disabled:0},
         sources:out.sources||[]
       });
-      setAddForm(v=>({...v,sourceId:v.sourceId||next.sourceId||''}));
+      setBulkForm(v=>({...v,sourceId:v.sourceId||next.sourceId||''}));
+      setSelectedIds([]);
+      setConfirmSelected(false);
     }catch{
       setMessage(l('تعذر تحميل الأكواد.','Unable to load codes.'));
     }finally{
@@ -1804,11 +1813,83 @@ function CodeStockManager({kind,call}) {
     }
   }
 
-  async function addCode(e){
+  async function pickBulkFile(e){
+    const file=e.target.files?.[0];
+    if(!file)return;
+    setBulkForm(v=>({...v,filename:file.name,text:await file.text()}));
+  }
+
+  async function importBulk(e){
     e.preventDefault();
-    if(!addForm.sourceId||!addForm.code.trim()) return;
-    const out=await mutate({operation:'add',sourceId:addForm.sourceId,code:addForm.code},l('تمت إضافة الكود.','Code added.'));
-    if(out) setAddForm(v=>({...v,code:''}));
+    if(!bulkForm.sourceId||bulkUnique.length===0||bulkUnique.length>700) return;
+    setBusy(true);
+    setMessage('');
+    try{
+      const endpoint=isSharing?'/api/admin/sharing/import':'/api/admin/import-codes';
+      const body=isSharing
+        ? {serviceId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text}
+        : {serverId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text};
+      const out=await call(endpoint,{method:'POST',body});
+      const batch=out.batch||{};
+      setMessage(
+        l('تمت إضافة الأكواد دفعة واحدة.','Codes added in bulk.')+
+        ' '+l('المضاف: ','Added: ')+num(batch.inserted_count??bulkUnique.length)+
+        ' · '+l('المكرر: ','Duplicates: ')+num(batch.duplicate_count||0)
+      );
+      setBulkForm(v=>({...v,text:''}));
+      setBulkOpen(false);
+      await load(filters,appliedSearch);
+    }catch(e){
+      const code=String(e.message||e);
+      setMessage(code.includes('IMPORT_LIMIT_700')
+        ? l('الحد الأقصى 700 كود في الدفعة الواحدة.','Maximum 700 codes per batch.')
+        : l('تعذر إضافة الأكواد: ','Unable to add codes: ')+code);
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  function toggleSelected(id){
+    setConfirmSelected(false);
+    setSelectedIds(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id]);
+  }
+
+  function toggleAllVisible(){
+    setConfirmSelected(false);
+    if(allVisibleSelected){
+      setSelectedIds([]);
+    }else{
+      setSelectedIds(data.codes.map(row=>row.id));
+    }
+  }
+
+  async function deleteSelected(){
+    if(selectedIds.length===0) return;
+    setBusy(true);
+    setMessage('');
+    let deleted=0,failed=0;
+    const ids=[...selectedIds];
+    try{
+      for(let i=0;i<ids.length;i+=8){
+        const chunk=ids.slice(i,i+8);
+        const results=await Promise.all(chunk.map(async codeId=>{
+          try{
+            await call('/api/admin/code-stock',{method:'POST',body:{kind,operation:'delete',codeId}});
+            return true;
+          }catch{return false;}
+        }));
+        results.forEach(ok=>ok?deleted++:failed++);
+      }
+      setMessage(
+        l('تم حذف المحدد: ','Selected deleted: ')+num(deleted)+
+        (failed?' · '+l('تعذر حذف: ','Failed: ')+num(failed):'')
+      );
+      setSelectedIds([]);
+      setConfirmSelected(false);
+      await load(filters,appliedSearch);
+    }finally{
+      setBusy(false);
+    }
   }
 
   async function saveEdit(id){
@@ -1839,15 +1920,20 @@ function CodeStockManager({kind,call}) {
   }[status]||status);
 
   return <section className="section codeStockPage">
-    <div className="codeStockHead">
+    <div className="codeStockHead codeStockHeadCompact">
       <div>
         <span className="codeStockEyebrow">{isSharing?'SHARING':'IPTV'}</span>
         <h2>{isSharing?l('إدارة أكواد الشيرنج','Manage sharing codes'):l('إدارة أكواد IPTV','Manage IPTV codes')}</h2>
-        <p>{l('إضافة وتعديل وحذف الأكواد من مكان واحد. حذف الأكواد لا يعيد الرصيد ولا يلغي العمليات السابقة.','Add, edit, and delete codes in one place. Deleting codes does not refund balances or reverse prior transactions.')}</p>
+        <p>{l('إدارة جماعية: أضف ملف أو مجموعة أكواد، حدّد الكل أو جزء منها واحذف مباشرة من نفس المكان. الحذف متاح للإدارة فقط.','Bulk management: import a file or many codes, select all or part of the list, and delete from the same screen. Deletion is admin-only.')}</p>
       </div>
-      <button type="button" className="codeDeleteAllBtn" onClick={()=>setDeleteAllOpen(v=>!v)}>
-        {l('حذف الكل','Delete all')}
-      </button>
+      <div className="codeStockHeadActions">
+        <button type="button" className="codeBulkAddOpen" onClick={()=>setBulkOpen(v=>!v)}>
+          {bulkOpen?l('إغلاق الإضافة','Close add'):l('إضافة أكواد','Add codes')}
+        </button>
+        <button type="button" className="codeDeleteAllBtn" onClick={()=>setDeleteAllOpen(v=>!v)}>
+          {l('حذف الكل','Delete all')}
+        </button>
+      </div>
     </div>
 
     <div className="codeStockStats">
@@ -1857,7 +1943,7 @@ function CodeStockManager({kind,call}) {
       <div><span>{l('المتوقف','Disabled')}</span><b>{num(data.counts.disabled)}</b></div>
     </div>
 
-    <div className="codeStockToolbar">
+    <div className="codeStockToolbar codeStockToolbarSticky">
       <label>
         <span>{isSharing?l('نوع الشيرنج','Sharing service'):l('السيرفر','Server')}</span>
         <select value={filters.sourceId} onChange={e=>setFilters(v=>({...v,sourceId:e.target.value}))}>
@@ -1881,22 +1967,33 @@ function CodeStockManager({kind,call}) {
       </form>
     </div>
 
-    <form className="codeStockAdd" onSubmit={addCode}>
-      <div>
-        <span>{l('إضافة كود','Add code')}</span>
-        <small>{isSharing?l('اختر نوع الشيرنج ثم أدخل الكود.','Choose a sharing service, then enter the code.'):l('اختر السيرفر ثم أدخل الكود.','Choose a server, then enter the code.')}</small>
+    {bulkOpen&&<form className="codeBulkImporter" onSubmit={importBulk}>
+      <div className="codeBulkImporterHead">
+        <div>
+          <b>{l('إضافة جماعية','Bulk add')}</b>
+          <small>{l('الصق الأكواد أو اختر ملف TXT — كود في كل سطر.','Paste codes or choose a TXT file — one code per line.')}</small>
+        </div>
+        <strong>{num(bulkUnique.length)} / 700</strong>
       </div>
-      <select value={addForm.sourceId} onChange={e=>setAddForm(v=>({...v,sourceId:e.target.value}))} required>
+      <select value={bulkForm.sourceId} onChange={e=>setBulkForm(v=>({...v,sourceId:e.target.value}))} required>
         <option value="">{isSharing?l('اختر نوع الشيرنج','Select sharing service'):l('اختر السيرفر','Select server')}</option>
         {data.sources.map(s=><option key={s.id} value={s.id}>{sourceName(s)}</option>)}
       </select>
-      <input dir="ltr" value={addForm.code} onChange={e=>setAddForm(v=>({...v,code:e.target.value}))} placeholder={l('الكود','Code')} required/>
-      <button className="codeAddBtn" disabled={busy}>{busy?l('جارٍ الحفظ…','Saving…'):l('إضافة','Add')}</button>
-    </form>
+      <label className="codeBulkFile">
+        <span>{l('اختيار ملف TXT','Choose TXT')}</span>
+        <input type="file" accept=".txt,text/plain" onChange={pickBulkFile}/>
+        <b>{bulkForm.filename}</b>
+      </label>
+      <textarea rows="6" dir="ltr" value={bulkForm.text} onChange={e=>setBulkForm(v=>({...v,text:e.target.value}))} placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')}/>
+      <button className="codeAddBtn" disabled={busy||!bulkForm.sourceId||bulkUnique.length===0||bulkUnique.length>700}>
+        {busy?l('جارٍ الإضافة…','Adding…'):l('إضافة المجموعة','Add batch')}
+      </button>
+      {bulkUnique.length>700&&<em>{l('قسّم الأكواد إلى دفعات، الحد 700 كود في كل مرة.','Split the codes into batches; maximum 700 per import.')}</em>}
+    </form>}
 
     {deleteAllOpen&&<div className="codeStockDanger">
       <div>
-        <b>{l('حذف جماعي','Bulk deletion')}</b>
+        <b>{l('حذف جماعي كامل','Full bulk deletion')}</b>
         <span>{filters.sourceId
           ? l('سيتم تطبيق الحذف على القسم المحدد فقط.','Deletion will apply only to the selected source.')
           : l('لم تحدد قسمًا: الحذف سيشمل كل الأقسام.','No source selected: deletion will apply to all sources.')}</span>
@@ -1914,34 +2011,61 @@ function CodeStockManager({kind,call}) {
 
     {message&&<div className="codeStockMessage">{message}</div>}
 
+    <div className={'codeSelectionBar '+(selectedIds.length?'active':'')}>
+      <label className="codeSelectAll">
+        <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible}/>
+        <span>{allVisibleSelected?l('إلغاء تحديد الكل','Clear all'):l('تحديد كل الظاهر','Select all visible')}</span>
+      </label>
+      <div className="codeSelectionCount">
+        <b>{num(selectedIds.length)}</b>
+        <span>{l('محدد','selected')}</span>
+      </div>
+      {selectedIds.length>0&&<div className="codeSelectionActions">
+        {!confirmSelected ? <>
+          <button type="button" className="selectionClear" onClick={()=>setSelectedIds([])}>{l('إلغاء التحديد','Clear')}</button>
+          <button type="button" className="selectionDelete" onClick={()=>setConfirmSelected(true)}>{l('حذف المحدد','Delete selected')}</button>
+        </> : <>
+          <button type="button" className="selectionClear" onClick={()=>setConfirmSelected(false)}>{l('رجوع','Back')}</button>
+          <button type="button" className="selectionDelete confirm" disabled={busy} onClick={deleteSelected}>{busy?l('جارٍ الحذف…','Deleting…'):l('تأكيد الحذف','Confirm delete')}</button>
+        </>}
+      </div>}
+    </div>
+
     {!ready ? <div className="panelLoadingState"><span className="panelLoadingLine"/></div> :
     data.codes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد مطابقة.','No matching codes.')}</div> :
-    <div className="codeStockList">
-      {data.codes.map(row=><article className={'codeStockRow '+row.status} key={row.id}>
-        <div className="codeStockIdentity">
-          <span>{codeSourceName(row)}</span>
-          {editId===row.id
-            ? <input dir="ltr" value={editValue} onChange={e=>setEditValue(e.target.value)} autoFocus/>
-            : <b dir="ltr">{row.code}</b>}
-        </div>
-        <div className="codeStockMeta">
-          <span className={'codeStockStatus '+row.status}>{statusLabel(row.status)}</span>
-          <small>{row.reseller_name||row.reseller_username||'—'}</small>
-          <small>{fmt(row.issued_at||row.created_at,lang)}</small>
-        </div>
-        <div className="codeStockActions">
-          {editId===row.id ? <>
-            <button type="button" className="save" disabled={busy||!editValue.trim()} onClick={()=>saveEdit(row.id)}>{l('حفظ','Save')}</button>
-            <button type="button" onClick={()=>{setEditId('');setEditValue('');}}>{l('إلغاء','Cancel')}</button>
-          </> : deleteId===row.id ? <>
-            <button type="button" className="danger" disabled={busy} onClick={()=>deleteOne(row.id)}>{l('تأكيد الحذف','Confirm')}</button>
-            <button type="button" onClick={()=>setDeleteId('')}>{l('إلغاء','Cancel')}</button>
-          </> : <>
-            <button type="button" onClick={()=>{setEditId(row.id);setEditValue(row.code);setDeleteId('');}}>{l('تعديل','Edit')}</button>
-            <button type="button" className="dangerGhost" onClick={()=>{setDeleteId(row.id);setEditId('');}}>{l('حذف','Delete')}</button>
-          </>}
-        </div>
-      </article>)}
+    <div className="codeStockList codeStockListDense">
+      {data.codes.map(row=>{
+        const selected=selectedIds.includes(row.id);
+        return <article className={'codeStockRow '+row.status+(selected?' selected':'')} key={row.id}>
+          <label className="codeRowCheck">
+            <input type="checkbox" checked={selected} onChange={()=>toggleSelected(row.id)}/>
+            <span/>
+          </label>
+          <div className="codeStockIdentity">
+            <span>{codeSourceName(row)}</span>
+            {editId===row.id
+              ? <input dir="ltr" value={editValue} onChange={e=>setEditValue(e.target.value)} autoFocus/>
+              : <b dir="ltr">{row.code}</b>}
+          </div>
+          <div className="codeStockMeta">
+            <span className={'codeStockStatus '+row.status}>{statusLabel(row.status)}</span>
+            <small>{row.reseller_name||row.reseller_username||'—'}</small>
+            <small>{fmt(row.issued_at||row.created_at,lang)}</small>
+          </div>
+          <div className="codeStockActions">
+            {editId===row.id ? <>
+              <button type="button" className="save" disabled={busy||!editValue.trim()} onClick={()=>saveEdit(row.id)}>{l('حفظ','Save')}</button>
+              <button type="button" onClick={()=>{setEditId('');setEditValue('');}}>{l('إلغاء','Cancel')}</button>
+            </> : deleteId===row.id ? <>
+              <button type="button" className="danger" disabled={busy} onClick={()=>deleteOne(row.id)}>{l('تأكيد','Confirm')}</button>
+              <button type="button" onClick={()=>setDeleteId('')}>{l('إلغاء','Cancel')}</button>
+            </> : <>
+              <button type="button" onClick={()=>{setEditId(row.id);setEditValue(row.code);setDeleteId('');}}>{l('تعديل','Edit')}</button>
+              <button type="button" className="dangerGhost" onClick={()=>{setDeleteId(row.id);setEditId('');}}>{l('حذف','Delete')}</button>
+            </>}
+          </div>
+        </article>;
+      })}
     </div>}
   </section>;
 }
