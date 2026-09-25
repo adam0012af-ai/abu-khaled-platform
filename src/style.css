@@ -3253,8 +3253,13 @@ html[dir="ltr"] .adminPartnerPermissionGrid span{
 }
 
 @media(max-width:850px){
-  .resellerBoardStats{
+  .resellerBoardStats,
+  .resellerQuickActions,
+  .resellerAccountStrip{
     grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  .resellerAccountStrip>div:nth-child(3){
+    border-inline-start:0
   }
   .resellerDashboardGrid,
   .adminPartnersPage{
@@ -3267,6 +3272,7 @@ html[dir="ltr"] .adminPartnerPermissionGrid span{
 @media(max-width:560px){
   .resellerPremiumBoard,
   .resellerDashboardGrid,
+  .resellerAccountStrip,
   .adminPartnersPage{
     width:calc(100% - 20px)
   }
@@ -3311,5 +3317,52 @@ html[dir="ltr"] .adminPartnerPermissionGrid span{
     grid-template-columns:repeat(2,minmax(0,1fr));
     padding-top:7px;
     border-top:1px solid #EEF2F6
+  }
+  .resellerQuickActions{
+    padding:0 9px 9px;
+    gap:6px
+  }
+  .resellerQuickActions button{
+    min-height:61px;
+    grid-template-columns:30px minmax(0,1fr) 12px;
+    gap:6px;
+    padding:8px
+  }
+  .resellerQuickActionIcon{
+    width:30px;
+    height:30px
+  }
+  .resellerAccountStrip{
+    gap:0;
+    padding:7px 8px
+  }
+  .resellerAccountStrip>div{
+    min-height:44px;
+    justify-content:center;
+    padding:6px 8px
+  }
+  .adminPartnerPermissionGrid{
+    grid-template-columns:1fr
+  }
+}
+
+@media(max-width:360px){
+  .resellerBoardHero{
+    align-items:flex-start;
+    flex-direction:column
+  }
+  .resellerWalletCard{
+    width:100%
+  }
+  .resellerQuickActions,
+  .resellerAccountStrip{
+    grid-template-columns:1fr
+  }
+  .resellerAccountStrip>div{
+    border-inline-start:0;
+    border-top:1px solid #EEF2F6
+  }
+  .resellerAccountStrip>div:first-child{
+    border-top:0
   }
 }
