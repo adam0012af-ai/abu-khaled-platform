@@ -730,6 +730,36 @@ async function api(request,env){
 
   if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
 
+  if(path==='/api/admin/partners' && method==='GET'){
+    const rows=(await env.DB.prepare("SELECT id,username,email,display_name,status,last_login_ip,last_country,last_login_at,created_at,updated_at FROM users WHERE role='admin' ORDER BY CASE WHEN username='owner' THEN 0 ELSE 1 END,created_at ASC").all()).results||[];
+    return json({partners:rows});
+  }
+
+  if(path==='/api/admin/partners' && method==='POST'){
+    const body=await bodyJson(request);
+    const username=clean(body.username,80);
+    const email=clean(body.email,120).toLowerCase();
+    const password=String(body.password||'');
+    const displayName=clean(body.displayName,80)||username;
+
+    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||password.length>256){
+      return json({error:'INVALID_ADMIN'},400);
+    }
+
+    const salt=randomToken(18), id=uid('usr'), at=now();
+    try{
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'admin',?,0,0,'active',?,?)")
+          .bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,displayName,at,at),
+        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .bind(uid('log'),user.id,user.role,'ADMIN_PARTNER_CREATED','user',id,JSON.stringify({username,email:email||null,displayName,fullAccess:true}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
+      ]);
+      return json({ok:true,id},201);
+    }catch{
+      return json({error:'ACCOUNT_EXISTS'},409);
+    }
+  }
+
   if(path==='/api/admin/resellers' && method==='GET'){
     const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u WHERE u.role='reseller' ORDER BY u.created_at DESC LIMIT 500").all()).results||[];
     return json({resellers:rows});
