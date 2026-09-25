@@ -93,6 +93,9 @@ async function ensureSchema(env){
   if(!cols.some(c=>c.name==='must_change_password')){
     await env.DB.prepare("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0").run();
   }
+  if(!cols.some(c=>c.name==='last_credit_tx_id')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN last_credit_tx_id TEXT").run();
+  }
 
   const duplicate=await env.DB.prepare("SELECT code,COUNT(*) c FROM codes GROUP BY code HAVING c>1 LIMIT 1").first();
   if(!duplicate){
@@ -284,7 +287,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-annual-credit-split-v1',
+      version:'worker-annual-credit-split-v2',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
