@@ -1540,6 +1540,223 @@ function ImportCodes({data,action,busy}) {
     </div>
   </section>;
 }
+
+function CodeStockManager({kind,call}) {
+  const {lang,l}=useLanguage();
+  const isSharing=kind==='sharing';
+  const [data,setData]=useState({codes:[],counts:{total:0,available:0,issued:0,disabled:0},sources:[]});
+  const [filters,setFilters]=useState({sourceId:'',status:'all'});
+  const [search,setSearch]=useState('');
+  const [appliedSearch,setAppliedSearch]=useState('');
+  const [addForm,setAddForm]=useState({sourceId:'',code:''});
+  const [editId,setEditId]=useState('');
+  const [editValue,setEditValue]=useState('');
+  const [deleteId,setDeleteId]=useState('');
+  const [deleteAllOpen,setDeleteAllOpen]=useState(false);
+  const [deleteScope,setDeleteScope]=useState('all');
+  const [confirmText,setConfirmText]=useState('');
+  const [ready,setReady]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+
+  const sourceName=(source)=>{
+    if(isSharing) return lang==='en'?(source.name_en||source.name_ar):(source.name_ar||source.name_en);
+    return source.name||'—';
+  };
+
+  const codeSourceName=(row)=>{
+    if(isSharing) return lang==='en'?(row.source_name_en||row.source_name_ar):(row.source_name_ar||row.source_name_en);
+    return row.source_name||'—';
+  };
+
+  async function load(next=filters,q=appliedSearch){
+    setReady(false);
+    try{
+      const params=new URLSearchParams({kind,status:next.status||'all',limit:'750'});
+      if(next.sourceId) params.set('sourceId',next.sourceId);
+      if(q) params.set('q',q);
+      const out=await call('/api/admin/code-stock?'+params.toString());
+      setData({
+        codes:out.codes||[],
+        counts:out.counts||{total:0,available:0,issued:0,disabled:0},
+        sources:out.sources||[]
+      });
+      setAddForm(v=>({...v,sourceId:v.sourceId||next.sourceId||''}));
+    }catch{
+      setMessage(l('تعذر تحميل الأكواد.','Unable to load codes.'));
+    }finally{
+      setReady(true);
+    }
+  }
+
+  useEffect(()=>{load(filters,appliedSearch);},[kind,filters.sourceId,filters.status,appliedSearch]);
+
+  async function mutate(body,success){
+    setBusy(true);
+    setMessage('');
+    try{
+      const out=await call('/api/admin/code-stock',{method:'POST',body:{kind,...body}});
+      setMessage(success+(out?.deleted!==undefined?' ('+num(out.deleted)+')':''));
+      await load(filters,appliedSearch);
+      return out;
+    }catch(e){
+      const code=String(e.message||e);
+      const map={
+        CODE_EXISTS:l('الكود موجود بالفعل.','Code already exists.'),
+        CODE_NOT_FOUND:l('الكود غير موجود.','Code not found.'),
+        INVALID_CODE:l('أدخل كودًا صحيحًا.','Enter a valid code.'),
+        SERVER_PACKAGE_MISMATCH:l('السيرفر لا يحتوي على باقة نشطة.','Server has no active package.'),
+        SHARING_SERVICE_NOT_FOUND:l('نوع الشيرنج غير موجود.','Sharing service not found.')
+      };
+      setMessage(map[code]||l('لم تتم العملية: ','Request failed: ')+code);
+      return null;
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  async function addCode(e){
+    e.preventDefault();
+    if(!addForm.sourceId||!addForm.code.trim()) return;
+    const out=await mutate({operation:'add',sourceId:addForm.sourceId,code:addForm.code},l('تمت إضافة الكود.','Code added.'));
+    if(out) setAddForm(v=>({...v,code:''}));
+  }
+
+  async function saveEdit(id){
+    if(!editValue.trim()) return;
+    const out=await mutate({operation:'update',codeId:id,code:editValue},l('تم تعديل الكود.','Code updated.'));
+    if(out){setEditId('');setEditValue('');}
+  }
+
+  async function deleteOne(id){
+    const out=await mutate({operation:'delete',codeId:id},l('تم حذف الكود.','Code deleted.'));
+    if(out) setDeleteId('');
+  }
+
+  async function deleteAll(){
+    const ok=confirmText.trim()==='حذف'||confirmText.trim().toUpperCase()==='DELETE';
+    if(!ok) return;
+    const out=await mutate(
+      {operation:'delete_all',sourceId:filters.sourceId||'',scope:deleteScope},
+      l('تم تنفيذ حذف الأكواد.','Code deletion completed.')
+    );
+    if(out){setDeleteAllOpen(false);setConfirmText('');}
+  }
+
+  const statusLabel=(status)=>({
+    available:l('متاح','Available'),
+    issued:l('مفعّل','Issued'),
+    disabled:l('متوقف','Disabled')
+  }[status]||status);
+
+  return <section className="section codeStockPage">
+    <div className="codeStockHead">
+      <div>
+        <span className="codeStockEyebrow">{isSharing?'SHARING':'IPTV'}</span>
+        <h2>{isSharing?l('إدارة أكواد الشيرنج','Manage sharing codes'):l('إدارة أكواد IPTV','Manage IPTV codes')}</h2>
+        <p>{l('إضافة وتعديل وحذف الأكواد من مكان واحد. حذف الأكواد لا يعيد الرصيد ولا يلغي العمليات السابقة.','Add, edit, and delete codes in one place. Deleting codes does not refund balances or reverse prior transactions.')}</p>
+      </div>
+      <button type="button" className="codeDeleteAllBtn" onClick={()=>setDeleteAllOpen(v=>!v)}>
+        {l('حذف الكل','Delete all')}
+      </button>
+    </div>
+
+    <div className="codeStockStats">
+      <div><span>{l('الإجمالي','Total')}</span><b>{num(data.counts.total)}</b></div>
+      <div><span>{l('المتاح','Available')}</span><b>{num(data.counts.available)}</b></div>
+      <div><span>{l('المفعّل','Issued')}</span><b>{num(data.counts.issued)}</b></div>
+      <div><span>{l('المتوقف','Disabled')}</span><b>{num(data.counts.disabled)}</b></div>
+    </div>
+
+    <div className="codeStockToolbar">
+      <label>
+        <span>{isSharing?l('نوع الشيرنج','Sharing service'):l('السيرفر','Server')}</span>
+        <select value={filters.sourceId} onChange={e=>setFilters(v=>({...v,sourceId:e.target.value}))}>
+          <option value="">{isSharing?l('كل أنواع الشيرنج','All sharing services'):l('كل السيرفرات','All servers')}</option>
+          {data.sources.map(s=><option key={s.id} value={s.id}>{sourceName(s)}</option>)}
+        </select>
+      </label>
+      <label>
+        <span>{l('الحالة','Status')}</span>
+        <select value={filters.status} onChange={e=>setFilters(v=>({...v,status:e.target.value}))}>
+          <option value="all">{l('كل الحالات','All statuses')}</option>
+          <option value="available">{l('متاح','Available')}</option>
+          <option value="issued">{l('مفعّل','Issued')}</option>
+          <option value="disabled">{l('متوقف','Disabled')}</option>
+        </select>
+      </label>
+      <form className="codeStockSearch" onSubmit={e=>{e.preventDefault();setAppliedSearch(search.trim());}}>
+        <input dir="ltr" placeholder={l('بحث بالكود','Search code')} value={search} onChange={e=>setSearch(e.target.value)}/>
+        <button type="submit">{l('بحث','Search')}</button>
+        {appliedSearch&&<button type="button" className="clear" onClick={()=>{setSearch('');setAppliedSearch('');}}>{l('مسح','Clear')}</button>}
+      </form>
+    </div>
+
+    <form className="codeStockAdd" onSubmit={addCode}>
+      <div>
+        <span>{l('إضافة كود','Add code')}</span>
+        <small>{isSharing?l('اختر نوع الشيرنج ثم أدخل الكود.','Choose a sharing service, then enter the code.'):l('اختر السيرفر ثم أدخل الكود.','Choose a server, then enter the code.')}</small>
+      </div>
+      <select value={addForm.sourceId} onChange={e=>setAddForm(v=>({...v,sourceId:e.target.value}))} required>
+        <option value="">{isSharing?l('اختر نوع الشيرنج','Select sharing service'):l('اختر السيرفر','Select server')}</option>
+        {data.sources.map(s=><option key={s.id} value={s.id}>{sourceName(s)}</option>)}
+      </select>
+      <input dir="ltr" value={addForm.code} onChange={e=>setAddForm(v=>({...v,code:e.target.value}))} placeholder={l('الكود','Code')} required/>
+      <button className="codeAddBtn" disabled={busy}>{busy?l('جارٍ الحفظ…','Saving…'):l('إضافة','Add')}</button>
+    </form>
+
+    {deleteAllOpen&&<div className="codeStockDanger">
+      <div>
+        <b>{l('حذف جماعي','Bulk deletion')}</b>
+        <span>{filters.sourceId
+          ? l('سيتم تطبيق الحذف على القسم المحدد فقط.','Deletion will apply only to the selected source.')
+          : l('لم تحدد قسمًا: الحذف سيشمل كل الأقسام.','No source selected: deletion will apply to all sources.')}</span>
+      </div>
+      <select value={deleteScope} onChange={e=>setDeleteScope(e.target.value)}>
+        <option value="available">{l('حذف كل الأكواد المتاحة فقط','Delete all available codes only')}</option>
+        <option value="all">{l('حذف كل الأكواد بما فيها المفعّلة','Delete every code including issued')}</option>
+      </select>
+      <input value={confirmText} onChange={e=>setConfirmText(e.target.value)} placeholder={l('اكتب: حذف','Type: DELETE')}/>
+      <div>
+        <button type="button" className="secondary" onClick={()=>{setDeleteAllOpen(false);setConfirmText('');}}>{l('إلغاء','Cancel')}</button>
+        <button type="button" className="danger" disabled={busy||!(confirmText.trim()==='حذف'||confirmText.trim().toUpperCase()==='DELETE')} onClick={deleteAll}>{l('تأكيد حذف الكل','Confirm delete all')}</button>
+      </div>
+    </div>}
+
+    {message&&<div className="codeStockMessage">{message}</div>}
+
+    {!ready ? <div className="panelLoadingState"><span className="panelLoadingLine"/></div> :
+    data.codes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد مطابقة.','No matching codes.')}</div> :
+    <div className="codeStockList">
+      {data.codes.map(row=><article className={'codeStockRow '+row.status} key={row.id}>
+        <div className="codeStockIdentity">
+          <span>{codeSourceName(row)}</span>
+          {editId===row.id
+            ? <input dir="ltr" value={editValue} onChange={e=>setEditValue(e.target.value)} autoFocus/>
+            : <b dir="ltr">{row.code}</b>}
+        </div>
+        <div className="codeStockMeta">
+          <span className={'codeStockStatus '+row.status}>{statusLabel(row.status)}</span>
+          <small>{row.reseller_name||row.reseller_username||'—'}</small>
+          <small>{fmt(row.issued_at||row.created_at,lang)}</small>
+        </div>
+        <div className="codeStockActions">
+          {editId===row.id ? <>
+            <button type="button" className="save" disabled={busy||!editValue.trim()} onClick={()=>saveEdit(row.id)}>{l('حفظ','Save')}</button>
+            <button type="button" onClick={()=>{setEditId('');setEditValue('');}}>{l('إلغاء','Cancel')}</button>
+          </> : deleteId===row.id ? <>
+            <button type="button" className="danger" disabled={busy} onClick={()=>deleteOne(row.id)}>{l('تأكيد الحذف','Confirm')}</button>
+            <button type="button" onClick={()=>setDeleteId('')}>{l('إلغاء','Cancel')}</button>
+          </> : <>
+            <button type="button" onClick={()=>{setEditId(row.id);setEditValue(row.code);setDeleteId('');}}>{l('تعديل','Edit')}</button>
+            <button type="button" className="dangerGhost" onClick={()=>{setDeleteId(row.id);setEditId('');}}>{l('حذف','Delete')}</button>
+          </>}
+        </div>
+      </article>)}
+    </div>}
+  </section>;
+}
+
 function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConfig,agentMode=false}) {
   const {lang,l}=useLanguage();
   const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
@@ -2050,6 +2267,14 @@ function Logs({logs,admin}) {
     CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
     SHARING_CODES_IMPORTED:[l('رفع أكواد شيرنج','Sharing codes imported'),'codes'],
     SHARING_CODES_ISSUED:[l('تفعيل شيرنج','Sharing codes issued'),'codes'],
+    IPTV_CODE_ADDED:[l('إضافة كود IPTV','IPTV code added'),'codes'],
+    IPTV_CODE_UPDATED:[l('تعديل كود IPTV','IPTV code updated'),'codes'],
+    IPTV_CODE_DELETED:[l('حذف كود IPTV','IPTV code deleted'),'codes'],
+    IPTV_CODES_DELETED_ALL:[l('حذف جماعي لأكواد IPTV','IPTV codes bulk deleted'),'codes'],
+    SHARING_CODE_ADDED:[l('إضافة كود شيرنج','Sharing code added'),'codes'],
+    SHARING_CODE_UPDATED:[l('تعديل كود شيرنج','Sharing code updated'),'codes'],
+    SHARING_CODE_DELETED:[l('حذف كود شيرنج','Sharing code deleted'),'codes'],
+    SHARING_CODES_DELETED_ALL:[l('حذف جماعي لأكواد الشيرنج','Sharing codes bulk deleted'),'codes'],
     SERVER_CREATED:[l('إضافة سيرفر','Server added'),'system'],
     PACKAGE_CREATED:[l('إضافة باقة','Package added'),'system'],
     APP_ADDED:[l('إضافة تطبيق','App added'),'system'],
