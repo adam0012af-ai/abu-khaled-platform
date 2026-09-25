@@ -46,7 +46,7 @@ function securityHeaders(extra={}){
     'permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()',
     'cross-origin-opener-policy':'same-origin',
     'cross-origin-resource-policy':'same-origin',
-    'content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    'content-security-policy':"default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
     ...extra
   };
 }
@@ -94,6 +94,37 @@ function sessionCookie(token,maxAge=SESSION_HOURS*3600){
 }
 
 async function bodyJson(request){ try{return await request.json();}catch{return {};} }
+
+function turnstileEnabled(env){
+  return Boolean(String(env.TURNSTILE_SITE_KEY||'').trim() && String(env.TURNSTILE_SECRET_KEY||'').trim());
+}
+
+async function verifyTurnstile(env,request,token){
+  if(!turnstileEnabled(env)) return {success:true,configured:false};
+  const response=String(token||'').trim();
+  if(!response) return {success:false,configured:true};
+
+  const form=new FormData();
+  form.set('secret',String(env.TURNSTILE_SECRET_KEY));
+  form.set('response',response);
+  const remoteIp=request.headers.get('cf-connecting-ip');
+  if(remoteIp) form.set('remoteip',remoteIp);
+
+  try{
+    const result=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{
+      method:'POST',
+      body:form
+    }).then(r=>r.json());
+
+    if(!result?.success) return {success:false,configured:true,errorCodes:result?.['error-codes']||[]};
+    if(result.action && result.action!=='login') return {success:false,configured:true};
+    const expectedHost=clean(env.TURNSTILE_HOSTNAME||'',255).toLowerCase();
+    if(expectedHost && String(result.hostname||'').toLowerCase()!==expectedHost) return {success:false,configured:true};
+    return {success:true,configured:true};
+  }catch{
+    return {success:false,configured:true};
+  }
+}
 
 async function ipHash(request){
   return sha256(request.headers.get('cf-connecting-ip')||'unknown');
@@ -287,6 +318,11 @@ async function login(request,env){
   const password=String(body.password||'');
   if(!identifier || !password || password.length>256) return json({error:'INVALID_LOGIN'},401);
 
+  if(turnstileEnabled(env)){
+    const verification=await verifyTurnstile(env,request,body.turnstileToken);
+    if(!verification.success) return json({error:'TURNSTILE_FAILED'},403);
+  }
+
   const key=await sha256(identifier.toLowerCase()+'|'+(request.headers.get('cf-connecting-ip')||'unknown'));
   const gate=await env.DB.prepare("SELECT * FROM login_attempts WHERE key=?").bind(key).first();
   if(gate?.blocked_until && gate.blocked_until>now()) return json({error:'TOO_MANY_ATTEMPTS'},429);
@@ -336,7 +372,16 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-security-session-v8'
+      version:'worker-turnstile-i18n-v9'
+    });
+  }
+
+  if(path==='/api/public-config' && method==='GET'){
+    return json({
+      turnstile:{
+        enabled:turnstileEnabled(env),
+        siteKey:turnstileEnabled(env)?String(env.TURNSTILE_SITE_KEY):''
+      }
     });
   }
 
