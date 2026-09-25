@@ -88,15 +88,24 @@ function Table({ children }) {
 function Panel({ user, csrf, onLogout }) {
   const isAdmin = user.role === 'admin';
   const adminTabs = [
-    ['overview','الرئيسية','⌂'],['servers','السيرفرات والباقات','◉'],['import','رفع الأكواد','⇧'],
-    ['resellers','الموزعون','♟'],['issued','الأكواد المفعلة','▣'],['credit','طلبات الكريدت','◈'],
-    ['apps','التطبيقات والسوفت وير','A'],['logs','السجل الكامل','◷']
+    ['overview','الرئيسية','⌂'],
+    ['servers','السيرفرات والباقات','◉'],
+    ['import','رفع الأكواد','⇧'],
+    ['resellers','الموزعون','♟'],
+    ['issued','الأكواد المفعلة','▣'],
+    ['credit','طلبات الكريدت','◈'],
+    ['apps','التطبيقات والسوفت وير','A'],
+    ['logs','السجل الكامل','◷']
   ];
   const resellerTabs = [
-    ['issue','إنشاء الأكواد','＋'],['mycodes','أكوادي','▣'],['credit','طلب كريدت','◈'],
-    ['apps','التطبيقات والسوفت وير','A'],['logs','السجل','◷']
+    ['issue','إنشاء الأكواد','＋'],
+    ['mycodes','أكوادي','▣'],
+    ['credit','طلب كريدت','◈'],
+    ['apps','التطبيقات والسوفت وير','A'],
+    ['logs','السجل','◷']
   ];
   const tabs = isAdmin ? adminTabs : resellerTabs;
+
   const [tab,setTab] = useState(tabs[0][0]);
   const [menuOpen,setMenuOpen] = useState(false);
   const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
@@ -119,7 +128,15 @@ function Panel({ user, csrf, onLogout }) {
       const [dash, servers, apps, logs, requests] = await Promise.all([
         call('/api/dashboard'), call('/api/servers'), call('/api/apps'), call('/api/logs'), call('/api/credit-requests')
       ]);
-      const next = { ...data, dashboard:dash, servers:servers.servers||[], packages:servers.packages||[], apps:apps.apps||[], logs:logs.logs||[], requests:requests.requests||[] };
+      const next = {
+        ...data,
+        dashboard:dash,
+        servers:servers.servers||[],
+        packages:servers.packages||[],
+        apps:apps.apps||[],
+        logs:logs.logs||[],
+        requests:requests.requests||[]
+      };
       if (isAdmin) {
         const [resellers,codes] = await Promise.all([call('/api/admin/resellers'),call('/api/admin/codes')]);
         next.resellers = resellers.resellers||[];
@@ -151,10 +168,10 @@ function Panel({ user, csrf, onLogout }) {
         INSUFFICIENT_STOCK:'المخزون غير كافٍ.',
         SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
-        IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع. للملفات الأكبر يتم تقسيمها على أكثر من دفعة.',
+        IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع.',
         NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.',
-        INVALID_RESELLER:'اكتب Username وPassword واسم الموزع. لا يوجد حد أدنى لليوزر أو الباسورد.',
-        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل. اختار Username مختلف.'
+        INVALID_RESELLER:'اكتب Username وPassword. لا يوجد حد أدنى.',
+        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.'
       };
       setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
       throw e;
@@ -166,55 +183,70 @@ function Panel({ user, csrf, onLogout }) {
     onLogout();
   }
 
+  const activeLabel=tabs.find(x=>x[0]===tab)?.[1]||'الرئيسية';
+
   return (
-    <div className="appShell">
-      <aside className={menuOpen?'mobileOpen':''}>
-        <div className="drawerBrand">
+    <div className="panelShell">
+      <aside className={'fullSidebar '+(menuOpen?'open':'')}>
+        <div className="sidebarTop">
           <Logo compact/>
-          <button className="drawerClose" onClick={()=>setMenuOpen(false)} aria-label="إغلاق القائمة">×</button>
+          <button className="sidebarClose" onClick={()=>setMenuOpen(false)} aria-label="إغلاق">×</button>
         </div>
 
-        <div className="drawerSectionLabel">NAVIGATION</div>
+        <div className="sidebarLabel">NAVIGATION</div>
 
-        <nav className="drawerNav">
-          {tabs.map(([id,label,icon])=><button key={id} onClick={()=>{setTab(id);setMenuOpen(false);}} className={tab===id?'active':''}>
-            <span className="navIcon">{icon}</span>
-            <span className="navLabel">{label}</span>
-            {id==='overview' && isAdmin && <span className="navBadge">{num(data.dashboard?.counts?.available||0)}</span>}
-            {['servers','logs','apps'].includes(id) && <span className="navChevron">‹</span>}
-          </button>)}
+        <nav className="sidebarNav">
+          {tabs.map(([id,label,icon])=>
+            <button
+              key={id}
+              className={tab===id?'active':''}
+              onClick={()=>{setTab(id);setMenuOpen(false);}}
+            >
+              <span className="sidebarIcon">{icon}</span>
+              <span className="sidebarText">{label}</span>
+              {id==='overview' && isAdmin &&
+                <span className="sidebarBadge">{num(data.dashboard?.counts?.available||0)}</span>}
+            </button>
+          )}
         </nav>
 
-        <div className="drawerAccount">
-          <div className="drawerAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
-          <div><b>{user.displayName||user.username}</b><span>{isAdmin?'ADMIN':'RESELLER'}</span></div>
+        <div className="sidebarUser">
+          <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
+          <div>
+            <b>{user.displayName||user.username}</b>
+            <span>{isAdmin?'ADMIN':'RESELLER'}</span>
+          </div>
         </div>
 
-        <button className="drawerLogout" onClick={logout}><span>⇥</span> تسجيل الخروج</button>
+        <button className="sidebarLogout" onClick={logout}>⇥ <span>تسجيل الخروج</span></button>
       </aside>
-      {menuOpen && <button className="menuBackdrop" aria-label="إغلاق القائمة" onClick={()=>setMenuOpen(false)}/>}
-      <main className="panelMain">
-        <header className="panelHeader">
-          <button className="mobileMenuOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
-          <div className="headerGridIcon">⌘</div>
-          <Logo compact/>
+
+      {menuOpen && <button className="sidebarBackdrop" onClick={()=>setMenuOpen(false)} aria-label="إغلاق القائمة"/>}
+
+      <main className="contentArea">
+        <header className="contentHeader">
+          <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
+          <div>
+            <span>ACTIVE CODE MULTI</span>
+            <h1>{activeLabel}</h1>
+          </div>
         </header>
-        <div className="pageTitleBar">
-          <span>ACTIVE CODE MULTI</span>
-          <h1>{tabs.find(x=>x[0]===tab)?.[1]}</h1>
-        </div>
+
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
-        {tab==='overview' && isAdmin && <AdminOverview data={data} onNavigate={setTab}/>}
-        {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>}
-        {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
-        {tab==='resellers' && isAdmin && <Resellers data={data} action={action} busy={busy}/>}
-        {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
-        {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
-        {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
-        {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
-        {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
-        {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
-        {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+
+        <div className="pageContent">
+          {tab==='overview' && isAdmin && <AdminOverview data={data} onNavigate={setTab}/>}
+          {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>}
+          {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
+          {tab==='resellers' && isAdmin && <Resellers data={data} action={action} busy={busy}/>}
+          {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
+          {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
+          {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
+          {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
+          {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
+          {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
+          {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+        </div>
       </main>
     </div>
   );
