@@ -815,6 +815,66 @@ async function api(request,env){
 
   if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
 
+  if(path==='/api/admin/sharing/services' && method==='GET'){
+    const services=(await env.DB.prepare("SELECT s.id,s.name_ar,s.name_en,s.slug,s.credit_cost,s.active,s.sort_order,s.created_at,COUNT(c.id) total_codes,COALESCE(SUM(CASE WHEN c.status='available' THEN 1 ELSE 0 END),0) available_codes,COALESCE(SUM(CASE WHEN c.status='issued' THEN 1 ELSE 0 END),0) issued_codes,(SELECT COUNT(*) FROM sharing_orders o WHERE o.service_id=s.id) total_orders FROM sharing_services s LEFT JOIN sharing_codes c ON c.service_id=s.id GROUP BY s.id ORDER BY CASE s.active WHEN 1 THEN 0 ELSE 1 END,s.sort_order,s.name_en").all()).results||[];
+    return json({services,balanceConfig:await getBalanceConfig(env)});
+  }
+
+  if(path==='/api/admin/sharing/services' && method==='POST'){
+    const body=await bodyJson(request);
+    const operation=['add','update','delete'].includes(body.operation)?body.operation:'';
+    if(!operation) return json({error:'INVALID_SHARING_SERVICE_OPERATION'},400);
+
+    if(operation==='add'){
+      const nameAr=clean(body.nameAr,100), nameEn=clean(body.nameEn,100);
+      const cost=Math.max(0,Math.trunc(Number(body.creditCost??0)));
+      const sortOrder=Math.trunc(Number(body.sortOrder||100));
+      const slug=slugify(body.slug||nameEn||nameAr);
+      if(!nameAr||!nameEn||!slug||!Number.isSafeInteger(cost)||!Number.isSafeInteger(sortOrder)) return json({error:'INVALID_SHARING_SERVICE'},400);
+      const id=uid('shr'), at=now();
+      try{
+        await env.DB.prepare("INSERT INTO sharing_services(id,name_ar,name_en,slug,credit_cost,active,sort_order,created_at) VALUES(?,?,?,?,?,1,?,?)")
+          .bind(id,nameAr,nameEn,slug,cost,sortOrder,at).run();
+        await audit(env,request,user,'SHARING_SERVICE_CREATED','sharing_service',id,{nameAr,nameEn,slug,cost,sortOrder});
+        return json({ok:true,id},201);
+      }catch{return json({error:'SHARING_SERVICE_EXISTS'},409);}
+    }
+
+    const serviceId=clean(body.serviceId,80);
+    if(!serviceId) return json({error:'SHARING_SERVICE_NOT_FOUND'},404);
+    const current=await env.DB.prepare("SELECT * FROM sharing_services WHERE id=? LIMIT 1").bind(serviceId).first();
+    if(!current) return json({error:'SHARING_SERVICE_NOT_FOUND'},404);
+
+    if(operation==='update'){
+      const nameAr=clean(body.nameAr,100), nameEn=clean(body.nameEn,100);
+      const cost=Math.max(0,Math.trunc(Number(body.creditCost??0)));
+      const sortOrder=Math.trunc(Number(body.sortOrder||100));
+      const active=Number(body.active)===0?0:1;
+      if(!nameAr||!nameEn||!Number.isSafeInteger(cost)||!Number.isSafeInteger(sortOrder)) return json({error:'INVALID_SHARING_SERVICE'},400);
+      try{
+        await env.DB.prepare("UPDATE sharing_services SET name_ar=?,name_en=?,credit_cost=?,active=?,sort_order=? WHERE id=?")
+          .bind(nameAr,nameEn,cost,active,sortOrder,serviceId).run();
+        await audit(env,request,user,'SHARING_SERVICE_UPDATED','sharing_service',serviceId,{before:{nameAr:current.name_ar,nameEn:current.name_en,cost:current.credit_cost,active:current.active,sortOrder:current.sort_order},after:{nameAr,nameEn,cost,active,sortOrder}});
+        return json({ok:true});
+      }catch{return json({error:'SHARING_SERVICE_EXISTS'},409);}
+    }
+
+    const stats=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM sharing_codes WHERE service_id=?) codes,(SELECT COUNT(*) FROM sharing_codes WHERE service_id=? AND status='issued') issued,(SELECT COUNT(*) FROM sharing_orders WHERE service_id=?) orders").bind(serviceId,serviceId,serviceId).first();
+    const codes=Number(stats?.codes||0), issued=Number(stats?.issued||0), orders=Number(stats?.orders||0);
+
+    if(issued>0||orders>0){
+      await env.DB.prepare("UPDATE sharing_services SET active=0 WHERE id=?").bind(serviceId).run();
+      await audit(env,request,user,'SHARING_SERVICE_ARCHIVED','sharing_service',serviceId,{nameAr:current.name_ar,nameEn:current.name_en,codes,issued,orders,preservedHistory:true});
+      return json({ok:true,archived:true,preservedHistory:true});
+    }
+
+    await env.DB.prepare("DELETE FROM sharing_codes WHERE service_id=?").bind(serviceId).run();
+    await env.DB.prepare("DELETE FROM sharing_batches WHERE service_id=?").bind(serviceId).run();
+    await env.DB.prepare("DELETE FROM sharing_services WHERE id=?").bind(serviceId).run();
+    await audit(env,request,user,'SHARING_SERVICE_DELETED','sharing_service',serviceId,{nameAr:current.name_ar,nameEn:current.name_en,codes});
+    return json({ok:true,deleted:true});
+  }
+
   if(path==='/api/admin/code-stock' && method==='GET'){
     const kind=url.searchParams.get('kind')==='sharing'?'sharing':'iptv';
     const sourceId=clean(url.searchParams.get('sourceId'),80);
