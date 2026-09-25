@@ -198,25 +198,59 @@ function AdminOverview({data}) {
   const c=data.dashboard?.counts||{};
   return <>
     <div className="statsGrid">
-      <Stat label="الموزعون" value={c.resellers}/><Stat label="المتاح" value={c.available}/>
-      <Stat label="المفعّل" value={c.issued}/><Stat label="طلبات الكريدت" value={c.pending_requests}/>
+      <Stat label="إجمالي الأكواد" value={c.total_codes}/>
+      <Stat label="الأكواد المتاحة" value={c.available}/>
+      <Stat label="الأكواد المفعلة" value={c.issued}/>
+      <Stat label="الموزعون" value={c.resellers}/>
+      <Stat label="الباقات النشطة" value={c.active_packages}/>
+      <Stat label="إجمالي رصيد الموزعين" value={c.reseller_credits} sub="CREDIT"/>
+      <Stat label="طلبات الكريدت" value={c.pending_requests}/>
     </div>
+
+    <div className="demoBanner">
+      <div>
+        <span>TEST INVENTORY</span>
+        <strong>مخزون تجريبي جاهز للاختبار</strong>
+        <p>تم تجهيز 200 كود تجريبي لكل سيرفر على باقة 12 Months بتكلفة 1 Credit. الأكواد التجريبية تحمل كلمة DEMO بوضوح.</p>
+      </div>
+      <b>1,000 DEMO CODES</b>
+    </div>
+
     <section className="section">
-      <div className="sectionHead"><div><span>LIVE INVENTORY</span><h2>حالة السيرفرات</h2></div><small>تحديث تلقائي كل 30 ثانية</small></div>
+      <div className="sectionHead">
+        <div><span>LIVE INVENTORY</span><h2>حالة السيرفرات والباقات</h2></div>
+        <small>تحديث تلقائي كل 30 ثانية</small>
+      </div>
       <div className="serverGrid">{data.servers.map(s=>{
         const low=Number(s.available_codes)<=Number(s.low_stock_threshold);
+        const packs=data.packages.filter(p=>p.server_id===s.id);
         return <div className={'serverCard '+(low?'low':'')} key={s.id}>
-          <div className="serverTop"><b>{s.name}</b><span>{s.active?'ACTIVE':'OFF'}</span></div>
+          <div className="serverTop"><b>{s.name}</b><span>{Number(s.active)===1?'ACTIVE':'OFF'}</span></div>
           <strong>{num(s.available_codes)}</strong><small>كود متاح</small>
           <div className="meter"><i style={{width:Math.min(100,(Number(s.available_codes)/(Math.max(1,Number(s.total_codes))))*100)+'%'}}/></div>
           <div className="serverFoot"><span>الإجمالي {num(s.total_codes)}</span><span>المفعّل {num(s.issued_codes)}</span></div>
-          {low && <em>مخزون منخفض</em>}
+          <div className="packageMini">
+            {packs.map(p=><div key={p.id}><span>{p.name}</span><b>{num(p.available_codes)} متاح</b><em>{num(p.credit_cost)} Credit</em></div>)}
+          </div>
+          {low && <em className="stockAlert">مخزون منخفض</em>}
         </div>
       })}</div>
     </section>
+
+    <div className="twoCol dashboardBottom">
+      <section className="section">
+        <div className="sectionHead"><div><span>RESELLERS</span><h2>آخر حسابات الموزعين</h2></div></div>
+        {data.resellers.length===0 ? <div className="emptyState mini">لا يوجد موزعون بعد. أنشئ أول موزع من قسم الموزعين.</div> :
+        <div className="list">{data.resellers.slice(0,6).map(r=><div className="listRow" key={r.id}><b>{r.display_name}</b><span>{r.username}</span><small>{num(r.credits)} Credit</small></div>)}</div>}
+      </section>
+      <section className="section">
+        <div className="sectionHead"><div><span>RECENT ACTIVITY</span><h2>آخر العمليات</h2></div></div>
+        {data.logs.length===0 ? <div className="emptyState mini">لا توجد عمليات مسجلة بعد.</div> :
+        <div className="list">{data.logs.slice(0,6).map((l,i)=><div className="listRow logMini" key={l.id||i}><b>{l.action}</b><span>{l.actor_name||l.actor_username||'SYSTEM'}</span><small>{fmt(l.created_at)}</small></div>)}</div>}
+      </section>
+    </div>
   </>;
 }
-
 function Servers({data,action,busy}) {
   const [server,setServer]=useState({name:'',lowStockThreshold:10});
   const [pack,setPack]=useState({serverId:'',name:'',durationLabel:'',creditCost:1});
