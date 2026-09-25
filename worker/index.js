@@ -437,18 +437,24 @@ async function api(request, env) {
     const unique = Array.from(new Set(nonBlank));
     const blankCount = lines.length - nonBlank.length;
     if (!serverId || !packageId || unique.length === 0) return json({ error: 'EMPTY_IMPORT' }, 400);
-    if (unique.length > 1000) return json({ error: 'IMPORT_LIMIT_1000' }, 413);
+    if (unique.length > 700) return json({ error: 'IMPORT_LIMIT_700' }, 413);
     const pack = await env.DB.prepare('SELECT id FROM packages WHERE id=? AND server_id=?').bind(packageId,serverId).first();
     if (!pack) return json({ error: 'SERVER_PACKAGE_MISMATCH' }, 409);
     const batchId = uid('bat');
     const at = now();
-    const placeholders = unique.map(() => '(?,?,?,?,?,?)').join(',');
-    const params = [];
-    unique.forEach((code) => params.push(uid('cod'),serverId,packageId,batchId,code,at));
-    const insertSql = "INSERT OR IGNORE INTO codes(id,server_id,package_id,batch_id,code,created_at) VALUES " + placeholders;
+    const insertStatements = [];
+    for (let offset = 0; offset < unique.length; offset += 16) {
+      const chunk = unique.slice(offset, offset + 16);
+      const placeholders = chunk.map(() => '(?,?,?,?,?,?)').join(',');
+      const params = [];
+      chunk.forEach((code) => params.push(uid('cod'),serverId,packageId,batchId,code,at));
+      insertStatements.push(
+        env.DB.prepare("INSERT OR IGNORE INTO codes(id,server_id,package_id,batch_id,code,created_at) VALUES " + placeholders).bind(...params)
+      );
+    }
     await env.DB.batch([
       env.DB.prepare('INSERT INTO code_batches(id,server_id,package_id,filename,imported_by,total_lines,blank_count,inserted_count,duplicate_count,created_at) VALUES(?,?,?,?,?,?,?,0,0,?)').bind(batchId,serverId,packageId,filename,user.id,lines.length,blankCount,at),
-      env.DB.prepare(insertSql).bind(...params),
+      ...insertStatements,
       env.DB.prepare('UPDATE code_batches SET inserted_count=(SELECT COUNT(*) FROM codes WHERE batch_id=?),duplicate_count=total_lines-blank_count-(SELECT COUNT(*) FROM codes WHERE batch_id=?) WHERE id=?').bind(batchId,batchId,batchId),
       env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'CODES_IMPORTED','code_batch',batchId,JSON.stringify({serverId,packageId,filename,totalLines:lines.length}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
     ]);
