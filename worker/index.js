@@ -249,6 +249,34 @@ async function api(request, env) {
     const body = await bodyJson(request);
     const identifier = cleanText(body.identifier || body.username, 120);
     const password = String(body.password || '');
+
+    // Explicit owner recovery using the current Cloudflare SETUP_KEY.
+    // This is intentionally only available while SETUP_KEY exists.
+    if (identifier.toLowerCase() === 'owner' && env.SETUP_KEY && secureEqual(password, String(env.SETUP_KEY))) {
+      let owner = await env.DB.prepare("SELECT * FROM users WHERE username='owner' COLLATE NOCASE LIMIT 1").first();
+      if (!owner) owner = await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
+
+      const salt = randomToken(18);
+      const hash = await passwordHash(password, salt);
+      const at = now();
+
+      if (owner) {
+        await env.DB.prepare("UPDATE users SET username='owner',password_hash=?,password_salt=?,password_iterations=?,status='active',updated_at=? WHERE id=?")
+          .bind(hash,salt,PASSWORD_ITERATIONS,at,owner.id).run();
+        owner = await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(owner.id).first();
+      } else {
+        const ownerId = uid('usr');
+        await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,'owner',NULL,?,?,?,'admin','Owner',0,'active',?,?)")
+          .bind(ownerId,hash,salt,PASSWORD_ITERATIONS,at,at).run();
+        owner = await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(ownerId).first();
+      }
+
+      await env.DB.prepare("DELETE FROM login_attempts WHERE key IN (SELECT key FROM login_attempts)").run();
+      await audit(env, request, owner, 'OWNER_RECOVERED_WITH_SETUP_KEY', 'user', owner.id, {});
+      const session = await createSession(env, request, owner.id);
+      return json({ user: publicUser(owner), csrf: session.csrf }, 200, { 'set-cookie': sessionCookie(session.token) });
+    }
+
     const key = await sha256(identifier.toLowerCase() + '|' + (request.headers.get('cf-connecting-ip') || 'unknown'));
     const gate = await env.DB.prepare('SELECT * FROM login_attempts WHERE key=?').bind(key).first();
     if (gate?.blocked_until && gate.blocked_until > now()) return json({ error: 'TOO_MANY_ATTEMPTS' }, 429);
