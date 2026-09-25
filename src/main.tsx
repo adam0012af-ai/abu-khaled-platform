@@ -73,14 +73,16 @@ const ADMIN_ROUTE_TO_TAB = {
   dashboard:'overview',
   servers:'servers',
   inventory:'inventory',
-  'codes/import':'import',
+  'codes/import':'code-add',
+  'codes/add':'code-add',
+  'codes/manage':'code-manage',
+  sharing:'sharing-admin',
+  'sharing/manage':'sharing-admin',
   'dealers/new':'reseller-create',
   dealers:'reseller-manage',
   codes:'issued',
   credit:'credit',
   apps:'apps',
-  sharing:'sharing',
-  partners:'partners',
   logs:'logs',
   profile:'profile'
 };
@@ -500,48 +502,79 @@ function Panel({ user, csrf, onLogout }) {
   const [dataReady,setDataReady] = useState(()=>Boolean(cachedData));
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
+  const getCacheRef=useRef(new Map());
 
   async function call(path, options={}) {
     const method = options.method || 'GET';
     const headers = { ...(options.headers||{}) };
+    const cacheKey=method==='GET'?path:null;
+    if(cacheKey && !options.force){
+      const hit=getCacheRef.current.get(cacheKey);
+      if(hit && Date.now()-hit.at<45000) return hit.data;
+    }
     if (method !== 'GET') headers['x-csrf-token'] = csrf;
     if (options.body !== undefined) headers['content-type'] = 'application/json';
-    const res = await fetch(path,{...options,method,headers,credentials:'same-origin',body:options.body===undefined?undefined:JSON.stringify(options.body)});
+    const {force,...fetchOptions}=options;
+    const res = await fetch(path,{...fetchOptions,method,headers,credentials:'same-origin',body:options.body===undefined?undefined:JSON.stringify(options.body)});
     const out = await res.json();
     if (!res.ok) throw new Error(out.error || 'REQUEST_FAILED');
+    if(cacheKey) getCacheRef.current.set(cacheKey,{at:Date.now(),data:out});
+    else getCacheRef.current.clear();
     return out;
   }
 
-  async function refresh() {
+  async function refreshForTab(targetTab=tab,{includeDashboard=false,force=false}={}) {
     try {
-      const [dash, profile, servers, apps, logs, requests] = await Promise.all([
-        call('/api/dashboard'), call('/api/profile'), call('/api/servers'), call('/api/apps'), call('/api/logs'), call('/api/credit-requests')
-      ]);
-      const next = {
-        ...data,
-        dashboard:dash,
-        profile:profile.profile||null,
-        balanceConfig:dash.balanceConfig||data.balanceConfig||{mode:'currency',currency:'EGP',unit:'EGP'},
-        servers:servers.servers||[],
-        packages:servers.packages||[],
-        apps:apps.apps||[],
-        logs:logs.logs||[],
-        requests:requests.requests||[]
-      };
-      if (isAdmin) {
-        const [resellers,codes] = await Promise.all([call('/api/admin/resellers'),call('/api/admin/codes')]);
-        next.resellers = resellers.resellers||[];
-        next.codes = codes.codes||[];
-      } else {
-        const codes = await call('/api/my-codes');
-        next.codes = codes.codes||[];
-        if(isAgent){
-          const team=await call('/api/team/resellers');
-          next.resellers=team.resellers||[];
+      const jobs=[];
+      const wantDashboard=includeDashboard || !data.dashboard || targetTab==='overview' || (!isAdmin&&targetTab==='issue');
+      if(wantDashboard) jobs.push(['dashboard',call('/api/dashboard',{force})]);
+
+      if(isAdmin){
+        if(['servers','inventory','code-add'].includes(targetTab)) jobs.push(['servers',call('/api/servers',{force})]);
+        if(targetTab==='reseller-manage') jobs.push(['resellers',call('/api/admin/resellers',{force})]);
+        if(targetTab==='issued') jobs.push(['codes',call('/api/admin/codes',{force})]);
+        if(targetTab==='credit') jobs.push(['requests',call('/api/credit-requests',{force})]);
+        if(targetTab==='apps') jobs.push(['apps',call('/api/apps',{force})]);
+        if(targetTab==='logs') jobs.push(['logs',call('/api/logs',{force})]);
+      }else{
+        if(targetTab==='overview'){
+          jobs.push(
+            ['profile',call('/api/profile',{force})],
+            ['codes',call('/api/my-codes',{force})],
+            ['requests',call('/api/credit-requests',{force})],
+            ['logs',call('/api/logs',{force})]
+          );
         }
+        if(targetTab==='issue') jobs.push(['servers',call('/api/servers',{force})]);
+        if(targetTab==='mycodes') jobs.push(['codes',call('/api/my-codes',{force})]);
+        if(targetTab==='credit') jobs.push(['requests',call('/api/credit-requests',{force})]);
+        if(targetTab==='apps') jobs.push(['apps',call('/api/apps',{force})]);
+        if(targetTab==='logs') jobs.push(['logs',call('/api/logs',{force})]);
+        if(isAgent&&targetTab==='reseller-manage') jobs.push(['resellers',call('/api/team/resellers',{force})]);
       }
-      setData(next);
-      writePanelData(user.role,next);
+
+      const results=await Promise.all(jobs.map(async ([key,promise])=>[key,await promise]));
+      const patch={};
+      for(const [key,out] of results){
+        if(key==='dashboard'){
+          patch.dashboard=out;
+          patch.balanceConfig=out.balanceConfig||data.balanceConfig||{mode:'currency',currency:'EGP',unit:'EGP'};
+        }else if(key==='profile') patch.profile=out.profile||null;
+        else if(key==='servers'){
+          patch.servers=out.servers||[];
+          patch.packages=out.packages||[];
+        }else if(key==='resellers') patch.resellers=out.resellers||[];
+        else if(key==='codes') patch.codes=out.codes||[];
+        else if(key==='requests') patch.requests=out.requests||[];
+        else if(key==='apps') patch.apps=out.apps||[];
+        else if(key==='logs') patch.logs=out.logs||[];
+      }
+
+      setData(prev=>{
+        const next={...prev,...patch};
+        writePanelData(user.role,next);
+        return next;
+      });
     } catch (e) {
       if (String(e.message).includes('UNAUTHORIZED')) onLogout(true);
       else setNotice(l('تعذر تحديث البيانات.','Unable to refresh data.'));
@@ -550,8 +583,12 @@ function Panel({ user, csrf, onLogout }) {
     }
   }
 
-  useEffect(()=>{ refresh(); },[]);
-  useEffect(()=>{ const id=setInterval(refresh,30000); return()=>clearInterval(id); },[]);
+  const firstTabLoad=useRef(true);
+  useEffect(()=>{
+    const first=firstTabLoad.current;
+    firstTabLoad.current=false;
+    refreshForTab(tab,{includeDashboard:first||tab==='overview'||(!isAdmin&&tab==='issue'),force:false});
+  },[tab]);
 
   useEffect(()=>{
     const syncFromHash=()=>{
@@ -630,7 +667,7 @@ function Panel({ user, csrf, onLogout }) {
     try {
       const out = await call(path,{method:'POST',body});
       if(path!=='/api/issue') setNotice(l('تمت العملية بنجاح.','Completed successfully.'));
-      await refresh();
+      await refreshForTab(tab,{includeDashboard:true,force:true});
       return out;
     } catch (e) {
       const map = {
@@ -1629,6 +1666,9 @@ function UnifiedCodeImport({data,call,action,busy,balanceConfig}) {
       ? {serviceId:form.sourceId,filename:form.filename,text:form.text,codeCost:form.codeCost}
       : {serverId:form.sourceId,filename:form.filename,text:form.text,codeCost:form.codeCost};
     await action(kind==='sharing'?'/api/admin/sharing/import':'/api/admin/import-codes',payload);
+    if(kind==='sharing'){
+      setSharingServices(v=>v.map(s=>s.id===form.sourceId?{...s,credit_cost:Number(form.codeCost||0)}:s));
+    }
     setForm(v=>({...v,text:''}));
   }
 
@@ -1720,7 +1760,7 @@ function UnifiedCodeManager({call}) {
   async function load(next=filters,q=appliedSearch){
     setReady(false);
     try{
-      const params=new URLSearchParams({kind,status:next.status||'all',limit:'750'});
+      const params=new URLSearchParams({kind,status:next.status||'all',limit:'100'});
       if(next.sourceId) params.set('sourceId',next.sourceId);
       if(q) params.set('q',q);
       const out=await call('/api/admin/code-stock?'+params.toString());
