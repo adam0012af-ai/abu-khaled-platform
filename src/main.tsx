@@ -60,71 +60,73 @@ function Login({ onAuth }) {
     } catch (e) {
       const code = String(e.message || e);
       setError(
-        code.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. حاول مرة أخرى بعد قليل.' :
+        code.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. حاول مرة أخرى لاحقًا.' :
         code.includes('INVALID_LOGIN') ? 'بيانات الدخول غير صحيحة.' :
-        code.includes('SYSTEM_NOT_INITIALIZED') ? 'حساب الإدارة لم يتم تجهيزه بعد.' :
         'تعذر تسجيل الدخول.'
       );
     } finally { setBusy(false); }
   }
 
-  return <div className="panelLoginPage">
-    <div className="panelLoginShell">
-      <header className="panelLoginBrand">
-        <Logo compact/>
-        <span>CONTROL PANEL</span>
-      </header>
+  return <div className="authPage">
+    <header className="authTopbar">
+      <Logo compact/>
+      <span>CONTROL PANEL</span>
+    </header>
 
-      <form className="panelLoginCard" onSubmit={submit}>
-        <div className="panelLoginHead">
-          <div className="panelLoginIcon"><NavIcon name="users"/></div>
-          <div>
-            <h1>تسجيل الدخول</h1>
-            <p>استخدم حسابك للوصول إلى اللوحة.</p>
-          </div>
+    <main className="authMain">
+      <section className="authCard">
+        <div className="authCardHead">
+          <span>ACTIVE CODE MULTI</span>
+          <h1>تسجيل الدخول</h1>
+          <p>دخول الإدارة والموزعين</p>
         </div>
 
-        <label className="panelLoginField">
-          <span>Username or Email</span>
-          <input
-            value={form.identifier}
-            onChange={e=>setForm({...form,identifier:e.target.value})}
-            placeholder="اسم المستخدم أو البريد"
-            autoCapitalize="none"
-            autoComplete="username"
-            required
-          />
-        </label>
-
-        <label className="panelLoginField">
-          <span>Password</span>
-          <div className="panelLoginPassword">
+        <form className="authForm" onSubmit={submit}>
+          <label>
+            <span>اسم المستخدم أو البريد الإلكتروني</span>
             <input
-              type={showPassword?'text':'password'}
-              value={form.password}
-              onChange={e=>setForm({...form,password:e.target.value})}
-              placeholder="كلمة المرور"
-              autoComplete="current-password"
+              value={form.identifier}
+              onChange={e=>setForm({...form,identifier:e.target.value})}
+              placeholder="Username or Email"
+              autoCapitalize="none"
+              autoComplete="username"
               required
             />
-            <button type="button" onClick={()=>setShowPassword(v=>!v)}>
-              {showPassword?'إخفاء':'إظهار'}
-            </button>
+          </label>
+
+          <label>
+            <span>كلمة المرور</span>
+            <div className="authPasswordWrap">
+              <input
+                type={showPassword?'text':'password'}
+                value={form.password}
+                onChange={e=>setForm({...form,password:e.target.value})}
+                placeholder="Password"
+                autoComplete="current-password"
+                required
+              />
+              <button type="button" onClick={()=>setShowPassword(v=>!v)}>
+                {showPassword?'إخفاء':'إظهار'}
+              </button>
+            </div>
+          </label>
+
+          {error&&<div className="authError">{error}</div>}
+
+          <button className="primary authSubmit" disabled={busy}>
+            {busy?'جارٍ الدخول':'تسجيل الدخول'}
+          </button>
+        </form>
+
+        <div className="authSecurity">
+          <span className="authSecurityDot"/>
+          <div>
+            <b>دخول محمي</b>
+            <small>سيبقى الحساب مسجلًا تلقائيًا على هذا المتصفح.</small>
           </div>
-        </label>
-
-        {error&&<div className="panelLoginError">{error}</div>}
-
-        <button className="primary panelLoginSubmit" disabled={busy}>
-          {busy?'جاري التحقق…':'دخول'}
-        </button>
-
-        <div className="panelLoginSecurity">
-          <span className="createStateDot"/>
-          <span>جلسة آمنة ومشفرة</span>
         </div>
-      </form>
-    </div>
+      </section>
+    </main>
   </div>;
 }
 
@@ -649,18 +651,18 @@ function CreateReseller({action,busy}) {
     setShowPassword(false);
   }
 
-  return <section className="section compactAdminForm">
-    <div className="compactFormHead">
-      <div className="compactFormIcon"><NavIcon name="userPlus"/></div>
+  return <section className="section compactCreatePage">
+    <div className="compactPageHead">
+      <div className="compactPageIcon"><NavIcon name="userPlus"/></div>
       <div>
+        <span>ACCOUNTS</span>
         <h2>إنشاء موزع</h2>
-        <span>حساب جديد</span>
       </div>
     </div>
 
-    <form className="compactFormGrid" onSubmit={submit}>
-      <label>
-        <span>Username</span>
+    <form className="compactCreateForm" onSubmit={submit}>
+      <div className="compactField">
+        <label>Username</label>
         <input
           placeholder="اسم الدخول"
           value={form.username}
@@ -668,10 +670,10 @@ function CreateReseller({action,busy}) {
           autoComplete="off"
           required
         />
-      </label>
+      </div>
 
-      <label>
-        <span>Password</span>
+      <div className="compactField">
+        <label>Password</label>
         <div className="compactPassword">
           <input
             type={showPassword?'text':'password'}
@@ -685,30 +687,30 @@ function CreateReseller({action,busy}) {
             {showPassword?'إخفاء':'إظهار'}
           </button>
         </div>
-      </label>
+      </div>
 
-      <label>
-        <span>اسم الموزع <em>اختياري</em></span>
-        <input
-          placeholder="اسم العرض"
-          value={form.displayName}
-          onChange={e=>setForm({...form,displayName:e.target.value})}
-        />
-      </label>
-
-      <label>
-        <span>Email <em>اختياري</em></span>
+      <div className="compactField">
+        <label>Email <em>اختياري</em></label>
         <input
           type="email"
           placeholder="example@email.com"
           value={form.email}
           onChange={e=>setForm({...form,email:e.target.value})}
         />
-      </label>
+      </div>
 
-      <label className="compactCreditField">
-        <span>رصيد البداية</span>
-        <div>
+      <div className="compactField">
+        <label>اسم الموزع <em>اختياري</em></label>
+        <input
+          placeholder="اسم العرض"
+          value={form.displayName}
+          onChange={e=>setForm({...form,displayName:e.target.value})}
+        />
+      </div>
+
+      <div className="compactField compactCreditField">
+        <label>رصيد البداية</label>
+        <div className="compactCreditInput">
           <input
             type="number"
             min="0"
@@ -716,14 +718,15 @@ function CreateReseller({action,busy}) {
             value={form.credits}
             onChange={e=>setForm({...form,credits:e.target.value})}
           />
-          <b>CREDIT</b>
+          <span>CREDIT</span>
         </div>
-      </label>
+      </div>
 
-      <div className="compactFormAction">
+      <div className="compactCreateAction">
+        <span><i/> الحساب يُنشأ نشطًا</span>
         <button className="primary" disabled={busy}>
           <NavIcon name="userPlus"/>
-          <span>{busy?'جارٍ الإنشاء':'إنشاء الموزع'}</span>
+          {busy?'جارٍ الإنشاء':'إنشاء الموزع'}
         </button>
       </div>
     </form>
@@ -936,69 +939,65 @@ function Issue({data,action,busy}) {
     a.click(); URL.revokeObjectURL(a.href);
   }
 
-  return <section className="section compactIssuePage">
-    <div className="compactIssueHead">
+  return <section className="section issueCompact">
+    <div className="issueCompactHead">
       <div>
+        <span>ISSUE CODE</span>
         <h2>تفعيل كود</h2>
-        <span>سنوي</span>
       </div>
-      <div className="compactBalance">
+      <div className="issueBalanceChip">
         <span>الرصيد</span>
         <strong>{num(balance)}</strong>
         <small>CREDIT</small>
       </div>
     </div>
 
-    <div className="compactModeSwitch">
+    <div className="issueModeTabs">
       <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button>
       <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button>
     </div>
 
-    <form className="compactIssueForm" onSubmit={submit}>
-      <label>
-        <span>السيرفر</span>
+    <form className="issueCompactForm" onSubmit={submit}>
+      <div className="compactField">
+        <label>السيرفر</label>
         <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
           <option value="">اختر السيرفر</option>
           {data.servers.filter(s=>Number(s.active)===1).map(s=>
             <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
           )}
         </select>
-      </label>
+      </div>
 
-      <label>
-        <span>العميل</span>
-        <input
-          value={form.customerRef}
-          onChange={e=>setForm({...form,customerRef:e.target.value})}
-          placeholder="الاسم أو رقم الهاتف"
-        />
-      </label>
+      <div className="compactField">
+        <label>اسم العميل أو رقم الهاتف</label>
+        <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="اسم أو رقم"/>
+      </div>
 
-      {mode==='bulk'&&<label>
-        <span>عدد الأكواد</span>
+      {mode==='bulk'&&<div className="compactField">
+        <label>عدد الأكواد</label>
         <input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/>
-      </label>}
+      </div>}
 
-      <div className="compactIssueSummary">
+      <div className="issueSummaryBar">
         <div><span>العدد</span><b>{q}</b></div>
-        <div><span>الإجمالي</span><b>{num(total)} Credit</b></div>
+        <div><span>التكلفة</span><b>{num(total)} Credit</b></div>
         <div><span>بعد التفعيل</span><b>{num(Math.max(0,balance-total))} Credit</b></div>
       </div>
 
-      <button className="primary compactIssueSubmit" disabled={busy||!selected}>تفعيل</button>
+      <button className="primary issueActivateBtn" disabled={busy||!selected}>تفعيل</button>
     </form>
 
     {result&&<div className="compactIssueResult">
-      <div className="compactResultHead">
-        <div><b>تم التفعيل</b><span>{result.order.server} · {result.codes.length} كود</span></div>
-        <div className="compactResultActions">
-          <button type="button" onClick={copyAll}>نسخ الكل</button>
-          {result.codes.length>1&&<button type="button" onClick={download}>TXT</button>}
+      <div className="compactIssueResultHead">
+        <div><b>{result.order.server}</b><span>تم التفعيل</span></div>
+        <div className="rowBtns">
+          <button className="secondary" type="button" onClick={copyAll}>نسخ</button>
+          <button className="secondary" type="button" onClick={download}>TXT</button>
         </div>
       </div>
-      <div className="issuedList">
-        {result.codes.map(x=><button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>)}
-      </div>
+      <div className="issuedList">{result.codes.map(x=>
+        <button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>
+      )}</div>
     </div>}
   </section>;
 }
@@ -1223,8 +1222,8 @@ function ForcePasswordChange({ csrf, onDone }) {
   async function submit(e){
     e.preventDefault();
     setError('');
-    if(newPassword.length<12){ setError('الباسورد الجديد لازم يكون 12 حرف على الأقل.'); return; }
-    if(newPassword!==confirm){ setError('تأكيد الباسورد غير مطابق.'); return; }
+    if(newPassword.length<12){ setError('كلمة المرور الجديدة يجب أن تكون 12 حرفًا على الأقل.'); return; }
+    if(newPassword!==confirm){ setError('تأكيد كلمة المرور غير مطابق.'); return; }
     setBusy(true);
     try{
       const res=await fetch('/api/admin/change-password',{
@@ -1238,46 +1237,28 @@ function ForcePasswordChange({ csrf, onDone }) {
       onDone();
     }catch(e){
       const code=String(e.message||e);
-      setError(
-        code.includes('CURRENT_PASSWORD_WRONG')?'الباسورد المؤقت الحالي غير صحيح.':
-        code.includes('PASSWORD_TOO_SHORT')?'الباسورد الجديد لازم يكون 12 حرف على الأقل.':
-        'تعذر تغيير الباسورد.'
-      );
+      setError(code.includes('CURRENT_PASSWORD_WRONG')?'كلمة المرور الحالية غير صحيحة.':'تعذر تغيير كلمة المرور.');
     }finally{setBusy(false);}
   }
 
-  return <div className="loginPage">
-    <div className="loginGlow glow1"/><div className="loginGlow glow2"/>
-    <section className="loginVisual">
-      <Logo/>
-      <div className="visualCopy">
-        <span className="eyebrow">OWNER SECURITY</span>
-        <h1>تأمين حساب<br/>المالك أولاً.</h1>
-        <p>لا يمكن استخدام لوحة الإدارة قبل تغيير كلمة المرور المؤقتة إلى كلمة مرور خاصة بك.</p>
-      </div>
-      <div className="securityStrip">
-        <div>01 <b>One-Time Password</b></div>
-        <div>02 <b>Private Admin Access</b></div>
-        <div>03 <b>Audit Protected</b></div>
-      </div>
-    </section>
-    <section className="loginCardWrap">
-      <form className="loginCard" onSubmit={submit}>
-        <div className="mobileBrand"><Logo compact/></div>
-        <span className="panelTag">REQUIRED SECURITY STEP</span>
-        <h2>تغيير كلمة المرور</h2>
-        <p>اكتب الباسورد المؤقت الحالي، وبعدها اختار باسورد جديد خاص بيك.</p>
-        <label>Current temporary password</label>
-        <input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} autoComplete="current-password" required/>
-        <label>New password</label>
-        <input type="password" minLength="12" value={newPassword} onChange={e=>setNewPassword(e.target.value)} autoComplete="new-password" required/>
-        <label>Confirm new password</label>
-        <input type="password" minLength="12" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" required/>
-        {error&&<div className="errorBox">{error}</div>}
-        <button className="primary wide" disabled={busy}>{busy?'جاري الحفظ…':'حفظ الباسورد الجديد'}</button>
-        <small className="secureNote">This step is required once only</small>
+  return <div className="authPage">
+    <header className="authTopbar"><Logo compact/><span>OWNER SECURITY</span></header>
+    <main className="authMain">
+      <form className="authCard authPasswordCard" onSubmit={submit}>
+        <div className="authCardHead">
+          <span>SECURITY</span>
+          <h1>تغيير كلمة المرور</h1>
+          <p>خطوة حماية مطلوبة للحساب الإداري.</p>
+        </div>
+        <div className="authForm">
+          <label><span>كلمة المرور الحالية</span><input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} required/></label>
+          <label><span>كلمة المرور الجديدة</span><input type="password" minLength="12" value={newPassword} onChange={e=>setNewPassword(e.target.value)} required/></label>
+          <label><span>تأكيد كلمة المرور</span><input type="password" minLength="12" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></label>
+          {error&&<div className="authError">{error}</div>}
+          <button className="primary authSubmit" disabled={busy}>{busy?'جارٍ الحفظ':'حفظ كلمة المرور'}</button>
+        </div>
       </form>
-    </section>
+    </main>
   </div>;
 }
 
