@@ -150,7 +150,6 @@ function Panel({ user, csrf, onLogout }) {
         INSUFFICIENT_STOCK:'المخزون غير كافٍ.',
         SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
-        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.',
         IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع. للملفات الأكبر يتم تقسيمها على أكثر من دفعة.',
         NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.',
         INVALID_RESELLER:'اليوزر والباسورد لازم يكونوا 6 خانات على الأقل. البريد الإلكتروني اختياري.',
