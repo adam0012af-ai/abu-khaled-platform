@@ -510,7 +510,7 @@ function Issue({data,action,busy}) {
 
     <div className="sectionHead">
       <div><span>ANNUAL ISSUE CENTER</span><h2>إنشاء كود سنوي</h2></div>
-      <small>المخزون غير معروض للموزعين</small>
+      <small>جميع الأكواد اشتراك سنوي</small>
     </div>
 
     <div className="modeSwitch">
