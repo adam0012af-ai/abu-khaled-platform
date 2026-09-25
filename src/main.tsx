@@ -436,6 +436,75 @@ function Logs({logs,admin}) {
   </section>;
 }
 
+
+function ForcePasswordChange({ csrf, onDone }) {
+  const [currentPassword,setCurrentPassword]=useState('');
+  const [newPassword,setNewPassword]=useState('');
+  const [confirm,setConfirm]=useState('');
+  const [error,setError]=useState('');
+  const [busy,setBusy]=useState(false);
+
+  async function submit(e){
+    e.preventDefault();
+    setError('');
+    if(newPassword.length<12){ setError('الباسورد الجديد لازم يكون 12 حرف على الأقل.'); return; }
+    if(newPassword!==confirm){ setError('تأكيد الباسورد غير مطابق.'); return; }
+    setBusy(true);
+    try{
+      const res=await fetch('/api/admin/change-password',{
+        method:'POST',
+        credentials:'same-origin',
+        headers:{'content-type':'application/json','x-csrf-token':csrf},
+        body:JSON.stringify({currentPassword,newPassword})
+      });
+      const data=await res.json();
+      if(!res.ok) throw new Error(data.error||'FAILED');
+      onDone();
+    }catch(e){
+      const code=String(e.message||e);
+      setError(
+        code.includes('CURRENT_PASSWORD_WRONG')?'الباسورد المؤقت الحالي غير صحيح.':
+        code.includes('PASSWORD_TOO_SHORT')?'الباسورد الجديد لازم يكون 12 حرف على الأقل.':
+        'تعذر تغيير الباسورد.'
+      );
+    }finally{setBusy(false);}
+  }
+
+  return <div className="loginPage">
+    <div className="loginGlow glow1"/><div className="loginGlow glow2"/>
+    <section className="loginVisual">
+      <Logo/>
+      <div className="visualCopy">
+        <span className="eyebrow">OWNER SECURITY</span>
+        <h1>تأمين حساب<br/>المالك أولاً.</h1>
+        <p>لا يمكن استخدام لوحة الإدارة قبل تغيير كلمة المرور المؤقتة إلى كلمة مرور خاصة بك.</p>
+      </div>
+      <div className="securityStrip">
+        <div>01 <b>One-Time Password</b></div>
+        <div>02 <b>Private Admin Access</b></div>
+        <div>03 <b>Audit Protected</b></div>
+      </div>
+    </section>
+    <section className="loginCardWrap">
+      <form className="loginCard" onSubmit={submit}>
+        <div className="mobileBrand"><Logo compact/></div>
+        <span className="panelTag">REQUIRED SECURITY STEP</span>
+        <h2>تغيير كلمة المرور</h2>
+        <p>اكتب الباسورد المؤقت الحالي، وبعدها اختار باسورد جديد خاص بيك.</p>
+        <label>Current temporary password</label>
+        <input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} autoComplete="current-password" required/>
+        <label>New password</label>
+        <input type="password" minLength="12" value={newPassword} onChange={e=>setNewPassword(e.target.value)} autoComplete="new-password" required/>
+        <label>Confirm new password</label>
+        <input type="password" minLength="12" value={confirm} onChange={e=>setConfirm(e.target.value)} autoComplete="new-password" required/>
+        {error&&<div className="errorBox">{error}</div>}
+        <button className="primary wide" disabled={busy}>{busy?'جاري الحفظ…':'حفظ الباسورد الجديد'}</button>
+        <small className="secureNote">This step is required once only</small>
+      </form>
+    </section>
+  </div>;
+}
+
 function App() {
   const [loading,setLoading]=useState(true);
   const [user,setUser]=useState(null);
@@ -455,6 +524,7 @@ function App() {
   useEffect(()=>{boot();},[]);
   if (loading) return <div className="splash"><Logo/><span>SECURE STARTUP</span></div>;
   if (!user) return <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>;
+  if (user.mustChangePassword) return <ForcePasswordChange csrf={csrf} onDone={()=>setUser({...user,mustChangePassword:false})}/>;
   return <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
 }
 createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
