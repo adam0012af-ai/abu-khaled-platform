@@ -273,7 +273,7 @@ function Panel({ user, csrf, onLogout }) {
         <div className="pageContent">
           {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
           {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
-          {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>
+          {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>} 
           {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
           {tab==='resellers' && isAdmin && <Resellers data={data} action={action} busy={busy}/>}
           {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
