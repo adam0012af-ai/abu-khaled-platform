@@ -464,13 +464,12 @@ function Panel({ user, csrf, onLogout }) {
     {id:'code-stock',label:l('إدارة أكواد IPTV','IPTV code management'),icon:'codes',children:[
       {id:'iptv-stock',label:l('الأكواد: إضافة / تعديل / حذف','Codes: add / edit / delete'),icon:'codes'}
     ]},
-    {id:'resellers',label:l('الموزعون','Resellers'),icon:'users',children:[
-      {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
-      {id:'reseller-manage',label:l('إدارة الموزعين','Manage resellers'),icon:'manageUsers'}
+    {id:'resellers',label:l('إدارة الحسابات','Account management'),icon:'users',children:[
+      {id:'reseller-create',label:l('إضافة موزع / أدمن','Add reseller / admin'),icon:'userPlus'},
+      {id:'reseller-manage',label:l('إدارة المستخدمين','Manage users'),icon:'manageUsers'}
     ]},
     {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
     {id:'credit',label:l('طلبات الرصيد','Balance requests'),icon:'credit'},
-    {id:'partners',label:l('الشركاء والأدمن','Partners & admins'),icon:'users'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
     {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'}
   ];
@@ -648,6 +647,8 @@ function Panel({ user, csrf, onLogout }) {
         INVALID_APP:l('تحقق من الروابط.','Check the links.'),
         INVALID_ROLE:l('اختيار الصلاحية غير صحيح.','Invalid account role.'),
         OWNER_ROLE_LOCKED:l('لا يمكن تغيير صلاحية المالك.','Owner role cannot be changed.'),
+        OWNER_EDIT_LOCKED:l('لا يمكن تعديل حساب المالك من هنا.','Owner account cannot be edited here.'),
+        INVALID_USER_EDIT:l('راجع بيانات المستخدم.','Check user details.'),
         AGENT_ONLY:l('هذه العملية متاحة للوكيل فقط.','This action is for agents only.')
       };
       if(e.message==='INSUFFICIENT_STOCK'){
@@ -805,7 +806,6 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
             {tab==='sharing' && !isAdmin && <Sharing admin={false} call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
-            {tab==='partners' && isAdmin && <AdminPartners call={call} action={action} busy={busy}/>}
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
             {tab==='profile' && <ProfilePage call={call}/>}
           </section>}
@@ -2141,25 +2141,39 @@ function CodeStockManager({kind,call,balanceConfig}) {
 
 function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConfig,agentMode=false}) {
   const {lang,l}=useLanguage();
-  const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
+  const emptyForm={username:'',email:'',displayName:'',password:'',credits:0,accountType:'reseller'};
+  const [form,setForm]=useState(emptyForm);
   const [showPassword,setShowPassword]=useState(false);
+  const isAdminType=!agentMode&&form.accountType==='admin';
 
   async function submit(e){
     e.preventDefault();
-    await action(endpoint,form);
-    setForm({username:'',email:'',displayName:'',password:'',credits:0});
+    await action(endpoint,agentMode?{...form,accountType:'reseller'}:form);
+    setForm(emptyForm);
     setShowPassword(false);
   }
+
+  const typeLabel=form.accountType==='admin'?l('أدمن','Admin'):form.accountType==='agent'?l('وكيل','Agent'):l('موزع','Reseller');
 
   return <section className="acmCreateCard">
     <div className="acmCreateHead">
       <div className="acmCreateIcon"><NavIcon name="userPlus"/></div>
       <div>
-        <h2>{agentMode?l('إنشاء موزع تحتي','Create sub-reseller'):l('إنشاء موزع','Create reseller')}</h2>
+        <h2>{agentMode?l('إنشاء موزع تحتي','Create sub-reseller'):l('إضافة حساب جديد','Add new account')}</h2>
+        {!agentMode&&<p className="acmCreateLead">{l('اختر نوع الحساب من نفس المكان: موزع أو وكيل أو أدمن كامل.','Choose the account type here: reseller, agent, or full administrator.')}</p>}
       </div>
     </div>
 
     <form className="acmCreateGrid" onSubmit={submit}>
+      {!agentMode&&<label className="acmField acmAccountTypeField">
+        <span>{l('نوع الحساب','Account type')}</span>
+        <select value={form.accountType} onChange={e=>setForm({...form,accountType:e.target.value,credits:e.target.value==='admin'?0:form.credits})}>
+          <option value="reseller">{l('موزع','Reseller')}</option>
+          <option value="agent">{l('وكيل','Agent')}</option>
+          <option value="admin">{l('أدمن — صلاحيات كاملة','Admin — full access')}</option>
+        </select>
+      </label>}
+
       <label className="acmField">
         <span>{l('اسم المستخدم','Username')}</span>
         <input
@@ -2191,7 +2205,7 @@ function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConf
       </label>
 
       <label className="acmField">
-        <span>{l('اسم الموزع','Display name')} <em>{l('اختياري','Optional')}</em></span>
+        <span>{l('اسم العرض','Display name')} <em>{l('اختياري','Optional')}</em></span>
         <input
           placeholder={l('اسم العرض','Display name')}
           value={form.displayName}
@@ -2210,7 +2224,7 @@ function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConf
         />
       </label>
 
-      <label className="acmField acmStartCredit">
+      {!isAdminType&&<label className="acmField acmStartCredit">
         <span>{l('رصيد البداية','Starting balance')} ({balanceUnit(balanceConfig,lang)})</span>
         <div className="acmCreditInput">
           <input
@@ -2223,12 +2237,20 @@ function CreateReseller({action,busy,endpoint='/api/admin/resellers',balanceConf
           />
           <b>{balanceUnit(balanceConfig,lang)}</b>
         </div>
-      </label>
+      </label>}
+
+      {isAdminType&&<div className="acmAdminAccountNotice">
+        <NavIcon name="users"/>
+        <div>
+          <b>{l('حساب أدمن كامل','Full admin account')}</b>
+          <span>{l('سيظهر في الإدارة باسم أدمن ولن يظهر كموزع، ولا يحتاج رصيد إصدار.','It will appear as Admin, not Reseller, and does not use reseller balance.')}</span>
+        </div>
+      </div>}
 
       <div className="acmCreateActions">
         <button className="acmPrimaryBtn acmCreateBtn" disabled={busy}>
           <NavIcon name="userPlus"/>
-          <span>{busy?l('جارٍ الإنشاء…','Creating…'):l('إنشاء الموزع','Create reseller')}</span>
+          <span>{busy?l('جارٍ الإنشاء…','Creating…'):l('إنشاء ','Create ')+typeLabel}</span>
         </button>
       </div>
     </form>
@@ -2239,12 +2261,41 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
   const {lang,l}=useLanguage();
   const [amounts,setAmounts]=useState({});
   const [openId,setOpenId]=useState(null);
+  const [editId,setEditId]=useState(null);
+  const [editForm,setEditForm]=useState({username:'',email:'',displayName:'',password:'',accountType:'reseller',status:'active'});
+  const [showEditPassword,setShowEditPassword]=useState(false);
 
   function countryName(code){
     if(!code) return l('غير متاح','Unavailable');
     try{
       return new Intl.DisplayNames([lang==='en'?'en':'ar'],{type:'region'}).of(String(code).toUpperCase())||code;
     }catch{return code;}
+  }
+
+  function typeLabel(type){
+    if(type==='admin') return l('أدمن','Admin');
+    if(type==='agent') return l('وكيل','Agent');
+    return l('موزع','Reseller');
+  }
+
+  function startEdit(user){
+    setEditId(user.id);
+    setEditForm({
+      username:user.username||'',
+      email:user.email||'',
+      displayName:user.display_name||'',
+      password:'',
+      accountType:user.account_type||'reseller',
+      status:user.status||'active'
+    });
+    setShowEditPassword(false);
+  }
+
+  async function saveEdit(user){
+    await action('/api/admin/user-edit',{userId:user.id,...editForm});
+    setEditId(null);
+    setEditForm({username:'',email:'',displayName:'',password:'',accountType:'reseller',status:'active'});
+    setShowEditPassword(false);
   }
 
   async function adjustCredit(reseller,direction){
@@ -2259,28 +2310,37 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
     setAmounts(v=>({...v,[reseller.id]:''}));
   }
 
+  const adminCount=data.resellers.filter(r=>r.account_type==='admin').length;
+  const agentCount=data.resellers.filter(r=>r.account_type==='agent').length;
+  const resellerCount=data.resellers.filter(r=>(r.account_type||'reseller')==='reseller').length;
+
   return <section className="section resellerManagementPage">
     <div className="resellerManagementHeader">
       <div>
-        <h2>{l('إدارة الموزعين','Manage resellers')}</h2>
-        <span>{num(data.resellers.length)} {l('موزع','resellers')}</span>
+        <h2>{admin?l('إدارة المستخدمين','Manage users'):l('إدارة موزعيني','Manage my resellers')}</h2>
+        <span>{num(data.resellers.length)} {admin?l('حساب','accounts'):l('موزع','resellers')}</span>
       </div>
       <div className="managementSummary">
-        <div><span>{l('إجمالي الرصيد','Total balance')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.credits||0),0))} {balanceUnit(balanceConfig,lang)}</b></div>
+        {admin&&<div><span>{l('أدمن','Admins')}</span><b>{num(adminCount)}</b></div>}
+        {admin&&<div><span>{l('وكلاء','Agents')}</span><b>{num(agentCount)}</b></div>}
+        <div><span>{l('موزعون','Resellers')}</span><b>{num(resellerCount)}</b></div>
         <div><span>{l('إجمالي الأكواد','Total codes')}</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.issued_codes||0),0))}</b></div>
       </div>
     </div>
 
-    {data.resellers.length===0 ? <div className="emptyState compact">{l('لا يوجد موزعون.','No resellers.')}</div> :
+    {data.resellers.length===0 ? <div className="emptyState compact">{admin?l('لا توجد حسابات.','No accounts.'):l('لا يوجد موزعون.','No resellers.')}</div> :
       <div className="resellerAccordion">
         {data.resellers.map(r=>{
           const open=openId===r.id;
+          const editing=editId===r.id;
           const d=r.last_login_at?new Date(r.last_login_at):null;
           const lastLogin=d&&!Number.isNaN(d.getTime())
             ? d.toLocaleString(lang==='en'?'en-US':'ar-EG',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
             : l('لم يسجل دخول بعد','No login yet');
+          const accountTypeValue=r.account_type||'reseller';
+          const canAdjustBalance=accountTypeValue!=='admin';
 
-          return <article className={'resellerAccordionCard '+(open?'open':'')} key={r.id}>
+          return <article className={'resellerAccordionCard accountType-'+accountTypeValue+' '+(open?'open':'')} key={r.id}>
             <button
               type="button"
               className="resellerAccordionSummary"
@@ -2290,13 +2350,16 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
               <div className="resellerCompactIdentity">
                 <div className="resellerInitial">{(r.display_name||r.username||'R').slice(0,1).toUpperCase()}</div>
                 <div>
-                  <b>{r.display_name||r.username}</b>
+                  <div className="accountNameLine">
+                    <b>{r.display_name||r.username}</b>
+                    <em className={'accountTypeBadge '+accountTypeValue}>{typeLabel(accountTypeValue)}</em>
+                  </div>
                   <span>@{r.username}</span>
                 </div>
               </div>
 
               <div className="resellerCompactStats">
-                <div><strong>{num(r.credits)}</strong><span>{balanceUnit(balanceConfig,lang)}</span></div>
+                {canAdjustBalance&&<div><strong>{num(r.credits)}</strong><span>{balanceUnit(balanceConfig,lang)}</span></div>}
                 <div><strong>{num(r.issued_codes)}</strong><span>{l('كود','codes')}</span></div>
               </div>
 
@@ -2309,33 +2372,90 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
 
             {open&&<div className="resellerAccordionDetails">
               <div className="resellerDetailGrid">
+                <div><span>{l('نوع الحساب','Account type')}</span><b>{typeLabel(accountTypeValue)}</b></div>
                 <div><span>{l('الدولة','Country')}</span><b>{countryName(r.last_country)}</b></div>
                 <div><span>{l('IP آخر دخول','Last login IP')}</span><b className="mono resellerIp">{r.last_login_ip||'—'}</b></div>
                 <div><span>{l('آخر دخول','Last login')}</span><b>{lastLogin}</b></div>
                 <div><span>Email</span><b>{r.email||'—'}</b></div>
-                <div><span>{l('الرصيد الحالي','Current balance')}</span><b>{num(r.credits)} {balanceUnit(balanceConfig,lang)}</b></div>
+                {canAdjustBalance&&<div><span>{l('الرصيد الحالي','Current balance')}</span><b>{num(r.credits)} {balanceUnit(balanceConfig,lang)}</b></div>}
                 <div><span>{l('إجمالي الأكواد','Total codes')}</span><b>{num(r.issued_codes)}</b></div>
-                <div><span>{l('نوع الحساب','Account type')}</span><b>{r.account_type==='agent'?l('وكيل','Agent'):l('موزع','Reseller')}</b></div>
-                <div><span>{l('تابع لـ','Parent')}</span><b>{r.parent_name||r.parent_username||l('الإدارة','Administration')}</b></div>
+                {accountTypeValue!=='admin'&&<div><span>{l('تابع لـ','Parent')}</span><b>{r.parent_name||r.parent_username||l('الإدارة','Administration')}</b></div>}
               </div>
 
-              {admin&&<div className="resellerRolePocket">
-                <div>
-                  <span>{l('تعديل الصلاحية','Change role')}</span>
-                  <small>{l('حوّل الحساب مباشرة إلى موزع أو وكيل أو أدمن كامل.','Promote this account to reseller, agent, or full administrator.')}</small>
-                </div>
-                <select
-                  value={r.account_type||'reseller'}
-                  disabled={busy}
-                  onChange={e=>action('/api/admin/user-role',{userId:r.id,accountType:e.target.value})}
-                >
-                  <option value="reseller">{l('موزع','Reseller')}</option>
-                  <option value="agent">{l('وكيل — يقدر ينشئ موزعين تحته','Agent — can create sub-resellers')}</option>
-                  <option value="admin">{l('أدمن — صلاحيات كاملة','Admin — full access')}</option>
-                </select>
+              {admin&&<div className="accountEditLauncher">
+                <button type="button" className={editing?'active':''} onClick={()=>editing?setEditId(null):startEdit(r)}>
+                  <NavIcon name="manageUsers"/>
+                  <span>{editing?l('إغلاق التعديل','Close edit'):l('تعديل كامل للحساب','Full account edit')}</span>
+                </button>
               </div>}
 
-              {admin&&<div className="resellerCreditPocket">
+              {admin&&editing&&<div className="accountFullEdit">
+                <div className="accountFullEditHead">
+                  <div>
+                    <b>{l('تعديل بيانات الحساب','Edit account details')}</b>
+                    <small>{l('يمكنك تغيير اليوزر والاسم والبريد والباسورد والصلاحية والحالة من مكان واحد.','Change username, name, email, password, role, and status in one place.')}</small>
+                  </div>
+                  <em>{typeLabel(editForm.accountType)}</em>
+                </div>
+
+                <div className="accountFullEditGrid">
+                  <label className="acmField">
+                    <span>{l('اسم المستخدم','Username')}</span>
+                    <input dir="ltr" value={editForm.username} onChange={e=>setEditForm(v=>({...v,username:e.target.value}))} required/>
+                  </label>
+
+                  <label className="acmField">
+                    <span>{l('اسم العرض','Display name')}</span>
+                    <input value={editForm.displayName} onChange={e=>setEditForm(v=>({...v,displayName:e.target.value}))}/>
+                  </label>
+
+                  <label className="acmField">
+                    <span>{l('البريد الإلكتروني','Email')}</span>
+                    <input dir="ltr" type="email" value={editForm.email} onChange={e=>setEditForm(v=>({...v,email:e.target.value}))}/>
+                  </label>
+
+                  <label className="acmField">
+                    <span>{l('نوع الحساب','Account type')}</span>
+                    <select value={editForm.accountType} onChange={e=>setEditForm(v=>({...v,accountType:e.target.value}))}>
+                      <option value="reseller">{l('موزع','Reseller')}</option>
+                      <option value="agent">{l('وكيل','Agent')}</option>
+                      <option value="admin">{l('أدمن — صلاحيات كاملة','Admin — full access')}</option>
+                    </select>
+                  </label>
+
+                  <label className="acmField">
+                    <span>{l('الحالة','Status')}</span>
+                    <select value={editForm.status} onChange={e=>setEditForm(v=>({...v,status:e.target.value}))}>
+                      <option value="active">{l('نشط','Active')}</option>
+                      <option value="blocked">{l('متوقف','Blocked')}</option>
+                    </select>
+                  </label>
+
+                  <label className="acmField">
+                    <span>{l('كلمة مرور جديدة','New password')} <em>{l('اختياري','Optional')}</em></span>
+                    <div className="acmPasswordBox">
+                      <input
+                        dir="ltr"
+                        type={showEditPassword?'text':'password'}
+                        value={editForm.password}
+                        onChange={e=>setEditForm(v=>({...v,password:e.target.value}))}
+                        placeholder={l('اتركها فارغة بدون تغيير','Leave blank to keep current')}
+                        autoComplete="new-password"
+                      />
+                      <button type="button" onClick={()=>setShowEditPassword(v=>!v)}>{showEditPassword?l('إخفاء','Hide'):l('إظهار','Show')}</button>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="accountFullEditActions">
+                  <button type="button" className="secondary" onClick={()=>setEditId(null)}>{l('إلغاء','Cancel')}</button>
+                  <button type="button" className="acmPrimaryBtn" disabled={busy||!editForm.username} onClick={()=>saveEdit(r)}>
+                    {busy?l('جارٍ الحفظ…','Saving…'):l('حفظ كل التعديلات','Save all changes')}
+                  </button>
+                </div>
+              </div>}
+
+              {admin&&canAdjustBalance&&<div className="resellerCreditPocket">
                 <div className="resellerCreditField">
                   <span>{l('تعديل الرصيد','Adjust balance')}</span>
                   <div className="creditMiniInput">
@@ -2644,7 +2764,9 @@ function Logs({logs,admin}) {
     CREDIT_REQUEST_REJECTED:[l('رفض طلب رصيد','Balance rejected'),'credit'],
     CREDIT_ADJUSTED:[l('تعديل رصيد','Balance adjusted'),'credit'],
     RESELLER_CREATED:[l('إنشاء موزع','Reseller created'),'account'],
-    ADMIN_PARTNER_CREATED:[l('إنشاء شريك أدمن','Admin partner created'),'account'],
+    ACCOUNT_CREATED:[l('إنشاء حساب','Account created'),'account'],
+    USER_EDITED:[l('تعديل حساب','Account edited'),'account'],
+    ADMIN_PARTNER_CREATED:[l('إنشاء أدمن','Admin created'),'account'],
     CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
     CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
     SHARING_CODES_IMPORTED:[l('رفع أكواد شيرنج','Sharing codes imported'),'codes'],
