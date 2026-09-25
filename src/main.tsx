@@ -749,7 +749,7 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
-            {tab==='sharing' && <Sharing/>}
+            {tab==='sharing' && <Sharing admin={isAdmin} call={call} action={action} busy={busy}/>} 
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
             {tab==='profile' && <ProfilePage profile={data.profile||user} user={user} call={call} logout={logout}/>}
           </section>}
@@ -760,37 +760,205 @@ function Panel({ user, csrf, onLogout }) {
 }
 
 
-function Sharing(){
-  const {l}=useLanguage();
-  const services=[
-    {key:'gosat-plus',nameAr:'جو سات بلس',nameEn:'GoSat Plus',tag:'PLUS'},
-    {key:'nasher',nameAr:'ناشر عادي',nameEn:'Nasher',tag:'STANDARD'},
-    {key:'nasher-pro-osn',nameAr:'ناشر برو OSN',nameEn:'Nasher Pro OSN',tag:'PRO'},
-    {key:'nasher-pro-bein',nameAr:'ناشر برو beIN Sports',nameEn:'Nasher Pro beIN Sports',tag:'PRO'}
-  ];
+function Sharing({admin,call,action,busy}){
+  const {lang,l}=useLanguage();
+  const [data,setData]=useState({services:[],codes:[],balance:0});
+  const [ready,setReady]=useState(false);
+  const [importForm,setImportForm]=useState({serviceId:'',filename:'sharing-codes.txt',text:''});
+  const [issueForm,setIssueForm]=useState({serviceId:'',customerRef:'',quantity:1});
+  const [mode,setMode]=useState('single');
+  const [result,setResult]=useState(null);
+  const [openId,setOpenId]=useState(null);
+
+  async function load(){
+    try{
+      const out=await call('/api/sharing');
+      setData({
+        services:out.services||[],
+        codes:out.codes||[],
+        balance:Number(out.balance||0)
+      });
+    }finally{
+      setReady(true);
+    }
+  }
+
+  useEffect(()=>{load();},[]);
+
+  async function pickFile(e){
+    const f=e.target.files?.[0];
+    if(!f) return;
+    setImportForm(v=>({...v,filename:f.name,text:await f.text()}));
+  }
+
+  async function importCodes(e){
+    e.preventDefault();
+    if(!importForm.serviceId||!importForm.text.trim()) return;
+    await action('/api/admin/sharing/import',importForm);
+    setImportForm(v=>({...v,text:''}));
+    await load();
+  }
+
+  async function issueCodes(e){
+    e.preventDefault();
+    const quantity=mode==='single'?1:Math.max(1,Math.min(100,Number(issueForm.quantity)||1));
+    const out=await action('/api/sharing/issue',{
+      serviceId:issueForm.serviceId,
+      customerRef:issueForm.customerRef,
+      quantity
+    });
+    if(out){
+      setResult(out);
+      setIssueForm(v=>({...v,customerRef:'',quantity:1}));
+      await load();
+    }
+  }
+
+  async function copy(v){await navigator.clipboard.writeText(v);}
+  async function copyResult(){
+    await navigator.clipboard.writeText((result?.codes||[]).map(x=>x.code).join('\n'));
+  }
+
+  const selected=data.services.find(s=>s.id===issueForm.serviceId);
+  const q=mode==='single'?1:Math.max(1,Math.min(100,Number(issueForm.quantity)||1));
+
+  if(!ready){
+    return <section className="section sharingSection"><div className="panelLoadingState"><span className="panelLoadingLine"/></div></section>;
+  }
 
   return <section className="section sharingSection">
     <div className="sectionHead sharingHead">
-      <div>
-        <h2>{l('الشيرنج','Sharing')}</h2>
-      </div>
-      <small>{services.length}</small>
+      <div><h2>{l('الشيرنج','Sharing')}</h2></div>
+      {!admin&&<div className="sharingBalance"><span>{l('الرصيد','Balance')}</span><b>{num(data.balance)}</b><small>Credit</small></div>}
     </div>
 
     <div className="sharingGrid">
-      {services.map((service,index)=><article className="sharingCard" key={service.key}>
-        <div className="sharingCardIcon">
-          <NavIcon name="sharing"/>
-        </div>
+      {data.services.map((service,index)=><button
+        type="button"
+        className={'sharingCard '+(!admin&&issueForm.serviceId===service.id?'selected':'')}
+        key={service.id}
+        onClick={()=>!admin&&setIssueForm(v=>({...v,serviceId:service.id}))}
+      >
+        <div className="sharingCardIcon"><NavIcon name="sharing"/></div>
         <div className="sharingCardCopy">
           <span>{String(index+1).padStart(2,'0')}</span>
-          <h3>{l(service.nameAr,service.nameEn)}</h3>
-          <small>{service.tag}</small>
+          <h3>{lang==='en'?service.name_en:service.name_ar}</h3>
+          <small>{num(service.credit_cost)} CREDIT</small>
         </div>
-      </article>)}
+        {admin&&<div className="sharingStock">
+          <div><span>{l('المتاح','Available')}</span><b>{num(service.available_codes)}</b></div>
+          <div><span>{l('المفعّل','Issued')}</span><b>{num(service.issued_codes)}</b></div>
+        </div>}
+      </button>)}
     </div>
+
+    {admin ? <>
+      <div className="sharingDivider"/>
+      <form className="sharingImport" onSubmit={importCodes}>
+        <div className="sharingFormHead"><h3>{l('رفع أكواد الشيرنج','Import sharing codes')}</h3></div>
+
+        <label className="acmField">
+          <span>{l('الخدمة','Service')}</span>
+          <select value={importForm.serviceId} onChange={e=>setImportForm(v=>({...v,serviceId:e.target.value}))} required>
+            <option value="">{l('اختر الخدمة','Select service')}</option>
+            {data.services.map(s=><option key={s.id} value={s.id}>{lang==='en'?s.name_en:s.name_ar}</option>)}
+          </select>
+        </label>
+
+        <label className="sharingFilePick">
+          <span>{l('ملف TXT','TXT file')}</span>
+          <input type="file" accept=".txt,text/plain" onChange={pickFile}/>
+          <b>{importForm.filename||'sharing-codes.txt'}</b>
+        </label>
+
+        <label className="acmField">
+          <span>{l('الأكواد','Codes')}</span>
+          <textarea
+            rows="8"
+            value={importForm.text}
+            onChange={e=>setImportForm(v=>({...v,text:e.target.value}))}
+            placeholder={l('كود في كل سطر','One code per line')}
+          />
+        </label>
+
+        <button className="acmPrimaryBtn sharingSubmit" disabled={busy||!importForm.serviceId||!importForm.text.trim()}>
+          {l('رفع الأكواد','Import codes')}
+        </button>
+      </form>
+    </> : <>
+      <div className="sharingDivider"/>
+      <form className="sharingIssue" onSubmit={issueCodes}>
+        <div className="sharingIssueTop">
+          <div>
+            <span>{l('الخدمة','Service')}</span>
+            <b>{selected?(lang==='en'?selected.name_en:selected.name_ar):l('اختر خدمة من الأعلى','Select a service above')}</b>
+          </div>
+          {selected&&<small>{num(selected.credit_cost)} Credit</small>}
+        </div>
+
+        <div className="sharingIssueTabs">
+          <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>{l('كود واحد','Single')}</button>
+          <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>{l('مجموعة أكواد','Multiple')}</button>
+        </div>
+
+        <label className="acmField">
+          <span>{l('اسم العميل أو رقم الهاتف','Customer name or phone')}</span>
+          <input value={issueForm.customerRef} onChange={e=>setIssueForm(v=>({...v,customerRef:e.target.value}))} placeholder={l('اسم أو رقم','Name or phone')}/>
+        </label>
+
+        {mode==='bulk'&&<label className="acmField">
+          <span>{l('العدد','Quantity')}</span>
+          <input dir="ltr" type="number" min="1" max="100" value={issueForm.quantity} onChange={e=>setIssueForm(v=>({...v,quantity:e.target.value}))}/>
+        </label>}
+
+        <button className="acmPrimaryBtn sharingSubmit" disabled={busy||!selected}>
+          {busy?l('جارٍ التفعيل…','Issuing…'):l('تفعيل','Issue')}
+        </button>
+      </form>
+
+      {result&&<div className="sharingResult">
+        <div className="sharingResultHead">
+          <div>
+            <span>{l('تم التفعيل','Issued')}</span>
+            <b>{lang==='en'?result.order.serviceEn:result.order.serviceAr}</b>
+          </div>
+          <button type="button" onClick={copyResult}>{l('نسخ','Copy')}</button>
+        </div>
+        <div className="sharingResultCodes">
+          {(result.codes||[]).map(x=><button type="button" dir="ltr" key={x.id} onClick={()=>copy(x.code)}>{x.code}</button>)}
+        </div>
+      </div>}
+    </>}
+
+    <div className="sharingDivider"/>
+    <div className="sharingCodesHead">
+      <h3>{admin?l('الأكواد المفعلة','Issued sharing codes'):l('أكواد الشيرنج الخاصة بي','My sharing codes')}</h3>
+      <small>{num(data.codes.length)}</small>
+    </div>
+
+    {data.codes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد.','No codes yet.')}</div> :
+      <div className="sharingCodesList">
+        {data.codes.map(code=>{
+          const open=openId===code.id;
+          const serviceName=lang==='en'?code.service_name_en:code.service_name_ar;
+          return <article className={'sharingCodeRow '+(open?'open':'')} key={code.id}>
+            <button type="button" className="sharingCodeSummary" onClick={()=>setOpenId(open?null:code.id)}>
+              <div><span>{serviceName}</span><b dir="ltr">{code.code}</b></div>
+              {admin&&<small>{code.reseller_name||code.reseller_username||'—'}</small>}
+              <i>{open?'−':'+'}</i>
+            </button>
+            {open&&<div className="sharingCodeDetails">
+              <div><span>{l('العميل','Customer')}</span><b>{code.customer_ref||'—'}</b></div>
+              <div><span>{l('التاريخ','Date')}</span><b>{fmt(code.issued_at,lang)}</b></div>
+              <button type="button" onClick={()=>copy(code.code)}>{l('نسخ الكود','Copy code')}</button>
+            </div>}
+          </article>;
+        })}
+      </div>
+    }
   </section>;
 }
+
 
 function ProfilePage({profile,user,call,logout}) {
   const {lang,l}=useLanguage();
