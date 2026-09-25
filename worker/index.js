@@ -815,6 +815,162 @@ async function api(request,env){
 
   if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
 
+  if(path==='/api/admin/code-stock' && method==='GET'){
+    const kind=url.searchParams.get('kind')==='sharing'?'sharing':'iptv';
+    const sourceId=clean(url.searchParams.get('sourceId'),80);
+    const status=['available','issued','disabled'].includes(url.searchParams.get('status'))?url.searchParams.get('status'):'all';
+    const q=clean(url.searchParams.get('q'),160);
+    const limit=Math.max(50,Math.min(1000,Math.trunc(Number(url.searchParams.get('limit')||500))));
+
+    if(kind==='sharing'){
+      const where=[], args=[];
+      if(sourceId){ where.push("c.service_id=?"); args.push(sourceId); }
+      if(status!=='all'){ where.push("c.status=?"); args.push(status); }
+      if(q){ where.push("c.code LIKE ?"); args.push('%'+q+'%'); }
+      const sql="SELECT c.id,c.code,c.status,c.customer_ref,c.issued_at,c.created_at,c.service_id source_id,s.name_ar source_name_ar,s.name_en source_name_en,b.filename batch_filename,u.username reseller_username,u.display_name reseller_name FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id JOIN sharing_batches b ON b.id=c.batch_id LEFT JOIN users u ON u.id=c.reseller_id "+(where.length?'WHERE '+where.join(' AND '):'')+" ORDER BY CASE c.status WHEN 'available' THEN 0 WHEN 'issued' THEN 1 ELSE 2 END,c.created_at DESC LIMIT ?";
+      const rows=(await env.DB.prepare(sql).bind(...args,limit).all()).results||[];
+
+      const countWhere=[], countArgs=[];
+      if(sourceId){ countWhere.push("service_id=?"); countArgs.push(sourceId); }
+      const counts=await env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status='available' THEN 1 ELSE 0 END),0) available,COALESCE(SUM(CASE WHEN status='issued' THEN 1 ELSE 0 END),0) issued,COALESCE(SUM(CASE WHEN status='disabled' THEN 1 ELSE 0 END),0) disabled FROM sharing_codes "+(countWhere.length?'WHERE '+countWhere.join(' AND '):'')).bind(...countArgs).first();
+      const sources=(await env.DB.prepare("SELECT id,name_ar,name_en,active,sort_order FROM sharing_services ORDER BY sort_order,name_en").all()).results||[];
+      return json({kind,codes:rows,counts:counts||{total:0,available:0,issued:0,disabled:0},sources});
+    }
+
+    const where=[], args=[];
+    if(sourceId){ where.push("c.server_id=?"); args.push(sourceId); }
+    if(status!=='all'){ where.push("c.status=?"); args.push(status); }
+    if(q){ where.push("c.code LIKE ?"); args.push('%'+q+'%'); }
+    const sql="SELECT c.id,c.code,c.status,c.customer_ref,c.issued_at,c.created_at,c.server_id source_id,s.name source_name,p.name package_name,p.duration_label,b.filename batch_filename,u.username reseller_username,u.display_name reseller_name FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id JOIN code_batches b ON b.id=c.batch_id LEFT JOIN users u ON u.id=c.reseller_id "+(where.length?'WHERE '+where.join(' AND '):'')+" ORDER BY CASE c.status WHEN 'available' THEN 0 WHEN 'issued' THEN 1 ELSE 2 END,c.created_at DESC LIMIT ?";
+    const rows=(await env.DB.prepare(sql).bind(...args,limit).all()).results||[];
+
+    const countWhere=[], countArgs=[];
+    if(sourceId){ countWhere.push("server_id=?"); countArgs.push(sourceId); }
+    const counts=await env.DB.prepare("SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN status='available' THEN 1 ELSE 0 END),0) available,COALESCE(SUM(CASE WHEN status='issued' THEN 1 ELSE 0 END),0) issued,COALESCE(SUM(CASE WHEN status='disabled' THEN 1 ELSE 0 END),0) disabled FROM codes "+(countWhere.length?'WHERE '+countWhere.join(' AND '):'')).bind(...countArgs).first();
+    const sources=(await env.DB.prepare("SELECT id,name,active,sort_order FROM servers ORDER BY sort_order,name").all()).results||[];
+    return json({kind,codes:rows,counts:counts||{total:0,available:0,issued:0,disabled:0},sources});
+  }
+
+  if(path==='/api/admin/code-stock' && method==='POST'){
+    const body=await bodyJson(request);
+    const kind=body.kind==='sharing'?'sharing':body.kind==='iptv'?'iptv':'';
+    const operation=['add','update','delete','delete_all'].includes(body.operation)?body.operation:'';
+    if(!kind||!operation) return json({error:'INVALID_CODE_OPERATION'},400);
+
+    if(operation==='add'){
+      const sourceId=clean(body.sourceId,80), code=clean(body.code,500);
+      if(!sourceId||!code) return json({error:'INVALID_CODE'},400);
+      const at=now();
+
+      if(kind==='sharing'){
+        const source=await env.DB.prepare("SELECT id,name_en FROM sharing_services WHERE id=? LIMIT 1").bind(sourceId).first();
+        if(!source) return json({error:'SHARING_SERVICE_NOT_FOUND'},404);
+        const batchId=uid('sbat'), codeId=uid('scod');
+        try{
+          await env.DB.batch([
+            env.DB.prepare("INSERT INTO sharing_batches(id,service_id,filename,imported_by,total_lines,blank_count,inserted_count,duplicate_count,created_at) VALUES(?,?,?, ?,1,0,1,0,?)").bind(batchId,sourceId,'MANUAL-ADD.txt',user.id,at),
+            env.DB.prepare("INSERT INTO sharing_codes(id,service_id,batch_id,code,status,created_at) VALUES(?,?,?,?,'available',?)").bind(codeId,sourceId,batchId,code,at)
+          ]);
+          await audit(env,request,user,'SHARING_CODE_ADDED','sharing_code',codeId,{serviceId:sourceId,service:source.name_en,manual:true});
+          return json({ok:true,id:codeId},201);
+        }catch{
+          try{await env.DB.prepare("DELETE FROM sharing_batches WHERE id=? AND NOT EXISTS(SELECT 1 FROM sharing_codes WHERE batch_id=?)").bind(batchId,batchId).run();}catch{}
+          return json({error:'CODE_EXISTS'},409);
+        }
+      }
+
+      const pack=await env.DB.prepare("SELECT p.id,p.name,s.name server_name FROM packages p JOIN servers s ON s.id=p.server_id WHERE p.server_id=? AND p.active=1 ORDER BY p.sort_order,p.created_at LIMIT 1").bind(sourceId).first();
+      if(!pack) return json({error:'SERVER_PACKAGE_MISMATCH'},409);
+      const batchId=uid('bat'), codeId=uid('cod');
+      try{
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO code_batches(id,server_id,package_id,filename,imported_by,total_lines,blank_count,inserted_count,duplicate_count,created_at) VALUES(?,?,?,?,?,1,0,1,0,?)").bind(batchId,sourceId,pack.id,'MANUAL-ADD.txt',user.id,at),
+          env.DB.prepare("INSERT INTO codes(id,server_id,package_id,batch_id,code,status,created_at) VALUES(?,?,?,?,?,'available',?)").bind(codeId,sourceId,pack.id,batchId,code,at)
+        ]);
+        await audit(env,request,user,'IPTV_CODE_ADDED','code',codeId,{serverId:sourceId,server:pack.server_name,packageId:pack.id,manual:true});
+        return json({ok:true,id:codeId},201);
+      }catch{
+        try{await env.DB.prepare("DELETE FROM code_batches WHERE id=? AND NOT EXISTS(SELECT 1 FROM codes WHERE batch_id=?)").bind(batchId,batchId).run();}catch{}
+        return json({error:'CODE_EXISTS'},409);
+      }
+    }
+
+    if(operation==='update'){
+      const codeId=clean(body.codeId,80), code=clean(body.code,500);
+      if(!codeId||!code) return json({error:'INVALID_CODE'},400);
+
+      if(kind==='sharing'){
+        const current=await env.DB.prepare("SELECT c.id,c.code,c.status,c.service_id,s.name_en FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id WHERE c.id=? LIMIT 1").bind(codeId).first();
+        if(!current) return json({error:'CODE_NOT_FOUND'},404);
+        try{
+          await env.DB.prepare("UPDATE sharing_codes SET code=? WHERE id=?").bind(code,codeId).run();
+          await audit(env,request,user,'SHARING_CODE_UPDATED','sharing_code',codeId,{serviceId:current.service_id,service:current.name_en,status:current.status,oldCode:current.code,newCode:code});
+          return json({ok:true});
+        }catch{return json({error:'CODE_EXISTS'},409);}
+      }
+
+      const current=await env.DB.prepare("SELECT c.id,c.code,c.status,c.server_id,s.name FROM codes c JOIN servers s ON s.id=c.server_id WHERE c.id=? LIMIT 1").bind(codeId).first();
+      if(!current) return json({error:'CODE_NOT_FOUND'},404);
+      try{
+        await env.DB.prepare("UPDATE codes SET code=? WHERE id=?").bind(code,codeId).run();
+        await audit(env,request,user,'IPTV_CODE_UPDATED','code',codeId,{serverId:current.server_id,server:current.name,status:current.status,oldCode:current.code,newCode:code});
+        return json({ok:true});
+      }catch{return json({error:'CODE_EXISTS'},409);}
+    }
+
+    if(operation==='delete'){
+      const codeId=clean(body.codeId,80);
+      if(!codeId) return json({error:'INVALID_CODE'},400);
+
+      if(kind==='sharing'){
+        const current=await env.DB.prepare("SELECT c.id,c.code,c.status,c.service_id,c.batch_id,s.name_en FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id WHERE c.id=? LIMIT 1").bind(codeId).first();
+        if(!current) return json({error:'CODE_NOT_FOUND'},404);
+        await env.DB.prepare("DELETE FROM sharing_codes WHERE id=?").bind(codeId).run();
+        await env.DB.prepare("UPDATE sharing_batches SET inserted_count=(SELECT COUNT(*) FROM sharing_codes WHERE batch_id=?) WHERE id=?").bind(current.batch_id,current.batch_id).run();
+        await env.DB.prepare("DELETE FROM sharing_batches WHERE id=? AND NOT EXISTS(SELECT 1 FROM sharing_codes WHERE batch_id=?)").bind(current.batch_id,current.batch_id).run();
+        await audit(env,request,user,'SHARING_CODE_DELETED','sharing_code',codeId,{serviceId:current.service_id,service:current.name_en,status:current.status,code:current.code});
+        return json({ok:true});
+      }
+
+      const current=await env.DB.prepare("SELECT c.id,c.code,c.status,c.server_id,c.batch_id,s.name FROM codes c JOIN servers s ON s.id=c.server_id WHERE c.id=? LIMIT 1").bind(codeId).first();
+      if(!current) return json({error:'CODE_NOT_FOUND'},404);
+      await env.DB.prepare("DELETE FROM codes WHERE id=?").bind(codeId).run();
+      await env.DB.prepare("UPDATE code_batches SET inserted_count=(SELECT COUNT(*) FROM codes WHERE batch_id=?) WHERE id=?").bind(current.batch_id,current.batch_id).run();
+      await env.DB.prepare("DELETE FROM code_batches WHERE id=? AND NOT EXISTS(SELECT 1 FROM codes WHERE batch_id=?)").bind(current.batch_id,current.batch_id).run();
+      await audit(env,request,user,'IPTV_CODE_DELETED','code',codeId,{serverId:current.server_id,server:current.name,status:current.status,code:current.code});
+      return json({ok:true});
+    }
+
+    const sourceId=clean(body.sourceId,80);
+    const scope=body.scope==='available'?'available':'all';
+
+    if(kind==='sharing'){
+      const conditions=[], args=[];
+      if(sourceId){ conditions.push("service_id=?"); args.push(sourceId); }
+      if(scope==='available'){ conditions.push("status='available'"); }
+      const where=conditions.length?' WHERE '+conditions.join(' AND '):'';
+      const before=await env.DB.prepare("SELECT COUNT(*) count FROM sharing_codes"+where).bind(...args).first();
+      await env.DB.prepare("DELETE FROM sharing_codes"+where).bind(...args).run();
+      await env.DB.prepare("UPDATE sharing_batches SET inserted_count=(SELECT COUNT(*) FROM sharing_codes WHERE sharing_codes.batch_id=sharing_batches.id)").run();
+      await env.DB.prepare("DELETE FROM sharing_batches WHERE NOT EXISTS(SELECT 1 FROM sharing_codes WHERE sharing_codes.batch_id=sharing_batches.id)").run();
+      const deleted=Number(before?.count||0);
+      await audit(env,request,user,'SHARING_CODES_DELETED_ALL','sharing_code',sourceId||null,{serviceId:sourceId||null,scope,deleted});
+      return json({ok:true,deleted});
+    }
+
+    const conditions=[], args=[];
+    if(sourceId){ conditions.push("server_id=?"); args.push(sourceId); }
+    if(scope==='available'){ conditions.push("status='available'"); }
+    const where=conditions.length?' WHERE '+conditions.join(' AND '):'';
+    const before=await env.DB.prepare("SELECT COUNT(*) count FROM codes"+where).bind(...args).first();
+    await env.DB.prepare("DELETE FROM codes"+where).bind(...args).run();
+    await env.DB.prepare("UPDATE code_batches SET inserted_count=(SELECT COUNT(*) FROM codes WHERE codes.batch_id=code_batches.id)").run();
+    await env.DB.prepare("DELETE FROM code_batches WHERE NOT EXISTS(SELECT 1 FROM codes WHERE codes.batch_id=code_batches.id)").run();
+    const deleted=Number(before?.count||0);
+    await audit(env,request,user,'IPTV_CODES_DELETED_ALL','code',sourceId||null,{serverId:sourceId||null,scope,deleted});
+    return json({ok:true,deleted});
+  }
+
   if(path==='/api/admin/partners' && method==='GET'){
     const rows=(await env.DB.prepare("SELECT id,username,email,display_name,status,last_login_ip,last_country,last_login_at,created_at,updated_at FROM users WHERE role='admin' ORDER BY CASE WHEN username='owner' THEN 0 ELSE 1 END,created_at ASC").all()).results||[];
     return json({partners:rows});
