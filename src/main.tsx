@@ -167,6 +167,7 @@ function Login({ onAuth }) {
             theme:'light',
             size:'flexible',
             language:lang==='en'?'en':'ar',
+            action:'login',
             callback:(token)=>setTurnstileToken(token||''),
             'expired-callback':()=>setTurnstileToken(''),
             'error-callback':()=>setTurnstileToken('')
@@ -193,11 +194,11 @@ function Login({ onAuth }) {
     }catch{}
   }
 
-  async function submit(e) {
-    e.preventDefault();
-
-    const submitter=e.nativeEvent?.submitter;
-    if(!submitter||submitter.dataset.manualLogin!=='1') return;
+  async function submit() {
+    if(!String(form.identifier||'').trim()||!String(form.password||'')){
+      setError(l('أدخل بيانات الدخول.','Enter your login details.'));
+      return;
+    }
 
     if(turnstile.enabled&&!turnstileToken){
       setError(l('أكمل التحقق أولاً.','Complete verification first.'));
@@ -248,7 +249,7 @@ function Login({ onAuth }) {
             <h1>{l('تسجيل الدخول','Sign in')}</h1>
           </div>
 
-          <form className="acmAuthForm" onSubmit={submit} onKeyDown={e=>{if(e.key==='Enter') e.preventDefault();}} autoComplete="on">
+          <form className="acmAuthForm" onSubmit={e=>e.preventDefault()} autoComplete="on">
             <label className="acmField">
               <span>{l('اسم المستخدم أو البريد الإلكتروني','Username or email')}</span>
               <input
@@ -286,8 +287,8 @@ function Login({ onAuth }) {
 
             <button
               className="acmPrimaryBtn acmAuthSubmit"
-              type="submit"
-              data-manual-login="1"
+              type="button"
+              onClick={submit}
               disabled={busy||(turnstile.enabled&&!turnstileToken)}
             >
               {busy?l('جارٍ الدخول…','Signing in…'):l('تسجيل الدخول','Sign in')}
