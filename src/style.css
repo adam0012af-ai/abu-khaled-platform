@@ -387,6 +387,129 @@ textarea{resize:vertical}
 
 .focusedForm{max-width:700px}
 
+.resellerCreatePage{
+  max-width:920px;
+  padding:0;
+  overflow:hidden
+}
+.resellerCreateHeader{
+  display:flex;align-items:center;gap:14px;
+  padding:20px 22px;
+  border-bottom:1px solid #edf0f3;
+  background:linear-gradient(180deg,#fff,#fbfcfd)
+}
+.resellerCreateIcon{
+  width:46px;height:46px;display:grid;place-items:center;
+  flex:0 0 auto;
+  border-radius:13px;
+  background:#eef6ff;color:#347bb8;
+  border:1px solid #dce9f4
+}
+.resellerCreateIcon svg{width:22px;height:22px}
+.resellerCreateHeader>div:last-child{display:grid;gap:3px}
+.resellerCreateHeader span{
+  font:800 8px Inter,sans-serif;letter-spacing:2px;color:#659bc9
+}
+.resellerCreateHeader h2{margin:0;font-size:22px;color:#28303a}
+.resellerCreateHeader p{margin:0;color:#8a949f;font-size:10px}
+
+.resellerCreateForm{padding:18px 20px 20px;display:grid;gap:14px}
+.resellerFormGroup{
+  border:1px solid #e6eaee;
+  border-radius:14px;
+  background:#fff;
+  overflow:hidden
+}
+.resellerFormGroupHead{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid #edf0f3;
+  background:#fafbfc
+}
+.groupStep{
+  width:31px;height:31px;display:grid;place-items:center;
+  border-radius:9px;
+  background:#edf5fc;color:#3d7eb5;
+  font:800 9px Inter,sans-serif;
+  letter-spacing:.5px
+}
+.resellerFormGroupHead>div{display:grid;gap:2px}
+.resellerFormGroupHead b{font-size:12px;color:#313842}
+.resellerFormGroupHead small{font-size:9px;color:#939ca7}
+
+.resellerFieldsGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  padding:14px
+}
+.resellerField{display:grid;gap:7px}
+.resellerFieldWide{grid-column:1/-1}
+.resellerField>span{
+  font-size:10px;font-weight:700;color:#606b77
+}
+.resellerField>span em{
+  margin-right:5px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#f1f3f5;
+  color:#929ba5;
+  font-size:8px;font-style:normal;font-weight:600
+}
+.resellerField input{
+  min-height:48px;
+  padding:11px 13px;
+  border-radius:10px;
+  background:#fbfcfd;
+  border-color:#e0e5ea;
+  font-size:14px
+}
+.resellerField input::placeholder{color:#a6aeb7}
+.resellerField input:focus{background:#fff}
+
+.passwordFieldWrap,.creditInputWrap{position:relative}
+.passwordFieldWrap input{padding-left:72px}
+.passwordToggle{
+  position:absolute;left:7px;top:50%;transform:translateY(-50%);
+  min-width:56px;height:34px;
+  border:1px solid #e1e6eb;border-radius:8px;
+  background:#f3f6f8;color:#65707c;
+  font-size:9px;font-weight:700
+}
+.passwordToggle:hover{background:#eaf2f9;color:#3377b0}
+
+.creditInputWrap input{
+  direction:ltr;text-align:left;
+  padding-right:74px;
+  font:800 18px Inter,sans-serif
+}
+.creditInputWrap>b{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  font:800 9px Inter,sans-serif;letter-spacing:1px;color:#35a877
+}
+.accountGrid{align-items:end}
+
+.resellerCreateFooter{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:14px;
+  border:1px solid #e6eaee;
+  border-radius:14px;
+  background:#fafbfc
+}
+.createAccountState{display:flex;align-items:center;gap:10px}
+.createStateDot{
+  width:9px;height:9px;border-radius:50%;
+  background:#2fbe7f;box-shadow:0 0 0 5px rgba(47,190,127,.10)
+}
+.createAccountState>div{display:grid;gap:2px}
+.createAccountState b{font-size:10px;color:#37404a}
+.createAccountState small{font-size:9px;color:#9099a4}
+.createResellerBtn{
+  min-width:170px;
+  display:flex;align-items:center;justify-content:center;gap:8px
+}
+.createResellerBtn svg{width:18px;height:18px}
+
 .formGrid{display:grid;gap:10px}.formGrid label{font-size:11px;color:#6f7883;margin-top:3px}
 .twoCol{
   width:min(1040px,calc(100% - 40px));margin:0 auto;
@@ -660,6 +783,12 @@ tr:last-child td{border-bottom:0}
 }
 
 @media(max-width:820px){
+  .resellerCreatePage{width:calc(100% - 28px)}
+  .resellerFieldsGrid{grid-template-columns:1fr}
+  .resellerFieldWide{grid-column:auto}
+  .resellerCreateFooter{align-items:stretch;flex-direction:column}
+  .createResellerBtn{width:100%;min-width:0}
+
   .panelShell{display:block}
   .fullSidebar{
     position:fixed;inset:0 auto 0 0;
@@ -733,6 +862,21 @@ tr:last-child td{border-bottom:0}
 }
 
 @media(max-width:480px){
+  .resellerCreatePage{width:calc(100% - 22px);border-radius:15px}
+  .resellerCreateHeader{padding:16px}
+  .resellerCreateIcon{width:42px;height:42px;border-radius:12px}
+  .resellerCreateHeader h2{font-size:20px}
+  .resellerCreateHeader p{font-size:9px}
+  .resellerCreateForm{padding:12px;gap:11px}
+  .resellerFormGroup{border-radius:12px}
+  .resellerFormGroupHead{padding:10px 11px}
+  .resellerFieldsGrid{padding:11px;gap:10px}
+  .resellerField{gap:6px}
+  .resellerField input{min-height:46px;padding:10px 12px}
+  .passwordFieldWrap input{padding-left:70px}
+  .resellerCreateFooter{padding:11px}
+  .createAccountState small{display:none}
+
   .dashboardHeader,.resellerHomeTop{align-items:stretch;flex-direction:column}
   .adminBalanceOpen,.resellerMainBalance{width:100%;min-width:0}
   .dashboardStats{grid-template-columns:1fr 1fr}
