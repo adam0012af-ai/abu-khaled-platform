@@ -98,6 +98,7 @@ function Panel({ user, csrf, onLogout }) {
   ];
   const tabs = isAdmin ? adminTabs : resellerTabs;
   const [tab,setTab] = useState(tabs[0][0]);
+  const [menuOpen,setMenuOpen] = useState(false);
   const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
@@ -170,13 +171,28 @@ function Panel({ user, csrf, onLogout }) {
       <aside>
         <div className="sideHeader">
           <Logo compact/>
-          <button className="logout" onClick={logout}>تسجيل الخروج</button>
+          <div className="sideActions">
+            <button className="menuToggle" onClick={()=>setMenuOpen(v=>!v)} aria-expanded={menuOpen}>
+              <span className="menuGlyph">☰</span>
+              <span>{menuOpen?'إغلاق':'القائمة'}</span>
+            </button>
+            <button className="logout" onClick={logout}>تسجيل الخروج</button>
+          </div>
         </div>
         <div className="userMini">
           <div><span>{user.displayName}</span><b>{isAdmin?'ADMIN CONTROL':'RESELLER'}</b></div>
           {isAdmin ? <strong className="adminState"><i/> متصل</strong> : <em>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</em>}
         </div>
-        <nav>{tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} className={tab===id?'active':''}>{label}</button>)}</nav>
+        <div className={'menuPocket '+(menuOpen?'open':'')}>
+          <div className="menuPocketHead">
+            <div><span>CONTROL MENU</span><b>القائمة الرئيسية</b></div>
+            <small>{tabs.length} أقسام</small>
+          </div>
+          <nav>{tabs.map(([id,label],index)=><button key={id} onClick={()=>{setTab(id);setMenuOpen(false);}} className={tab===id?'active':''}>
+            <span className="navIndex">{String(index+1).padStart(2,'0')}</span>
+            <span className="navLabel">{label}</span>
+          </button>)}</nav>
+        </div>
       </aside>
       <main className="panelMain">
         <header className="panelHeader">
