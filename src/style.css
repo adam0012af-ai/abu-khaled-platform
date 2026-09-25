@@ -8,10 +8,10 @@
   --surface-soft:#F8FAFC;
   --line:#E2E8F0;
   --line-strong:#CBD5E1;
-  --text:#0F172A;
-  --text-2:#334155;
-  --muted:#64748B;
-  --muted-2:#94A3B8;
+  --text:#0B1220;
+  --text-2:#273449;
+  --muted:#526173;
+  --muted-2:#8391A4;
   --sidebar:#0F172A;
   --sidebar-2:#111C31;
   --emerald:#10B981;
@@ -92,7 +92,7 @@ a{color:inherit}
   display:grid;grid-template-columns:repeat(3,1fr);place-items:center;
   flex:0 0 auto;
   border-radius:14px;
-  background:linear-gradient(145deg,#14233A,#0B1423);
+  background:linear-gradient(145deg,#17263A,#0B1423);
   border:1px solid rgba(96,165,250,.28);
   box-shadow:0 10px 24px -15px rgba(0,0,0,.65)
 }
@@ -191,7 +191,7 @@ a{color:inherit}
   border-bottom:1px solid rgba(148,163,184,.10)
 }
 .sidebarTop .brand{color:#fff}
-.sidebarTop .brandMark{background:linear-gradient(145deg,#18304E,#0D1A2C)}
+.sidebarTop .brandMark{background:linear-gradient(145deg,#182B42,#0D1A2C)}
 .sidebarClose{
   display:none;
   width:36px;height:36px;place-items:center;
@@ -368,6 +368,7 @@ a{color:inherit}
   background:var(--bg)
 }
 .contentHeader{
+  direction:rtl;
   min-height:74px;
   display:flex;
   align-items:center;
@@ -383,6 +384,13 @@ a{color:inherit}
   -webkit-backdrop-filter:blur(12px)
 }
 .contentHeaderMeta{display:grid;gap:1px}
+
+.contentHeaderActions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  direction:ltr
+}
 .contentHeaderMeta span{
   color:#94A3B8;
   font:800 7px "Inter",sans-serif;
@@ -1071,6 +1079,60 @@ tr:last-child td{border-bottom:0}
     radial-gradient(circle at 92% 18%,rgba(16,185,129,.08),transparent 22%),
     linear-gradient(180deg,#F8FAFC 0%,#F4F7FB 100%)
 }
+
+.acmAuthTopActions{
+  position:absolute;
+  z-index:4;
+  top:max(14px,env(safe-area-inset-top));
+  left:max(14px,env(safe-area-inset-left))
+}
+
+.languageSwitcher{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:3px;
+  padding:3px;
+  border:1px solid #DDE5EE;
+  border-radius:11px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 6px 18px -12px rgba(15,23,42,.28);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px)
+}
+.languageSwitcher button{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  padding:6px 9px;
+  border-radius:8px;
+  background:transparent;
+  color:#66758A;
+  font-size:8px;
+  font-weight:800;
+  transition:background .15s ease,color .15s ease,box-shadow .15s ease
+}
+.languageSwitcher button.active{
+  background:#0F172A;
+  color:#fff;
+  box-shadow:0 5px 12px -8px rgba(15,23,42,.7)
+}
+.languageSwitcher.compact button{min-height:31px;padding:5px 8px}
+.langFlag{font-size:14px;line-height:1}
+.langText{white-space:nowrap}
+
+.turnstileSlot{
+  width:100%;
+  min-height:66px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border-radius:10px
+}
+.turnstileSlot>div,.turnstileSlot iframe{max-width:100%!important}
+
 .acmAuthGlow{
   position:fixed;
   pointer-events:none;
@@ -1564,6 +1626,13 @@ tr:last-child td{border-bottom:0}
   .logToolbar{grid-template-columns:1fr}
 }
 @media(max-width:480px){
+  .contentHeaderActions{gap:6px}
+  .contentHeaderActions .languageSwitcher .langText{display:none}
+  .contentHeaderActions .languageSwitcher button{width:32px;padding:4px}
+  .acmAuthTopActions{top:max(10px,env(safe-area-inset-top));left:10px}
+  .acmAuthTopActions .languageSwitcher .langText{display:none}
+  .acmAuthTopActions .languageSwitcher button{width:34px;padding:4px}
+
   .contentHeaderMeta span{font-size:6px}
   .contentHeaderMeta b{font-size:15px}
   .section,.twoCol,.acmCreateCard,.acmIssueCard,.notice{width:calc(100% - 22px)}
@@ -1656,3 +1725,12 @@ tr:last-child td{border-bottom:0}
   .acmIssueStats b{font-size:7px}
   .acmResultTop{align-items:flex-start}
 }
+
+html[dir="ltr"] .fullSidebar{direction:ltr}
+html[dir="ltr"] .sidebarNav>button,
+html[dir="ltr"] .sidebarPocketHead,
+html[dir="ltr"] .sidebarSubnav button{text-align:left}
+html[dir="ltr"] .sidebarSubnav{border-right:0;border-left:1px solid rgba(148,163,184,.12)}
+html[dir="ltr"] .sidebarNav>button.active,
+html[dir="ltr"] .sidebarPocketHead.active{box-shadow:inset 3px 0 0 var(--emerald)}
+html[dir="ltr"] .contentHeaderMeta{direction:ltr;text-align:right}
