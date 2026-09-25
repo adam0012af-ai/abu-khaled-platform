@@ -657,36 +657,114 @@ function CreateReseller({action,busy}) {
 }
 
 function ManageResellers({data,action,busy}) {
-  const [credit,setCredit]=useState({resellerId:'',amount:1,note:''});
-  return <div className="twoCol">
-    <section className="section">
-      <div className="sectionHead"><div><h2>تعديل الرصيد</h2></div></div>
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/credit-adjust',credit);}}>
-        <label>الموزع</label>
-        <select value={credit.resellerId} onChange={e=>setCredit({...credit,resellerId:e.target.value})} required>
-          <option value="">اختر موزع</option>
-          {data.resellers.map(r=><option value={r.id} key={r.id}>{r.display_name} — {r.credits} Credit</option>)}
-        </select>
-        <label>التعديل</label>
-        <input type="number" placeholder="+10 أو -5" value={credit.amount} onChange={e=>setCredit({...credit,amount:e.target.value})} required/>
-        <label>ملاحظة</label>
-        <input placeholder="اختياري" value={credit.note} onChange={e=>setCredit({...credit,note:e.target.value})}/>
-        <button className="primary" disabled={busy}>حفظ الرصيد</button>
-      </form>
-    </section>
+  const [amounts,setAmounts]=useState({});
 
-    <section className="section">
-      <div className="sectionHead"><div><h2>إدارة الموزعين</h2></div><small>{num(data.resellers.length)} موزع</small></div>
-      <div className="resellerCards">
-        {data.resellers.map(r=><article className="resellerManageCard" key={r.id}>
-          <div><span>الموزع</span><b>{r.display_name}</b><small>{r.username}</small></div>
-          <div><span>الرصيد</span><strong>{num(r.credits)}</strong></div>
-          <div><span>الحالة</span><em>{r.status==='active'?'نشط':'متوقف'}</em></div>
-          {r.email&&<div className="resellerEmail">{r.email}</div>}
-        </article>)}
+  function countryName(code){
+    if(!code) return 'غير متاح';
+    try{
+      return new Intl.DisplayNames(['ar'],{type:'region'}).of(String(code).toUpperCase())||code;
+    }catch{return code;}
+  }
+
+  async function addCredit(reseller){
+    const amount=Math.trunc(Number(amounts[reseller.id]||0));
+    if(!Number.isSafeInteger(amount)||amount<=0) return;
+    await action('/api/admin/credit-adjust',{resellerId:reseller.id,amount,note:'إضافة رصيد من إدارة الموزعين'});
+    setAmounts(v=>({...v,[reseller.id]:''}));
+  }
+
+  return <section className="section resellerManagementPage">
+    <div className="resellerManagementHeader">
+      <div>
+        <h2>إدارة الموزعين</h2>
+        <span>{num(data.resellers.length)} موزع</span>
       </div>
-    </section>
-  </div>;
+      <div className="managementSummary">
+        <div><span>إجمالي الرصيد</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.credits||0),0))}</b></div>
+        <div><span>إجمالي الأكواد</span><b>{num(data.resellers.reduce((sum,r)=>sum+Number(r.issued_codes||0),0))}</b></div>
+      </div>
+    </div>
+
+    {data.resellers.length===0 ? <div className="emptyState compact">لا يوجد موزعون حتى الآن.</div> :
+      <div className="resellerManagementGrid">
+        {data.resellers.map(r=>{
+          const d=r.last_login_at?new Date(r.last_login_at):null;
+          const lastLogin=d&&!Number.isNaN(d.getTime())
+            ? d.toLocaleString('ar-EG',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+            : 'لم يسجل دخول بعد';
+
+          return <article className="resellerProfileCard" key={r.id}>
+            <div className="resellerProfileTop">
+              <div className="resellerIdentityBlock">
+                <div className="resellerInitial">{(r.display_name||r.username||'R').slice(0,1).toUpperCase()}</div>
+                <div>
+                  <b>{r.display_name||r.username}</b>
+                  <span>@{r.username}</span>
+                </div>
+              </div>
+              <span className={'resellerStatus '+(r.status==='active'?'active':'blocked')}>
+                {r.status==='active'?'نشط':'متوقف'}
+              </span>
+            </div>
+
+            <div className="resellerMetricGrid">
+              <div>
+                <span>الرصيد</span>
+                <strong>{num(r.credits)}</strong>
+                <small>CREDIT</small>
+              </div>
+              <div>
+                <span>عدد الأكواد</span>
+                <strong>{num(r.issued_codes)}</strong>
+                <small>CODE</small>
+              </div>
+            </div>
+
+            <div className="resellerInfoGrid">
+              <div>
+                <span>الدولة</span>
+                <b>{countryName(r.last_country)}</b>
+              </div>
+              <div>
+                <span>IP آخر دخول</span>
+                <b className="mono resellerIp">{r.last_login_ip||'—'}</b>
+              </div>
+              <div className="resellerLastLogin">
+                <span>آخر دخول</span>
+                <b>{lastLogin}</b>
+              </div>
+              {r.email&&<div className="resellerEmailInfo">
+                <span>Email</span>
+                <b>{r.email}</b>
+              </div>}
+            </div>
+
+            <div className="inlineCreditControl">
+              <div>
+                <span>إضافة رصيد</span>
+                <div className="creditMiniInput">
+                  <input
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={amounts[r.id]??''}
+                    onChange={e=>setAmounts(v=>({...v,[r.id]:e.target.value}))}
+                  />
+                  <small>CREDIT</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={busy||Number(amounts[r.id]||0)<=0}
+                onClick={()=>addCredit(r)}
+              >إضافة</button>
+            </div>
+          </article>;
+        })}
+      </div>
+    }
+  </section>;
 }
 
 function Codes({codes,admin=false}) {
