@@ -3708,3 +3708,400 @@ html[dir="ltr"] .sidebarBottomAction{
 html[dir="ltr"] .sidebarProfileAction.active{
   box-shadow:inset 2px 0 0 #34D399
 }
+
+
+/* Code stock management */
+.codeStockPage{
+  overflow:hidden
+}
+.codeStockHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px
+}
+.codeStockHead>div:first-child{
+  min-width:0
+}
+.codeStockEyebrow{
+  display:inline-flex;
+  align-items:center;
+  min-height:22px;
+  padding:4px 8px;
+  border-radius:999px;
+  background:#EEF2FF;
+  color:#4338CA;
+  font:900 6.5px/1 "Inter",sans-serif;
+  letter-spacing:1.1px
+}
+.codeStockHead h2{
+  margin:7px 0 2px;
+  color:#0F172A;
+  font-size:20px
+}
+.codeStockHead p{
+  max-width:720px;
+  margin:0;
+  color:#7C8898;
+  font-size:8px;
+  line-height:1.65
+}
+.codeDeleteAllBtn{
+  min-width:104px;
+  min-height:38px;
+  padding:7px 11px;
+  border:1px solid #FECDD3;
+  border-radius:9px;
+  background:#FFF1F2;
+  color:#BE123C;
+  font-size:8px;
+  font-weight:900
+}
+.codeStockStats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin-bottom:12px
+}
+.codeStockStats>div{
+  padding:10px 11px;
+  border:1px solid #E2E8F0;
+  border-radius:10px;
+  background:#F8FAFC
+}
+.codeStockStats span{
+  display:block;
+  color:#94A3B8;
+  font-size:7px;
+  font-weight:750
+}
+.codeStockStats b{
+  display:block;
+  margin-top:3px;
+  color:#0F172A;
+  font:850 17px/1 "Inter",sans-serif
+}
+.codeStockToolbar{
+  display:grid;
+  grid-template-columns:minmax(160px,.8fr) minmax(145px,.6fr) minmax(220px,1.2fr);
+  align-items:end;
+  gap:8px;
+  margin-bottom:10px
+}
+.codeStockToolbar>label{
+  display:grid;
+  gap:5px
+}
+.codeStockToolbar>label>span{
+  color:#64748B;
+  font-size:7.5px;
+  font-weight:800
+}
+.codeStockToolbar select,
+.codeStockToolbar input,
+.codeStockAdd select,
+.codeStockAdd input,
+.codeStockDanger select,
+.codeStockDanger input{
+  width:100%;
+  min-height:40px;
+  border:1px solid #DCE4EC;
+  border-radius:9px;
+  background:#fff;
+  color:#0F172A;
+  padding:7px 9px;
+  font-size:8px
+}
+.codeStockSearch{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  gap:5px
+}
+.codeStockSearch button{
+  min-height:40px;
+  padding:7px 10px;
+  border-radius:8px;
+  background:#0F172A;
+  color:#fff;
+  font-size:8px;
+  font-weight:800
+}
+.codeStockSearch button.clear{
+  background:#F8FAFC;
+  color:#64748B;
+  border:1px solid #E2E8F0
+}
+.codeStockAdd{
+  display:grid;
+  grid-template-columns:minmax(170px,.8fr) minmax(160px,.8fr) minmax(220px,1.2fr) auto;
+  align-items:end;
+  gap:8px;
+  padding:11px;
+  margin-bottom:11px;
+  border:1px solid #DCEDE7;
+  border-radius:11px;
+  background:linear-gradient(180deg,#F8FFFC,#F5FBF8)
+}
+.codeStockAdd>div{
+  display:grid;
+  gap:3px;
+  align-self:center
+}
+.codeStockAdd>div>span{
+  color:#0F172A;
+  font-size:9px;
+  font-weight:850
+}
+.codeStockAdd>div>small{
+  color:#7C8898;
+  font-size:6.8px;
+  line-height:1.45
+}
+.codeAddBtn{
+  min-width:76px;
+  min-height:40px;
+  padding:7px 11px;
+  border-radius:9px;
+  background:#047857;
+  color:#fff;
+  font-size:8px;
+  font-weight:900
+}
+.codeStockDanger{
+  display:grid;
+  grid-template-columns:minmax(210px,1fr) minmax(220px,.9fr) minmax(160px,.7fr) auto;
+  align-items:end;
+  gap:8px;
+  padding:11px;
+  margin:0 0 11px;
+  border:1px solid #FECDD3;
+  border-radius:11px;
+  background:#FFF7F8
+}
+.codeStockDanger>div:first-child{
+  display:grid;
+  gap:3px;
+  align-self:center
+}
+.codeStockDanger>div:first-child b{
+  color:#9F1239;
+  font-size:9px
+}
+.codeStockDanger>div:first-child span{
+  color:#9F6B78;
+  font-size:7px;
+  line-height:1.5
+}
+.codeStockDanger>div:last-child{
+  display:flex;
+  gap:5px
+}
+.codeStockDanger button{
+  min-height:40px;
+  padding:7px 9px;
+  border-radius:8px;
+  font-size:8px;
+  font-weight:850
+}
+.codeStockDanger button.danger{
+  border:1px solid #BE123C;
+  background:#BE123C;
+  color:#fff
+}
+.codeStockDanger button.danger:disabled{
+  opacity:.42
+}
+.codeStockMessage{
+  margin-bottom:10px;
+  padding:8px 10px;
+  border:1px solid #DBEAFE;
+  border-radius:9px;
+  background:#EFF6FF;
+  color:#1D4ED8;
+  font-size:8px;
+  font-weight:700
+}
+.codeStockList{
+  display:grid;
+  gap:7px
+}
+.codeStockRow{
+  display:grid;
+  grid-template-columns:minmax(0,1.3fr) minmax(180px,.8fr) auto;
+  align-items:center;
+  gap:10px;
+  min-height:64px;
+  padding:9px 10px;
+  border:1px solid #E2E8F0;
+  border-radius:11px;
+  background:#fff
+}
+.codeStockRow.issued{
+  background:#FBFCFE
+}
+.codeStockIdentity{
+  min-width:0;
+  display:grid;
+  gap:3px
+}
+.codeStockIdentity>span{
+  color:#64748B;
+  font-size:7px;
+  font-weight:750
+}
+.codeStockIdentity>b{
+  display:block;
+  color:#0F172A;
+  font:850 10px "Inter",monospace;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.codeStockIdentity>input{
+  width:100%;
+  min-height:36px;
+  border:1px solid #93C5FD;
+  border-radius:8px;
+  background:#EFF6FF;
+  padding:6px 8px;
+  color:#1E3A8A;
+  font:800 9px "Inter",monospace
+}
+.codeStockMeta{
+  min-width:0;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:3px 7px
+}
+.codeStockMeta small{
+  min-width:0;
+  color:#94A3B8;
+  font-size:6.8px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.codeStockStatus{
+  width:max-content;
+  padding:3px 6px;
+  border-radius:999px;
+  font-size:6.5px;
+  font-weight:900
+}
+.codeStockStatus.available{
+  background:#ECFDF5;
+  color:#047857
+}
+.codeStockStatus.issued{
+  background:#EFF6FF;
+  color:#1D4ED8
+}
+.codeStockStatus.disabled{
+  background:#F1F5F9;
+  color:#64748B
+}
+.codeStockActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:5px
+}
+.codeStockActions button{
+  min-width:54px;
+  min-height:32px;
+  padding:5px 8px;
+  border:1px solid #DCE4EC;
+  border-radius:7px;
+  background:#F8FAFC;
+  color:#334155;
+  font-size:7px;
+  font-weight:850
+}
+.codeStockActions button.save{
+  border-color:#A7F3D0;
+  background:#ECFDF5;
+  color:#047857
+}
+.codeStockActions button.danger,
+.codeStockActions button.dangerGhost{
+  border-color:#FECDD3;
+  background:#FFF1F2;
+  color:#BE123C
+}
+
+@media(max-width:900px){
+  .codeStockToolbar{
+    grid-template-columns:1fr 1fr
+  }
+  .codeStockSearch{
+    grid-column:1/-1
+  }
+  .codeStockAdd{
+    grid-template-columns:1fr 1fr
+  }
+  .codeStockAdd>div{
+    grid-column:1/-1
+  }
+  .codeStockDanger{
+    grid-template-columns:1fr 1fr
+  }
+  .codeStockDanger>div:first-child{
+    grid-column:1/-1
+  }
+  .codeStockRow{
+    grid-template-columns:minmax(0,1fr) auto
+  }
+  .codeStockMeta{
+    grid-column:1;
+    grid-row:2
+  }
+  .codeStockActions{
+    grid-column:2;
+    grid-row:1/3
+  }
+}
+@media(max-width:560px){
+  .codeStockHead{
+    align-items:stretch;
+    flex-direction:column
+  }
+  .codeDeleteAllBtn{
+    width:100%
+  }
+  .codeStockStats{
+    grid-template-columns:1fr 1fr
+  }
+  .codeStockToolbar,
+  .codeStockAdd,
+  .codeStockDanger{
+    grid-template-columns:1fr
+  }
+  .codeStockSearch,
+  .codeStockAdd>div,
+  .codeStockDanger>div:first-child{
+    grid-column:auto
+  }
+  .codeStockDanger>div:last-child{
+    width:100%
+  }
+  .codeStockDanger>div:last-child button{
+    flex:1
+  }
+  .codeStockRow{
+    grid-template-columns:1fr;
+    gap:7px
+  }
+  .codeStockMeta,
+  .codeStockActions{
+    grid-column:1;
+    grid-row:auto
+  }
+  .codeStockActions{
+    width:100%;
+    justify-content:stretch
+  }
+  .codeStockActions button{
+    flex:1
+  }
+}
