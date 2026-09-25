@@ -98,6 +98,7 @@ function Panel({ user, csrf, onLogout }) {
     ['logs','السجل الكامل','◷']
   ];
   const resellerTabs = [
+    ['overview','الرئيسية','⌂'],
     ['issue','إنشاء الأكواد','＋'],
     ['mycodes','أكوادي','▣'],
     ['credit','طلب كريدت','◈'],
@@ -270,8 +271,9 @@ function Panel({ user, csrf, onLogout }) {
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
 
         <div className="pageContent">
-          {tab==='overview' && isAdmin && <AdminOverview data={data} onNavigate={setTab}/>}
-          {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>}
+          {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
+          {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
+          {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>
           {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
           {tab==='resellers' && isAdmin && <Resellers data={data} action={action} busy={busy}/>}
           {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
@@ -287,49 +289,114 @@ function Panel({ user, csrf, onLogout }) {
   );
 }
 
-function AdminOverview({data,onNavigate}) {
+function AdminOverview({data}) {
   const c=data.dashboard?.counts||{};
-  const cards=[
-    {key:'available',label:'الأكواد المتاحة',value:c.available,sub:'Available Codes',tone:'green',icon:'✓',tab:'servers'},
-    {key:'total',label:'إجمالي الأكواد',value:c.total_codes,sub:'Total Inventory',tone:'blue',icon:'▣',tab:'import'},
-    {key:'issued',label:'الأكواد المفعلة',value:c.issued,sub:'Activated Codes',tone:'violet',icon:'⚡',tab:'issued'},
-    {key:'resellers',label:'الموزعون',value:c.resellers,sub:'Reseller Accounts',tone:'orange',icon:'♟',tab:'resellers'},
-    {key:'credits',label:'رصيد الأدمن',display:'∞',sub:'UNLIMITED CREDIT',tone:'cyan',icon:'▤',tab:'resellers'},
-    {key:'requests',label:'طلبات الكريدت',value:c.pending_requests,sub:'Pending Requests',tone:'pink',icon:'◈',tab:'credit'}
+  const stats=[
+    ['إجمالي الأكواد',c.total_codes],
+    ['الأكواد المتاحة',c.available],
+    ['الأكواد المفعلة',c.issued],
+    ['الموزعون',c.resellers],
+    ['طلبات الكريدت',c.pending_requests],
+    ['رصيد الموزعين',c.reseller_credits]
   ];
 
   return <>
-    <section className="offerCard">
-      <div className="offerIcon">⌁</div>
-      <div><h2>ACTIVE CODE MULTI</h2><p>إدارة الأكواد والموزعين من لوحة واحدة</p></div>
-      <button onClick={()=>onNavigate?.('import')}>＋</button>
-    </section>
+    <section className="section dashboardSummary">
+      <div className="sectionHead">
+        <div><span>DASHBOARD</span><h2>ملخص اللوحة</h2></div>
+        <div className="adminUnlimited"><span>رصيد الإدارة</span><b>∞</b><small>UNLIMITED</small></div>
+      </div>
 
-    <div className="referenceCardGrid">
-      {cards.map(card=><button key={card.key} className={'referenceCard '+card.tone} onClick={()=>onNavigate?.(card.tab)}>
-        <div className="cardAccent"/>
-        <div className="referenceIcon">{card.icon}</div>
-        <span>{card.label}</span>
-        <strong>{card.display ?? num(card.value)}</strong>
-        <small>{card.sub}</small>
-      </button>)}
-    </div>
+      <div className="dashboardStats">
+        {stats.map(([label,value])=><div className="dashboardStat" key={label}>
+          <span>{label}</span>
+          <strong>{num(value)}</strong>
+        </div>)}
+      </div>
+    </section>
 
     <section className="section referenceInventory">
       <div className="referenceSectionTitle">
-        <h2>المخزون حسب السيرفر</h2>
-        <span>{num(c.active_packages)} باقات نشطة</span>
+        <h2>السيرفرات</h2>
+        <span>{num(data.servers.length)} سيرفر</span>
       </div>
       <div className="serverGrid">{data.servers.map(s=>{
-        const packs=data.packages.filter(p=>p.server_id===s.id);
-        return <button className="serverCard" key={s.id} onClick={()=>onNavigate?.('servers')}>
+        const p=data.packages.find(p=>p.server_id===s.id&&Number(p.active)===1);
+        return <div className="serverCard" key={s.id}>
           <div className="serverTop"><b>{s.name}</b><span>{Number(s.active)===1?'ACTIVE':'OFF'}</span></div>
-          <strong>{num(s.available_codes)}</strong><small>كود متاح</small>
-          <div className="serverFoot"><span>الإجمالي {num(s.total_codes)}</span><span>المفعّل {num(s.issued_codes)}</span></div>
-          <div className="packageMini">{packs.map(p=><div key={p.id}><span>{p.name}</span><b>{num(p.available_codes)}</b><em>{num(p.credit_cost)} Credit</em></div>)}</div>
-        </button>
+          <strong>{num(s.available_codes)}</strong>
+          <small>متاح</small>
+          <div className="serverFoot">
+            <span>الإجمالي {num(s.total_codes)}</span>
+            <span>المفعّل {num(s.issued_codes)}</span>
+          </div>
+          <div className="packageMini">
+            <div><span>سنوي</span><b>{num(p?.credit_cost||0)} Credit</b><em>12 Months</em></div>
+          </div>
+        </div>
       })}</div>
     </section>
+  </>;
+}
+
+function ResellerOverview({data}) {
+  const c=data.dashboard?.counts||{};
+  const balance=Number(data.dashboard?.user?.credits||0);
+  const recentCodes=(data.codes||[]).slice(0,5);
+  const recentRequests=(data.requests||[]).slice(0,5);
+
+  return <>
+    <section className="section dashboardSummary">
+      <div className="sectionHead">
+        <div><span>DASHBOARD</span><h2>ملخص الحساب</h2></div>
+      </div>
+
+      <div className="dashboardStats resellerStats">
+        <div className="dashboardStat balanceStat">
+          <span>الرصيد</span>
+          <strong>{num(balance)}</strong>
+          <small>CREDIT</small>
+        </div>
+        <div className="dashboardStat">
+          <span>أكوادي</span>
+          <strong>{num(c.issued)}</strong>
+        </div>
+        <div className="dashboardStat">
+          <span>طلبات الرصيد المعلقة</span>
+          <strong>{num(c.pending_requests)}</strong>
+        </div>
+        <div className="dashboardStat">
+          <span>السيرفرات</span>
+          <strong>{num(data.servers.length)}</strong>
+        </div>
+      </div>
+    </section>
+
+    <div className="twoCol dashboardDetails">
+      <section className="section">
+        <div className="sectionHead"><div><span>RECENT CODES</span><h2>آخر الأكواد</h2></div></div>
+        {recentCodes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> :
+          <div className="list">
+            {recentCodes.map(x=><div className="listRow recentCodeRow" key={x.id}>
+              <div><b>{x.server_name}</b><span>{x.customer_ref||'—'}</span></div>
+              <code>{x.code}</code>
+              <small>{fmt(x.issued_at)}</small>
+            </div>)}
+          </div>}
+      </section>
+
+      <section className="section">
+        <div className="sectionHead"><div><span>CREDIT</span><h2>طلبات الرصيد</h2></div></div>
+        {recentRequests.length===0 ? <div className="emptyState compact">لا توجد طلبات رصيد.</div> :
+          <div className="list">
+            {recentRequests.map(r=><div className="listRow" key={r.id}>
+              <b>{num(r.amount)} Credit</b>
+              <span className={'badge '+r.status}>{r.status}</span>
+              <small>{fmt(r.created_at)}</small>
+            </div>)}
+          </div>}
+      </section>
+    </div>
   </>;
 }
 function Servers({data,action,busy}) {
