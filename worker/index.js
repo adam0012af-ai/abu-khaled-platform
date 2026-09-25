@@ -70,6 +70,11 @@ function secureEqual(a, b) {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 }
+function normalizeSetupKey(value) {
+  let v = String(value || '').trim();
+  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1).trim();
+  return v;
+}
 async function bodyJson(request) {
   try { return await request.json(); } catch { return {}; }
 }
@@ -241,7 +246,17 @@ async function api(request, env) {
     if (origin && origin !== url.origin) return json({ error: 'ORIGIN_NOT_ALLOWED' }, 403);
   }
 
-  if (path === '/api/health') return json({ ok: true, service: 'ACTIVE CODE MULTI' });
+  if (path === '/api/health') {
+    const owner = await env.DB.prepare("SELECT id,username,role,status FROM users WHERE username='owner' COLLATE NOCASE OR role='admin' ORDER BY created_at LIMIT 1").first();
+    return json({
+      ok: true,
+      service: 'ACTIVE CODE MULTI',
+      setupKeyConfigured: Boolean(normalizeSetupKey(env.SETUP_KEY)),
+      ownerExists: Boolean(owner),
+      ownerUsername: owner?.username || null,
+      ownerStatus: owner?.status || null
+    });
+  }
 
   if (path === '/api/login' && method === 'POST') {
     const count = await env.DB.prepare("SELECT COUNT(*) count FROM users").first();
@@ -252,7 +267,7 @@ async function api(request, env) {
 
     // Explicit owner recovery using the current Cloudflare SETUP_KEY.
     // This is intentionally only available while SETUP_KEY exists.
-    if (identifier.toLowerCase() === 'owner' && env.SETUP_KEY && secureEqual(password, String(env.SETUP_KEY))) {
+    if (identifier.toLowerCase() === 'owner' && normalizeSetupKey(env.SETUP_KEY) && secureEqual(String(password).trim(), normalizeSetupKey(env.SETUP_KEY))) {
       let owner = await env.DB.prepare("SELECT * FROM users WHERE username='owner' COLLATE NOCASE LIMIT 1").first();
       if (!owner) owner = await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
 
@@ -287,7 +302,7 @@ async function api(request, env) {
     // One-time owner recovery: if the bootstrap secret changed after the owner
     // record was first created, accepting the current SETUP_KEY re-syncs the
     // stored hash. Delete SETUP_KEY after successful recovery.
-    if (!ok && user && user.role === 'admin' && user.username === 'owner' && env.SETUP_KEY && secureEqual(password, String(env.SETUP_KEY))) {
+    if (!ok && user && user.role === 'admin' && user.username === 'owner' && normalizeSetupKey(env.SETUP_KEY) && secureEqual(String(password).trim(), normalizeSetupKey(env.SETUP_KEY))) {
       const salt = randomToken(18);
       const at = now();
       await env.DB.prepare('UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,updated_at=? WHERE id=?')
