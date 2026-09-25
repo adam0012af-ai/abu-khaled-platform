@@ -456,19 +456,18 @@ function Panel({ user, csrf, onLogout }) {
   const adminNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
     {id:'servers-pocket',label:l('إدارة السيرفرات','Server management'),icon:'server',children:[
-      {id:'servers',label:l('إضافة سيرفر','Add server'),icon:'server'},
-      {id:'inventory',label:l('المخزون','Inventory'),icon:'inventory'},
-      {id:'import',label:l('رفع الأكواد','Import codes'),icon:'upload'}
+      {id:'servers',label:l('إضافة سيرفر IPTV','Add IPTV server'),icon:'server'},
+      {id:'inventory',label:l('مخزون IPTV','IPTV inventory'),icon:'inventory'},
+      {id:'import',label:l('رفع أكواد IPTV','Import IPTV codes'),icon:'upload'},
+      {id:'sharing-admin',label:l('إدارة الشيرنج','Sharing management'),icon:'sharing'}
     ]},
-    {id:'code-stock',label:l('إدارة الأكواد','Code management'),icon:'codes',children:[
-      {id:'iptv-stock',label:l('أكواد IPTV','IPTV codes'),icon:'codes'},
-      {id:'sharing-stock',label:l('أكواد الشيرنج','Sharing codes'),icon:'sharing'}
+    {id:'code-stock',label:l('إدارة أكواد IPTV','IPTV code management'),icon:'codes',children:[
+      {id:'iptv-stock',label:l('الأكواد: إضافة / تعديل / حذف','Codes: add / edit / delete'),icon:'codes'}
     ]},
     {id:'resellers',label:l('الموزعون','Resellers'),icon:'users',children:[
       {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
       {id:'reseller-manage',label:l('إدارة الموزعين','Manage resellers'),icon:'manageUsers'}
     ]},
-    {id:'sharing',label:l('إدارة الشيرنج','Sharing management'),icon:'sharing'},
     {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
     {id:'credit',label:l('طلبات الرصيد','Balance requests'),icon:'credit'},
     {id:'partners',label:l('الشركاء والأدمن','Partners & admins'),icon:'users'},
@@ -495,7 +494,7 @@ function Panel({ user, csrf, onLogout }) {
   const initialTab = useMemo(()=>tabFromHash(user.role,allowedTabs),[user.role,allowedTabs]);
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
-  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','import'].includes(initialTab),'code-stock':['iptv-stock','sharing-stock'].includes(initialTab)}));
+  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','import','sharing-admin'].includes(initialTab),'code-stock':['iptv-stock'].includes(initialTab)}));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
   const emptyData={ dashboard:null, profile:null, balanceConfig:{mode:'currency',currency:'EGP',unit:'EGP'}, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
@@ -795,7 +794,7 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='inventory' && isAdmin && <Inventory data={data}/>}
             {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
             {tab==='iptv-stock' && isAdmin && <CodeStockManager kind="iptv" call={call}/>}
-            {tab==='sharing-stock' && isAdmin && <CodeStockManager kind="sharing" call={call}/>}
+            {tab==='sharing-admin' && isAdmin && <SharingAdminManager call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
 
             {tab==='reseller-create' && canManageResellers && <CreateReseller action={action} busy={busy} endpoint={isAdmin?'/api/admin/resellers':'/api/team/resellers'} balanceConfig={data.balanceConfig} agentMode={isAgent}/>}
             {tab==='reseller-manage' && canManageResellers && <ManageResellers data={data} action={action} busy={busy} admin={isAdmin} balanceConfig={data.balanceConfig}/>}
@@ -805,7 +804,7 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
-            {tab==='sharing' && <Sharing admin={isAdmin} call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
+            {tab==='sharing' && !isAdmin && <Sharing admin={false} call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
             {tab==='partners' && isAdmin && <AdminPartners call={call} action={action} busy={busy}/>}
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
             {tab==='profile' && <ProfilePage call={call}/>}
@@ -924,6 +923,196 @@ function AdminPartners({call,action,busy}){
         })}
       </div>}
     </section>
+  </div>;
+}
+
+
+function SharingAdminManager({call,action,busy,balanceConfig}){
+  const {lang,l}=useLanguage();
+  const emptyForm={nameAr:'',nameEn:'',creditCost:1,sortOrder:100,active:1};
+  const [services,setServices]=useState([]);
+  const [form,setForm]=useState(emptyForm);
+  const [editId,setEditId]=useState('');
+  const [deleteId,setDeleteId]=useState('');
+  const [ready,setReady]=useState(false);
+  const [localBusy,setLocalBusy]=useState(false);
+  const [message,setMessage]=useState('');
+
+  async function loadServices(){
+    setReady(false);
+    try{
+      const out=await call('/api/admin/sharing/services');
+      setServices(out.services||[]);
+    }catch{
+      setMessage(l('تعذر تحميل أقسام الشيرنج.','Unable to load sharing services.'));
+    }finally{
+      setReady(true);
+    }
+  }
+
+  useEffect(()=>{loadServices();},[]);
+
+  function resetForm(){
+    setForm(emptyForm);
+    setEditId('');
+  }
+
+  async function submitService(e){
+    e.preventDefault();
+    setLocalBusy(true);
+    setMessage('');
+    try{
+      const body=editId
+        ? {operation:'update',serviceId:editId,...form}
+        : {operation:'add',...form};
+      await call('/api/admin/sharing/services',{method:'POST',body});
+      setMessage(editId?l('تم تعديل قسم الشيرنج.','Sharing service updated.'):l('تمت إضافة قسم الشيرنج.','Sharing service added.'));
+      resetForm();
+      await loadServices();
+    }catch(e){
+      const code=String(e.message||e);
+      const map={
+        INVALID_SHARING_SERVICE:l('راجع اسم القسم والسعر.','Check the service name and cost.'),
+        SHARING_SERVICE_EXISTS:l('القسم موجود بالفعل.','Sharing service already exists.')
+      };
+      setMessage(map[code]||l('لم تتم العملية: ','Request failed: ')+code);
+    }finally{
+      setLocalBusy(false);
+    }
+  }
+
+  function startEdit(service){
+    setEditId(service.id);
+    setDeleteId('');
+    setForm({
+      nameAr:service.name_ar||'',
+      nameEn:service.name_en||'',
+      creditCost:Number(service.credit_cost||0),
+      sortOrder:Number(service.sort_order||100),
+      active:Number(service.active)===0?0:1
+    });
+    requestAnimationFrame(()=>document.querySelector('.sharingServiceEditor')?.scrollIntoView({behavior:'smooth',block:'start'}));
+  }
+
+  async function deleteService(service){
+    setLocalBusy(true);
+    setMessage('');
+    try{
+      const out=await call('/api/admin/sharing/services',{method:'POST',body:{operation:'delete',serviceId:service.id}});
+      if(out.archived){
+        setMessage(l('تم إيقاف القسم وحفظ العمليات القديمة الخاصة به.','Service archived and historical transactions were preserved.'));
+      }else{
+        setMessage(l('تم حذف قسم الشيرنج.','Sharing service deleted.'));
+      }
+      setDeleteId('');
+      if(editId===service.id) resetForm();
+      await loadServices();
+    }catch(e){
+      setMessage(l('تعذر حذف القسم: ','Unable to delete service: ')+String(e.message||e));
+    }finally{
+      setLocalBusy(false);
+    }
+  }
+
+  async function restoreService(service){
+    setLocalBusy(true);
+    setMessage('');
+    try{
+      await call('/api/admin/sharing/services',{method:'POST',body:{
+        operation:'update',
+        serviceId:service.id,
+        nameAr:service.name_ar,
+        nameEn:service.name_en,
+        creditCost:Number(service.credit_cost||0),
+        sortOrder:Number(service.sort_order||100),
+        active:1
+      }});
+      setMessage(l('تمت إعادة تفعيل القسم.','Service restored.'));
+      await loadServices();
+    }catch(e){
+      setMessage(l('تعذر إعادة التفعيل: ','Unable to restore: ')+String(e.message||e));
+    }finally{
+      setLocalBusy(false);
+    }
+  }
+
+  return <div className="sharingAdminHub">
+    <section className="section sharingServiceManager">
+      <div className="sectionHead sharingAdminTitle">
+        <div>
+          <h2>{l('إدارة الشيرنج','Sharing management')}</h2>
+          <p>{l('من هنا تضيف أقسام الشيرنج وتعدلها وتحذفها، ثم ترفع وتدير الأكواد الخاصة بكل قسم.','Add, edit, or delete sharing services here, then manage the codes for each service.')}</p>
+        </div>
+        <span>{num(services.filter(s=>Number(s.active)===1).length)} {l('قسم نشط','active')}</span>
+      </div>
+
+      <form className="sharingServiceEditor" onSubmit={submitService}>
+        <div className="sharingServiceEditorHead">
+          <b>{editId?l('تعديل قسم الشيرنج','Edit sharing service'):l('إضافة قسم شيرنج جديد','Add sharing service')}</b>
+          {editId&&<button type="button" onClick={resetForm}>{l('إلغاء التعديل','Cancel edit')}</button>}
+        </div>
+        <label>
+          <span>{l('الاسم بالعربي','Arabic name')}</span>
+          <input value={form.nameAr} onChange={e=>setForm(v=>({...v,nameAr:e.target.value}))} placeholder="مثال: ناشر برو" required/>
+        </label>
+        <label>
+          <span>{l('الاسم بالإنجليزي','English name')}</span>
+          <input dir="ltr" value={form.nameEn} onChange={e=>setForm(v=>({...v,nameEn:e.target.value}))} placeholder="Example: Nasher Pro" required/>
+        </label>
+        <label>
+          <span>{l('سعر الكود','Code cost')} ({balanceUnit(balanceConfig,lang)})</span>
+          <input dir="ltr" type="number" min="0" value={form.creditCost} onChange={e=>setForm(v=>({...v,creditCost:e.target.value}))} required/>
+        </label>
+        <label>
+          <span>{l('الترتيب','Sort order')}</span>
+          <input dir="ltr" type="number" value={form.sortOrder} onChange={e=>setForm(v=>({...v,sortOrder:e.target.value}))}/>
+        </label>
+        {editId&&<label>
+          <span>{l('الحالة','Status')}</span>
+          <select value={form.active} onChange={e=>setForm(v=>({...v,active:Number(e.target.value)}))}>
+            <option value={1}>{l('نشط','Active')}</option>
+            <option value={0}>{l('متوقف','Disabled')}</option>
+          </select>
+        </label>}
+        <button className="primary sharingServiceSave" disabled={localBusy}>{localBusy?l('جارٍ الحفظ…','Saving…'):(editId?l('حفظ التعديل','Save changes'):l('إضافة القسم','Add service'))}</button>
+      </form>
+
+      {message&&<div className="codeStockMessage">{message}</div>}
+
+      {!ready?<div className="panelLoadingState"><span className="panelLoadingLine"/></div>:
+      <div className="sharingServiceList">
+        {services.map((service,index)=><article className={'sharingServiceManageCard '+(Number(service.active)===0?'disabled':'')} key={service.id}>
+          <div className="sharingServiceManageIndex">{String(index+1).padStart(2,'0')}</div>
+          <div className="sharingServiceManageMain">
+            <div>
+              <b>{lang==='en'?service.name_en:service.name_ar}</b>
+              <small>{lang==='en'?service.name_ar:service.name_en}</small>
+            </div>
+            <div className="sharingServiceManageStats">
+              <span>{l('السعر','Cost')} <strong>{num(service.credit_cost)} {balanceUnit(balanceConfig,lang)}</strong></span>
+              <span>{l('المتاح','Available')} <strong>{num(service.available_codes)}</strong></span>
+              <span>{l('المفعّل','Issued')} <strong>{num(service.issued_codes)}</strong></span>
+              <span>{l('العمليات','Orders')} <strong>{num(service.total_orders)}</strong></span>
+            </div>
+          </div>
+          <span className={'sharingServiceState '+(Number(service.active)===1?'active':'disabled')}>{Number(service.active)===1?l('نشط','Active'):l('متوقف','Disabled')}</span>
+          <div className="sharingServiceManageActions">
+            <button type="button" onClick={()=>startEdit(service)}>{l('تعديل','Edit')}</button>
+            {Number(service.active)===0
+              ? <button type="button" className="restore" disabled={localBusy} onClick={()=>restoreService(service)}>{l('إعادة تفعيل','Restore')}</button>
+              : deleteId===service.id
+                ? <>
+                    <button type="button" className="danger" disabled={localBusy} onClick={()=>deleteService(service)}>{l('تأكيد الحذف','Confirm delete')}</button>
+                    <button type="button" onClick={()=>setDeleteId('')}>{l('إلغاء','Cancel')}</button>
+                  </>
+                : <button type="button" className="dangerGhost" onClick={()=>setDeleteId(service.id)}>{l('حذف','Delete')}</button>}
+          </div>
+        </article>)}
+      </div>}
+    </section>
+
+    <Sharing admin call={call} action={action} busy={busy} balanceConfig={balanceConfig}/>
+    <CodeStockManager kind="sharing" call={call}/>
   </div>;
 }
 
@@ -2266,6 +2455,10 @@ function Logs({logs,admin}) {
     CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
     CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
     SHARING_CODES_IMPORTED:[l('رفع أكواد شيرنج','Sharing codes imported'),'codes'],
+    SHARING_SERVICE_CREATED:[l('إضافة قسم شيرنج','Sharing service added'),'system'],
+    SHARING_SERVICE_UPDATED:[l('تعديل قسم شيرنج','Sharing service updated'),'system'],
+    SHARING_SERVICE_ARCHIVED:[l('حذف/أرشفة قسم شيرنج','Sharing service archived'),'system'],
+    SHARING_SERVICE_DELETED:[l('حذف قسم شيرنج','Sharing service deleted'),'system'],
     SHARING_CODES_ISSUED:[l('تفعيل شيرنج','Sharing codes issued'),'codes'],
     IPTV_CODE_ADDED:[l('إضافة كود IPTV','IPTV code added'),'codes'],
     IPTV_CODE_UPDATED:[l('تعديل كود IPTV','IPTV code updated'),'codes'],
