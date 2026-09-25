@@ -1,1 +1,22 @@
-{"name":"abu-khaled-platform","version":"0.1.0","private":true,"scripts":{"build":"vite build","dev":"vite","preview":"vite preview"},"dependencies":{"@supabase/supabase-js":"latest","@vitejs/plugin-react":"latest","vite":"latest","typescript":"latest","react":"latest","react-dom":"latest"},"devDependencies":{}}
+{
+  "name": "active-code-multi",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev:ui": "vite",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "d1:migrate": "wrangler d1 migrations apply DB --remote"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}
