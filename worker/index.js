@@ -133,17 +133,19 @@ function csrfOk(request,user){
 }
 
 async function ensureBootstrapAdmin(env){
-  const done=await env.DB.prepare("SELECT value FROM app_meta WHERE key='owner_bootstrap_v3'").first();
-  if(done?.value==='done'){
-    return env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
-  }
+  const password=String(env.ADMIN_PASSWORD||'').trim();
+  const existing=await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
+  const done=await env.DB.prepare("SELECT value FROM app_meta WHERE key='owner_bootstrap_v4'").first();
+
+  if(done?.value==='done') return existing;
+  if(!password) return existing;
 
   const username='owner';
-  const salt='acm-bootstrap-v3-9Q7p2L';
-  const hash='qznkmhD3OJLaCmZCRwokJygOasp/6MRjXUxnfElFIt0=';
+  const salt=randomToken(18);
+  const hash=await hashPassword(password,salt,PASSWORD_ITERATIONS);
   const at=now();
+  let admin=existing;
 
-  let admin=await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
   if(!admin){
     const id=uid('usr');
     await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','Owner',0,1,'active',?,?)")
@@ -156,7 +158,8 @@ async function ensureBootstrapAdmin(env){
     admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(admin.id).first();
   }
 
-  await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('owner_bootstrap_v3','done',?)").bind(at).run();
+  await env.DB.prepare("DELETE FROM login_attempts").run();
+  await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('owner_bootstrap_v4','done',?)").bind(at).run();
   return admin;
 }
 
@@ -258,7 +261,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-db-auth-v3',
+      version:'worker-db-auth-v4',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
