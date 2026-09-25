@@ -287,7 +287,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-annual-credit-split-v2',
+      version:'worker-reseller-issue-v3',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
@@ -408,37 +408,46 @@ async function api(request,env){
       .bind(serverId,packageId,quantity).all()).results||[];
     if(candidates.length<quantity) return json({error:'INSUFFICIENT_STOCK'},409);
 
-    const orderId=uid('ord'), txId=uid('ctx'), guardCredit=uid('grd'), guardStock=uid('grd'), at=now();
+    const orderId=uid('ord'), txId=uid('ctx'), at=now();
     const before=Number(fresh.credits), after=before-total;
     const codeIds=candidates.map(c=>c.id);
     const idSlots=codeIds.map(()=>'?').join(',');
 
     try{
-      await env.DB.batch([
+      const batch=await env.DB.batch([
         env.DB.prepare("INSERT INTO issue_orders(id,reseller_id,server_id,package_id,customer_ref,quantity,unit_cost,total_cost,credits_before,credits_after,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,'completed',?)")
           .bind(orderId,user.id,serverId,packageId,customerRef,quantity,Number(pack.credit_cost),total,before,after,at),
 
-        env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=?,updated_at=? WHERE id=? AND credits=? AND status='active'")
-          .bind(after,txId,at,user.id,before),
-
-        env.DB.prepare("INSERT INTO tx_guards(id,ok) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM users WHERE id=? AND credits=? AND last_credit_tx_id=?) THEN 1 ELSE 0 END")
-          .bind(guardCredit,user.id,after,txId),
+        env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=?,updated_at=? WHERE id=? AND credits=? AND credits>=? AND status='active'")
+          .bind(after,txId,at,user.id,before,total),
 
         env.DB.prepare("UPDATE codes SET status='issued',reseller_id=?,order_id=?,customer_ref=?,issued_at=? WHERE id IN ("+idSlots+") AND status='available'")
           .bind(user.id,orderId,customerRef,at,...codeIds),
 
-        env.DB.prepare("INSERT INTO tx_guards(id,ok) SELECT ?,CASE WHEN (SELECT COUNT(*) FROM codes WHERE order_id=? AND reseller_id=? AND status='issued')=? THEN 1 ELSE 0 END")
-          .bind(guardStock,orderId,user.id,quantity),
-
-        env.DB.prepare("INSERT INTO credit_transactions(id,reseller_id,amount,type,reference_id,note,balance_before,balance_after,created_at) VALUES(?,?,?,'issue',?,?,?,?,?,?)")
-          .bind(txId,user.id,-total,orderId,'Code issue: '+pack.server_name+' / '+pack.name,before,after,at),
-
-        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
-          .bind(uid('log'),user.id,user.role,'CODES_ISSUED','issue_order',orderId,JSON.stringify({serverId,packageId,quantity,totalCost:total,customerRef}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at),
-
-        env.DB.prepare("DELETE FROM tx_guards WHERE id=?").bind(guardCredit),
-        env.DB.prepare("DELETE FROM tx_guards WHERE id=?").bind(guardStock)
+        env.DB.prepare("INSERT INTO credit_transactions(id,reseller_id,amount,type,reference_id,note,balance_before,balance_after,created_at) SELECT ?,?,?,'issue',?,?,?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=? AND last_credit_tx_id=? AND credits=?)")
+          .bind(txId,user.id,-total,orderId,'Code issue: '+pack.server_name+' / '+pack.name,before,after,at,user.id,txId,after)
       ]);
+
+      const creditChanges=Number(batch?.[1]?.meta?.changes||0);
+      const codeChanges=Number(batch?.[2]?.meta?.changes||0);
+
+      if(creditChanges!==1 || codeChanges!==quantity){
+        if(creditChanges===1){
+          await env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=NULL,updated_at=? WHERE id=? AND credits=? AND last_credit_tx_id=?")
+            .bind(before,now(),user.id,after,txId).run();
+        }
+        await env.DB.prepare("UPDATE codes SET status='available',reseller_id=NULL,order_id=NULL,customer_ref=NULL,issued_at=NULL WHERE order_id=? AND reseller_id=?")
+          .bind(orderId,user.id).run();
+        await env.DB.prepare("DELETE FROM credit_transactions WHERE id=?").bind(txId).run();
+        await env.DB.prepare("DELETE FROM issue_orders WHERE id=?").bind(orderId).run();
+        return json({error:'ISSUE_CONFLICT_RETRY'},409);
+      }
+
+      try{
+        await audit(env,request,user,'CODES_ISSUED','issue_order',orderId,{serverId,packageId,quantity,totalCost:total,customerRef});
+      }catch(logError){
+        console.error('ISSUE_AUDIT_FAILED',String(logError?.message||logError));
+      }
 
       return json({
         ok:true,
@@ -447,6 +456,12 @@ async function api(request,env){
       });
     }catch(error){
       console.error('ISSUE_TRANSACTION_FAILED',String(error?.message||error));
+      try{
+        await env.DB.prepare("UPDATE codes SET status='available',reseller_id=NULL,order_id=NULL,customer_ref=NULL,issued_at=NULL WHERE order_id=? AND reseller_id=?")
+          .bind(orderId,user.id).run();
+        await env.DB.prepare("DELETE FROM credit_transactions WHERE id=?").bind(txId).run();
+        await env.DB.prepare("DELETE FROM issue_orders WHERE id=?").bind(orderId).run();
+      }catch{}
       return json({error:'ISSUE_CONFLICT_RETRY'},409);
     }
   }
