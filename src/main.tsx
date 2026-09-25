@@ -385,8 +385,8 @@ function Resellers({data,action,busy}) {
         <input placeholder="اكتب اليوزر كما تريد" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
         <label>Email - اختياري</label>
         <input type="email" placeholder="يمكن تركه فارغًا" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-        <label>اسم الموزع</label>
-        <input placeholder="الاسم الظاهر داخل اللوحة" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/>
+        <label>اسم الموزع - اختياري</label>
+        <input placeholder="لو سيبته فاضي هياخد نفس Username" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})}/>
         <label>Password</label>
         <input type="password" placeholder="اكتب الباسورد كما تريد" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} autoComplete="new-password" required/>
         <label>رصيد البداية</label>
