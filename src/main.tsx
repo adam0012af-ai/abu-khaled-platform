@@ -191,7 +191,7 @@ function Panel({ user, csrf, onLogout }) {
     setBusy(true); setNotice('');
     try {
       const out = await call(path,{method:'POST',body});
-      setNotice('تمت العملية بنجاح.');
+      if(path!=='/api/issue') setNotice('تمت العملية بنجاح.');
       await refresh();
       return out;
     } catch (e) {
@@ -535,15 +535,51 @@ function Codes({codes,admin=false}) {
   async function copy(v){await navigator.clipboard.writeText(v);}
   function download(){
     const text=codes.map(x=>x.code).join('\n');
-    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='active-code-multi.txt';a.click();URL.revokeObjectURL(a.href);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));
+    a.download='active-code-multi.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
   }
-  return <section className="section">
-    <div className="sectionHead"><div><span>ISSUED CODES</span><h2>{admin?'كل الأكواد المفعلة':'أكوادي'}</h2></div><button className="secondary" onClick={download}>تنزيل TXT</button></div>
-    <Table><thead><tr><th>الكود</th><th>السيرفر</th><th>الباكدج</th>{admin&&<th>الموزع</th>}<th>العميل</th><th>التاريخ</th><th>عملية</th></tr></thead>
-    <tbody>{codes.map(c=><tr key={c.id}><td><button className="codeBtn mono" onClick={()=>copy(c.code)}>{c.code}</button></td><td>{c.server_name}</td><td>{c.package_name}</td>{admin&&<td>{c.reseller_name||c.reseller_username}</td>}<td>{c.customer_ref||'—'}</td><td>{fmt(c.issued_at)}</td><td className="mono tiny">{c.order_id}</td></tr>)}</tbody></Table>
+
+  return <section className="section codesSection">
+    <div className="sectionHead">
+      <div><span>ISSUED CODES</span><h2>{admin?'كل الأكواد المفعلة':'أكوادي'}</h2></div>
+      {codes.length>0&&<button className="secondary" onClick={download}>تنزيل TXT</button>}
+    </div>
+
+    {codes.length===0 ? <div className="emptyState compact">لا توجد أكواد حتى الآن.</div> : <>
+      <div className="desktopCodes">
+        <Table>
+          <thead><tr><th>الكود</th><th>السيرفر</th>{admin&&<th>الموزع</th>}<th>العميل</th><th>التاريخ</th>{admin&&<th>عملية</th>}</tr></thead>
+          <tbody>{codes.map(c=><tr key={c.id}>
+            <td><button className="codeBtn mono" onClick={()=>copy(c.code)}>{c.code}</button></td>
+            <td>{c.server_name}</td>
+            {admin&&<td>{c.reseller_name||c.reseller_username}</td>}
+            <td>{c.customer_ref||'—'}</td>
+            <td>{fmt(c.issued_at)}</td>
+            {admin&&<td className="mono tiny">{c.order_id}</td>}
+          </tr>)}</tbody>
+        </Table>
+      </div>
+
+      <div className="mobileCodes">
+        {codes.map(c=><article className="myCodeCard" key={c.id}>
+          <div className="myCodeTop">
+            <div><span>السيرفر</span><b>{c.server_name}</b></div>
+            <small>{fmt(c.issued_at)}</small>
+          </div>
+          <button className="myCodeValue mono" onClick={()=>copy(c.code)}>{c.code}</button>
+          <div className="myCodeMeta">
+            {admin&&<div><span>الموزع</span><b>{c.reseller_name||c.reseller_username}</b></div>}
+            <div><span>العميل</span><b>{c.customer_ref||'—'}</b></div>
+          </div>
+          <button className="copyCodeBtn" onClick={()=>copy(c.code)}>نسخ الكود</button>
+        </article>)}
+      </div>
+    </>}
   </section>;
 }
-
 function Issue({data,action,busy}) {
   const [form,setForm]=useState({serverId:'',customerRef:'',quantity:1});
   const [mode,setMode]=useState('single');
@@ -576,8 +612,7 @@ function Issue({data,action,busy}) {
     </div>
 
     <div className="sectionHead">
-      <div><span>ANNUAL ISSUE CENTER</span><h2>إنشاء كود سنوي</h2></div>
-      <small>جميع الأكواد اشتراك سنوي</small>
+      <div><span>ISSUE CODE</span><h2>إنشاء كود</h2></div>
     </div>
 
     <div className="modeSwitch">
