@@ -1662,94 +1662,23 @@ tr:last-child td{border-bottom:0}
   stroke-linejoin:round
 }
 
-/* Manual Cloudflare Turnstile */
+/* Native Cloudflare Turnstile */
 .loginVerify{
   width:100%;
   display:grid;
-  gap:8px
+  gap:7px
 }
-.verifyButton{
+.turnstileHost.native{
   width:100%;
-  height:46px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  padding:0 12px;
-  border:1px solid #DCE3EB;
-  border-radius:11px;
-  background:#F8FAFC;
-  color:#334155;
-  font-size:9px;
-  font-weight:800
-}
-.verifyButton:hover{
-  background:#F3F6F9;
-  border-color:#CBD5E1
-}
-.verifyButton:disabled{
-  opacity:.64;
-  cursor:default
-}
-.verifyButton svg{
-  width:18px;
-  height:18px;
-  fill:none;
-  stroke:#0F172A;
-  stroke-width:1.8;
-  stroke-linecap:round;
-  stroke-linejoin:round
-}
-.turnstileHost{
-  width:100%;
-  height:0;
-  min-height:0;
-  overflow:hidden;
-  opacity:0;
-  pointer-events:none
-}
-.turnstileHost.is-active{
-  height:auto;
   min-height:65px;
-  opacity:1;
-  pointer-events:auto
+  display:block;
+  overflow:hidden;
+  border-radius:11px
 }
-.turnstileHost.is-verified{
-  height:0;
-  min-height:0;
-  opacity:0;
-  pointer-events:none
-}
-.turnstileHost>div,
-.turnstileHost iframe{
+.turnstileHost.native>div,
+.turnstileHost.native iframe{
   width:100%!important;
   max-width:100%!important
-}
-.verifySuccess{
-  width:100%;
-  height:42px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:7px;
-  border:1px solid #BBF7D0;
-  border-radius:11px;
-  background:#F0FDF4;
-  color:#047857
-}
-.verifySuccess span{
-  width:20px;
-  height:20px;
-  display:grid;
-  place-items:center;
-  border-radius:50%;
-  background:#10B981;
-  color:#fff;
-  font:800 10px/1 "Inter",sans-serif
-}
-.verifySuccess b{
-  font-size:9px;
-  font-weight:800
 }
 .verifyError,
 .loginError{
