@@ -152,7 +152,9 @@ function Panel({ user, csrf, onLogout }) {
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
         ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.',
         IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع. للملفات الأكبر يتم تقسيمها على أكثر من دفعة.',
-        NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.'
+        NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.',
+        INVALID_RESELLER:'اليوزر والباسورد لازم يكونوا 6 خانات على الأقل. البريد الإلكتروني اختياري.',
+        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل. اختار Username مختلف.'
       };
       setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
       throw e;
@@ -360,10 +362,10 @@ function Resellers({data,action,busy}) {
     <section className="section">
       <div className="sectionHead"><div><span>ACCOUNTS</span><h2>إضافة موزع</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/resellers',form);setForm({username:'',email:'',displayName:'',password:'',credits:0});}}>
-        <input placeholder="Username" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
+        <input minLength="6" placeholder="Username - 6+ حروف أو أرقام" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
         <input type="email" placeholder="Email - اختياري" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
         <input placeholder="اسم الموزع" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/>
-        <input type="password" minLength="10" placeholder="Password - 10+ chars" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
+        <input type="password" minLength="6" placeholder="Password - 6+ حروف أو أرقام" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
         <input type="number" min="0" placeholder="رصيد البداية" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
         <button className="primary" disabled={busy}>إنشاء الموزع</button>
       </form>
