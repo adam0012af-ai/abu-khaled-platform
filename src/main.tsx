@@ -440,6 +440,7 @@ function NavIcon({name}) {
 function Panel({ user, csrf, onLogout }) {
   const {lang,l}=useLanguage();
   const isAdmin = user.role === 'admin';
+  const isOwner = isAdmin && String(user.username||'').toLowerCase()==='owner';
   const adminNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
     {id:'servers',label:l('إضافة سيرفر','Add server'),icon:'server'},
@@ -660,7 +661,7 @@ function Panel({ user, csrf, onLogout }) {
         <div className="sidebarAccountCard">
           <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
           <div className="sidebarAccountCopy">
-            <span>{isAdmin?l('لوحة الإدارة','ADMIN PANEL'):l('لوحة الموزع','RESELLER PANEL')}</span>
+            <span>{isAdmin?(isOwner?l('لوحة المالك','OWNER PANEL'):l('شريك أدمن','PARTNER ADMIN')):l('لوحة الموزع','RESELLER PANEL')}</span>
             <b>{user.displayName||user.username}</b>
             {!isAdmin&&<small>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</small>}
           </div>
@@ -739,7 +740,7 @@ function Panel({ user, csrf, onLogout }) {
             <span className="panelLoadingLine"/>
           </div> : <section className="routeView active" data-route={tab} key={tab}>
             {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
-            {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
+            {tab==='overview' && !isAdmin && <ResellerOverview data={data} goTo={goTo}/>}
             {tab==='servers' && isAdmin && <Servers action={action} busy={busy}/>}
             {tab==='inventory' && isAdmin && <Inventory data={data}/>}
             {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
@@ -799,8 +800,15 @@ function AdminPartners({call,action,busy}){
   return <div className="adminPartnersPage">
     <section className="section adminPartnerCreate">
       <div className="sectionHead">
-        <div><h2>{l('إضافة شريك أدمن','Add administrator partner')}</h2></div>
-        <span className="fullAccessBadge">{l('صلاحيات كاملة','FULL ACCESS')}</span>
+        <div><h2>{l('إضافة شريك أدمن','Add administrator partner')}</h2><p className="adminPartnerLead">{l('حساب شريك يدخل نفس لوحة الإدارة ويشاهد ويدير كل الأقسام بدون نقص في الصلاحيات.','A partner account uses the same administration panel with complete visibility and management access.')}</p></div>
+        <span className="fullAccessBadge">{l('نفس صلاحيات المالك','OWNER-LEVEL ACCESS')}</span>
+      </div>
+
+      <div className="adminPartnerPermissionGrid">
+        <span>{l('كل السيرفرات والمخزون','All servers & inventory')}</span>
+        <span>{l('كل الموزعين والأرصدة','All resellers & balances')}</span>
+        <span>{l('كل الأكواد والشيرنج','All codes & sharing')}</span>
+        <span>{l('السجل الكامل وإدارة الشركاء','Full logs & partner management')}</span>
       </div>
 
       <form className="adminPartnerForm" onSubmit={submit}>
@@ -1221,13 +1229,33 @@ function AdminOverview({data}) {
   </section>;
 }
 
-function ResellerOverview({data}) {
+function ResellerOverview({data,goTo}) {
   const {lang,l}=useLanguage();
   const c=data.dashboard?.counts||{};
   const user=data.dashboard?.user||{};
-  const balance=Number(user.credits||0);
+  const profile=data.profile||user;
+  const balance=Number(user.credits||profile.credits||0);
   const recentCodes=(data.codes||[]).slice(0,4);
-  const recentRequests=(data.requests||[]).slice(0,3);
+  const recentRequests=(data.requests||[]).slice(0,4);
+  const recentActivity=(data.logs||[]).slice(0,5);
+
+  function countryName(code){
+    if(!code) return '—';
+    try{
+      return new Intl.DisplayNames([lang==='en'?'en':'ar'],{type:'region'}).of(String(code).toUpperCase())||code;
+    }catch{return code;}
+  }
+
+  const activityLabel=(action)=>{
+    const map={
+      LOGIN_SUCCESS:l('تسجيل دخول','Signed in'),
+      CODES_ISSUED:l('إصدار أكواد','Codes issued'),
+      SHARING_CODES_ISSUED:l('إصدار كود شيرنج','Sharing code issued'),
+      CREDIT_REQUEST_CREATED:l('طلب رصيد','Credit request'),
+      PASSWORD_CHANGED:l('تغيير كلمة المرور','Password changed')
+    };
+    return map[action]||String(action||'').replaceAll('_',' ');
+  };
 
   const stats=[
     {label:l('إجمالي الأكواد','Total codes'),value:c.issued||0,icon:'codes'},
@@ -1236,13 +1264,23 @@ function ResellerOverview({data}) {
     {label:l('طلبات الرصيد','Credit requests'),value:c.pending_requests||0,icon:'credit'}
   ];
 
+  const quickActions=[
+    {id:'issue',label:l('إنشاء كود','Issue code'),hint:l('سيرفرات الأكواد','Server codes'),icon:'issue'},
+    {id:'sharing',label:l('إنشاء شيرنج','Issue sharing'),hint:l('خدمات الشيرنج','Sharing services'),icon:'sharing'},
+    {id:'mycodes',label:l('أكوادي','My codes'),hint:l('عرض كل الأكواد','View issued codes'),icon:'codes'},
+    {id:'credit',label:l('طلب رصيد','Request credit'),hint:l('إرسال طلب للإدارة','Send request'),icon:'credit'}
+  ];
+
   return <>
     <section className="section resellerPremiumBoard">
       <div className="resellerBoardHero">
         <div className="resellerBoardIdentity">
-          <span>{l('لوحة الموزع','RESELLER DASHBOARD')}</span>
-          <h2>{user.displayName||user.username||''}</h2>
-          <small>@{user.username||''}</small>
+          <div className="resellerBoardEyebrow">
+            <span>{l('لوحة الموزع','RESELLER DASHBOARD')}</span>
+            <i className={profile.status==='blocked'?'blocked':'active'}>{profile.status==='blocked'?l('متوقف','DISABLED'):l('نشط','ACTIVE')}</i>
+          </div>
+          <h2>{user.displayName||profile.displayName||user.username||''}</h2>
+          <small>@{user.username||profile.username||''}</small>
         </div>
 
         <div className="resellerWalletCard">
@@ -1258,10 +1296,37 @@ function ResellerOverview({data}) {
           <div><span>{item.label}</span><b>{num(item.value)}</b></div>
         </article>)}
       </div>
+
+      <div className="resellerQuickActions">
+        {quickActions.map(item=><button type="button" key={item.id} onClick={()=>goTo?.(item.id)}>
+          <span className="resellerQuickActionIcon"><NavIcon name={item.icon}/></span>
+          <span className="resellerQuickActionCopy"><b>{item.label}</b><small>{item.hint}</small></span>
+          <span className="resellerQuickActionArrow">‹</span>
+        </button>)}
+      </div>
+    </section>
+
+    <section className="resellerAccountStrip">
+      <div>
+        <span>{l('الحساب','Account')}</span>
+        <b>{profile.status==='blocked'?l('متوقف','Disabled'):l('موزع نشط','Active reseller')}</b>
+      </div>
+      <div>
+        <span>{l('آخر دخول','Last login')}</span>
+        <b>{profile.lastLoginAt?fmt(profile.lastLoginAt,lang):'—'}</b>
+      </div>
+      <div>
+        <span>{l('الدولة','Country')}</span>
+        <b>{countryName(profile.lastCountry)}</b>
+      </div>
+      <div>
+        <span>{l('البريد','Email')}</span>
+        <b dir="ltr">{profile.email||'—'}</b>
+      </div>
     </section>
 
     <div className="resellerDashboardGrid">
-      <section className="section resellerRecentPanel">
+      <section className="section resellerRecentPanel resellerRecentCodesPanel">
         <div className="sectionHead">
           <div><h2>{l('آخر الأكواد','Recent codes')}</h2></div>
           <small>{num(recentCodes.length)}</small>
@@ -1289,6 +1354,23 @@ function ResellerOverview({data}) {
               <div><b>{num(r.amount)}</b><span>CREDIT</span></div>
               <span className={'badge '+r.status}>{r.status}</span>
               <small>{fmt(r.created_at,lang)}</small>
+            </article>)}
+          </div>}
+      </section>
+
+      <section className="section resellerRecentPanel resellerActivityPanel">
+        <div className="sectionHead">
+          <div><h2>{l('آخر النشاط','Recent activity')}</h2></div>
+          <small>{num(recentActivity.length)}</small>
+        </div>
+        {recentActivity.length===0 ? <div className="emptyState compact">{l('لا يوجد نشاط حتى الآن.','No activity yet.')}</div> :
+          <div className="resellerActivityList">
+            {recentActivity.map((item,index)=><article key={item.id||item.created_at||index}>
+              <span className="resellerActivityDot"/>
+              <div>
+                <b>{activityLabel(item.action)}</b>
+                <small>{fmt(item.created_at,lang)}</small>
+              </div>
             </article>)}
           </div>}
       </section>
