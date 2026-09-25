@@ -458,12 +458,10 @@ function Panel({ user, csrf, onLogout }) {
     {id:'servers-pocket',label:l('إدارة السيرفرات','Server management'),icon:'server',children:[
       {id:'servers',label:l('إضافة سيرفر IPTV','Add IPTV server'),icon:'server'},
       {id:'inventory',label:l('مخزون IPTV','IPTV inventory'),icon:'inventory'},
-      {id:'import',label:l('رفع أكواد IPTV','Import IPTV codes'),icon:'upload'},
-      {id:'sharing-admin',label:l('إدارة الشيرنج','Sharing management'),icon:'sharing'}
+      {id:'sharing-admin',label:l('إدارة الشيرنج','Sharing management'),icon:'sharing'},
+      {id:'code-add',label:l('إضافة أكواد شيرنج وIPTV','Add sharing & IPTV codes'),icon:'upload'}
     ]},
-    {id:'code-stock',label:l('إدارة أكواد IPTV','IPTV code management'),icon:'codes',children:[
-      {id:'iptv-stock',label:l('الأكواد: إضافة / تعديل / حذف','Codes: add / edit / delete'),icon:'codes'}
-    ]},
+    {id:'code-manage',label:l('إدارة أكواد شيرنج وIPTV','Manage sharing & IPTV codes'),icon:'codes'},
     {id:'resellers',label:l('إدارة الحسابات','Account management'),icon:'users',children:[
       {id:'reseller-create',label:l('إضافة موزع / أدمن','Add reseller / admin'),icon:'userPlus'},
       {id:'reseller-manage',label:l('إدارة المستخدمين','Manage users'),icon:'manageUsers'}
@@ -493,7 +491,7 @@ function Panel({ user, csrf, onLogout }) {
   const initialTab = useMemo(()=>tabFromHash(user.role,allowedTabs),[user.role,allowedTabs]);
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
-  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','import','sharing-admin'].includes(initialTab),'code-stock':['iptv-stock'].includes(initialTab)}));
+  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','sharing-admin','code-add'].includes(initialTab)}));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
   const emptyData={ dashboard:null, profile:null, balanceConfig:{mode:'currency',currency:'EGP',unit:'EGP'}, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
@@ -793,8 +791,8 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='overview' && !isAdmin && <ResellerOverview data={data} goTo={goTo}/>}
             {tab==='servers' && isAdmin && <Servers action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
             {tab==='inventory' && isAdmin && <Inventory data={data}/>}
-            {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy} balanceConfig={data.balanceConfig}/>} 
-            {tab==='iptv-stock' && isAdmin && <CodeStockManager kind="iptv" call={call} balanceConfig={data.balanceConfig}/>} 
+            {tab==='code-add' && isAdmin && <UnifiedCodeImport data={data} call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
+            {tab==='code-manage' && isAdmin && <UnifiedCodeManager call={call}/>} 
             {tab==='sharing-admin' && isAdmin && <SharingAdminManager call={call} action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
 
             {tab==='reseller-create' && canManageResellers && <CreateReseller action={action} busy={busy} endpoint={isAdmin?'/api/admin/resellers':'/api/team/resellers'} balanceConfig={data.balanceConfig} agentMode={isAgent}/>}
@@ -1111,8 +1109,12 @@ function SharingAdminManager({call,action,busy,balanceConfig}){
       </div>}
     </section>
 
-    <CodeStockManager kind="sharing" call={call} balanceConfig={balanceConfig}/>
-    <Sharing admin call={call} action={action} busy={busy} balanceConfig={balanceConfig}/>
+    <section className="section sharingAdminHint">
+      <div>
+        <b>{l('إدارة أكواد الشيرنج','Sharing code operations')}</b>
+        <span>{l('إضافة الأكواد أو حذفها أصبحت في الصفحات الموحدة مع IPTV لتجنب تكرار الصفحات.','Adding and deleting sharing codes now lives in the unified pages with IPTV to avoid duplicated screens.')}</span>
+      </div>
+    </section>
   </div>;
 }
 
@@ -1701,38 +1703,87 @@ function Inventory({data}) {
   </section>;
 }
 
-function ImportCodes({data,action,busy,balanceConfig}) {
+function UnifiedCodeImport({data,call,action,busy,balanceConfig}) {
   const {lang,l}=useLanguage();
-  const [form,setForm]=useState({serverId:'',filename:'codes.txt',text:'',codeCost:''});
+  const [kind,setKind]=useState('iptv');
+  const [sharingServices,setSharingServices]=useState([]);
+  const [sharingReady,setSharingReady]=useState(false);
+  const empty={sourceId:'',filename:'codes.txt',text:'',codeCost:''};
+  const [form,setForm]=useState(empty);
   const lines=form.text.replace(/\r/g,'').split('\n');
   const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
-  const unique=new Set(nonBlank);
+  const unique=Array.from(new Set(nonBlank));
+
+  useEffect(()=>{
+    if(kind!=='sharing'||sharingReady) return;
+    let alive=true;
+    call('/api/admin/sharing/services')
+      .then(out=>{if(alive){setSharingServices((out.services||[]).filter(s=>Number(s.active)===1));setSharingReady(true);}})
+      .catch(()=>{if(alive)setSharingReady(true);});
+    return()=>{alive=false;};
+  },[kind,sharingReady]);
+
+  useEffect(()=>{
+    setForm({
+      sourceId:'',
+      filename:kind==='sharing'?'sharing-codes.txt':'iptv-codes.txt',
+      text:'',
+      codeCost:''
+    });
+  },[kind]);
 
   async function pickFile(e){
     const f=e.target.files?.[0];
     if(!f)return;
-    setForm({...form,filename:f.name,text:await f.text()});
+    const text=await f.text();
+    setForm(v=>({...v,filename:f.name,text}));
   }
 
-  return <section className="section">
-    <div className="sectionHead">
-      <div><h2>{l('رفع الأكواد','Import codes')}</h2></div>
+  function selectSource(sourceId){
+    if(kind==='sharing'){
+      const service=sharingServices.find(s=>s.id===sourceId);
+      setForm(v=>({...v,sourceId,codeCost:service?Number(service.credit_cost||0):''}));
+    }else{
+      const pack=data.packages.find(p=>p.server_id===sourceId&&Number(p.active)===1);
+      setForm(v=>({...v,sourceId,codeCost:pack?Number(pack.credit_cost||0):''}));
+    }
+  }
+
+  async function submit(e){
+    e.preventDefault();
+    if(!form.sourceId||form.codeCost===''||unique.length===0) return;
+    const payload=kind==='sharing'
+      ? {serviceId:form.sourceId,filename:form.filename,text:form.text,codeCost:form.codeCost}
+      : {serverId:form.sourceId,filename:form.filename,text:form.text,codeCost:form.codeCost};
+    await action(kind==='sharing'?'/api/admin/sharing/import':'/api/admin/import-codes',payload);
+    setForm(v=>({...v,text:''}));
+  }
+
+  const sources=kind==='sharing'?sharingServices:data.servers.filter(s=>Number(s.active)===1);
+
+  return <section className="section unifiedCodePage">
+    <div className="unifiedCodeHead">
+      <div>
+        <h2>{l('إضافة الأكواد','Add codes')}</h2>
+        <p>{l('صفحة واحدة لإضافة أكواد IPTV أو الشيرنج. اختر النوع أولًا ثم السيرفر أو خدمة الشيرنج والسعر.','One page for adding IPTV or sharing codes. Choose the type first, then the server/service and price.')}</p>
+      </div>
+      <div className="codeTypeSwitch">
+        <button type="button" className={kind==='iptv'?'active':''} onClick={()=>setKind('iptv')}>IPTV</button>
+        <button type="button" className={kind==='sharing'?'active':''} onClick={()=>setKind('sharing')}>{l('شيرنج','Sharing')}</button>
+      </div>
+    </div>
+
+    <div className="unifiedCodeTypeBanner">
+      <span>{l('النوع الحالي','Current type')}</span>
+      <b>{kind==='iptv'?'IPTV':l('شيرنج','Sharing')}</b>
     </div>
 
     <div className="importGrid">
-      <form className="formGrid" onSubmit={async e=>{
-        e.preventDefault();
-        await action('/api/admin/import-codes',form);
-        setForm({...form,text:''});
-      }}>
-        <label>{l('السيرفر','Server')}</label>
-        <select value={form.serverId} onChange={e=>{
-          const serverId=e.target.value;
-          const pack=data.packages.find(p=>p.server_id===serverId&&Number(p.active)===1);
-          setForm({...form,serverId,codeCost:pack?Number(pack.credit_cost||0):''});
-        }} required>
-          <option value="">{l('اختر السيرفر','Select server')}</option>
-          {data.servers.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}
+      <form className="formGrid unifiedImportForm" onSubmit={submit}>
+        <label>{kind==='sharing'?l('خدمة الشيرنج','Sharing service'):l('السيرفر','Server')}</label>
+        <select value={form.sourceId} onChange={e=>selectSource(e.target.value)} required>
+          <option value="">{kind==='sharing'?l('اختر خدمة الشيرنج','Select sharing service'):l('اختر السيرفر','Select server')}</option>
+          {sources.map(s=><option value={s.id} key={s.id}>{kind==='sharing'?(lang==='en'?s.name_en:s.name_ar):s.name}</option>)}
         </select>
 
         <label>{l('سعر الكود / الخصم عند الإصدار','Code price / deduction')} ({balanceUnit(balanceConfig,lang)})</label>
@@ -1750,41 +1801,40 @@ function ImportCodes({data,action,busy,balanceConfig}) {
           <span>{balanceUnit(balanceConfig,lang)}</span>
         </div>
         <small className="importPriceHint">{balanceConfig?.mode==='credit'
-          ? l('السعر سيُخصم كريدت من الموزع عند إصدار الكود.','This amount will be deducted as credits when the code is issued.')
-          : l('السعر سيظهر ويُخصم بنفس العملة المفعلة من لوحة الأدمن.','This price will be shown and deducted in the currency enabled by admin.')}</small>
+          ? l('القيمة ستظهر وتُخصم كريدت عند الإصدار.','The value will be shown and deducted as credits when issued.')
+          : l('القيمة ستظهر وتُخصم بنفس العملة المفعلة من لوحة الأدمن.','The value will be shown and deducted in the active admin currency.')}</small>
 
         <label className="filePick">{l('اختيار ملف TXT','Choose TXT file')}<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
-        <textarea rows="14" placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')} value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
-        <button className="primary" disabled={busy||unique.size===0||!form.serverId||form.codeCost===''}>{l('استيراد','Import')}</button>
+        <textarea rows="14" dir="ltr" placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')} value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
+        <button className="primary" disabled={busy||unique.length===0||!form.sourceId||form.codeCost===''}>
+          {busy?l('جارٍ الإضافة…','Adding…'):kind==='sharing'?l('إضافة أكواد الشيرنج','Add sharing codes'):l('إضافة أكواد IPTV','Add IPTV codes')}
+        </button>
       </form>
 
       <div className="previewBox">
         <span>{l('معاينة','Preview')}</span>
-        <strong>{num(unique.size)}</strong>
+        <strong>{num(unique.length)}</strong>
         <b>{l('كود فريد','unique codes')}</b>
         <div>
           <em>{num(lines.length)} {l('سطر','lines')}</em>
           <em>{num(lines.length-nonBlank.length)} {l('فارغ','blank')}</em>
-          <em>{num(nonBlank.length-unique.size)} {l('مكرر','duplicates')}</em>
+          <em>{num(nonBlank.length-unique.length)} {l('مكرر','duplicates')}</em>
         </div>
       </div>
     </div>
   </section>;
 }
 
-function CodeStockManager({kind,call,balanceConfig}) {
+
+function UnifiedCodeManager({call}) {
   const {lang,l}=useLanguage();
-  const isSharing=kind==='sharing';
+  const [kind,setKind]=useState('iptv');
   const [data,setData]=useState({codes:[],counts:{total:0,available:0,issued:0,disabled:0},sources:[]});
   const [filters,setFilters]=useState({sourceId:'',status:'all'});
   const [search,setSearch]=useState('');
   const [appliedSearch,setAppliedSearch]=useState('');
-  const [bulkOpen,setBulkOpen]=useState(false);
-  const [bulkForm,setBulkForm]=useState({sourceId:'',filename:isSharing?'sharing-codes.txt':'iptv-codes.txt',text:'',codeCost:''});
   const [selectedIds,setSelectedIds]=useState([]);
   const [confirmSelected,setConfirmSelected]=useState(false);
-  const [editId,setEditId]=useState('');
-  const [editValue,setEditValue]=useState('');
   const [deleteId,setDeleteId]=useState('');
   const [deleteAllOpen,setDeleteAllOpen]=useState(false);
   const [deleteScope,setDeleteScope]=useState('all');
@@ -1792,6 +1842,9 @@ function CodeStockManager({kind,call,balanceConfig}) {
   const [ready,setReady]=useState(false);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
+
+  const isSharing=kind==='sharing';
+  const allVisibleSelected=data.codes.length>0&&data.codes.every(row=>selectedIds.includes(row.id));
 
   const sourceName=(source)=>{
     if(isSharing) return lang==='en'?(source.name_en||source.name_ar):(source.name_ar||source.name_en);
@@ -1802,10 +1855,6 @@ function CodeStockManager({kind,call,balanceConfig}) {
     if(isSharing) return lang==='en'?(row.source_name_en||row.source_name_ar):(row.source_name_ar||row.source_name_en);
     return row.source_name||'—';
   };
-
-  const bulkLines=bulkForm.text.replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
-  const bulkUnique=Array.from(new Set(bulkLines));
-  const allVisibleSelected=data.codes.length>0&&data.codes.every(row=>selectedIds.includes(row.id));
 
   async function load(next=filters,q=appliedSearch){
     setReady(false);
@@ -1819,11 +1868,6 @@ function CodeStockManager({kind,call,balanceConfig}) {
         counts:out.counts||{total:0,available:0,issued:0,disabled:0},
         sources:out.sources||[]
       });
-      setBulkForm(v=>{
-        const sourceId=v.sourceId||next.sourceId||'';
-        const source=(out.sources||[]).find(s=>s.id===sourceId);
-        return {...v,sourceId,codeCost:v.codeCost!==''?v.codeCost:(source?Number(source.credit_cost||0):'')};
-      });
       setSelectedIds([]);
       setConfirmSelected(false);
     }catch{
@@ -1835,66 +1879,14 @@ function CodeStockManager({kind,call,balanceConfig}) {
 
   useEffect(()=>{load(filters,appliedSearch);},[kind,filters.sourceId,filters.status,appliedSearch]);
 
-  async function mutate(body,success){
-    setBusy(true);
-    setMessage('');
-    try{
-      const out=await call('/api/admin/code-stock',{method:'POST',body:{kind,...body}});
-      setMessage(success+(out?.deleted!==undefined?' ('+num(out.deleted)+')':''));
-      await load(filters,appliedSearch);
-      return out;
-    }catch(e){
-      const code=String(e.message||e);
-      const map={
-        CODE_EXISTS:l('الكود موجود بالفعل.','Code already exists.'),
-        CODE_NOT_FOUND:l('الكود غير موجود.','Code not found.'),
-        INVALID_CODE:l('أدخل كودًا صحيحًا.','Enter a valid code.'),
-        SERVER_PACKAGE_MISMATCH:l('السيرفر لا يحتوي على باقة نشطة.','Server has no active package.'),
-        SHARING_SERVICE_NOT_FOUND:l('نوع الشيرنج غير موجود.','Sharing service not found.')
-      };
-      setMessage(map[code]||l('لم تتم العملية: ','Request failed: ')+code);
-      return null;
-    }finally{
-      setBusy(false);
-    }
-  }
-
-  async function pickBulkFile(e){
-    const file=e.target.files?.[0];
-    if(!file)return;
-    const text=await file.text();
-    setBulkForm(v=>({...v,filename:file.name,text}));
-  }
-
-  async function importBulk(e){
-    e.preventDefault();
-    if(!bulkForm.sourceId||bulkUnique.length===0||bulkUnique.length>700) return;
-    setBusy(true);
-    setMessage('');
-    try{
-      const endpoint=isSharing?'/api/admin/sharing/import':'/api/admin/import-codes';
-      const body=isSharing
-        ? {serviceId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text,codeCost:bulkForm.codeCost}
-        : {serverId:bulkForm.sourceId,filename:bulkForm.filename,text:bulkForm.text,codeCost:bulkForm.codeCost};
-      const out=await call(endpoint,{method:'POST',body});
-      const batch=out.batch||{};
-      setMessage(
-        l('تمت إضافة الأكواد دفعة واحدة.','Codes added in bulk.')+
-        ' '+l('المضاف: ','Added: ')+num(batch.inserted_count??bulkUnique.length)+
-        ' · '+l('المكرر: ','Duplicates: ')+num(batch.duplicate_count||0)
-      );
-      setBulkForm(v=>({...v,text:''}));
-      setBulkOpen(false);
-      await load(filters,appliedSearch);
-    }catch(e){
-      const code=String(e.message||e);
-      setMessage(code.includes('IMPORT_LIMIT_700')
-        ? l('الحد الأقصى 700 كود في الدفعة الواحدة.','Maximum 700 codes per batch.')
-        : l('تعذر إضافة الأكواد: ','Unable to add codes: ')+code);
-    }finally{
-      setBusy(false);
-    }
-  }
+  useEffect(()=>{
+    setFilters({sourceId:'',status:'all'});
+    setSearch('');
+    setAppliedSearch('');
+    setDeleteAllOpen(false);
+    setConfirmText('');
+    setDeleteId('');
+  },[kind]);
 
   function toggleSelected(id){
     setConfirmSelected(false);
@@ -1903,22 +1895,30 @@ function CodeStockManager({kind,call,balanceConfig}) {
 
   function toggleAllVisible(){
     setConfirmSelected(false);
-    if(allVisibleSelected){
-      setSelectedIds([]);
-    }else{
-      setSelectedIds(data.codes.map(row=>row.id));
-    }
+    setSelectedIds(allVisibleSelected?[]:data.codes.map(row=>row.id));
+  }
+
+  async function deleteOne(id){
+    setBusy(true);
+    setMessage('');
+    try{
+      await call('/api/admin/code-stock',{method:'POST',body:{kind,operation:'delete',codeId:id}});
+      setDeleteId('');
+      setMessage(l('تم حذف الكود.','Code deleted.'));
+      await load(filters,appliedSearch);
+    }catch(e){
+      setMessage(l('تعذر حذف الكود: ','Unable to delete code: ')+String(e.message||e));
+    }finally{setBusy(false);}
   }
 
   async function deleteSelected(){
-    if(selectedIds.length===0) return;
+    if(selectedIds.length===0)return;
     setBusy(true);
     setMessage('');
     let deleted=0,failed=0;
-    const ids=[...selectedIds];
     try{
-      for(let i=0;i<ids.length;i+=8){
-        const chunk=ids.slice(i,i+8);
+      for(let i=0;i<selectedIds.length;i+=8){
+        const chunk=selectedIds.slice(i,i+8);
         const results=await Promise.all(chunk.map(async codeId=>{
           try{
             await call('/api/admin/code-stock',{method:'POST',body:{kind,operation:'delete',codeId}});
@@ -1927,37 +1927,25 @@ function CodeStockManager({kind,call,balanceConfig}) {
         }));
         results.forEach(ok=>ok?deleted++:failed++);
       }
-      setMessage(
-        l('تم حذف المحدد: ','Selected deleted: ')+num(deleted)+
-        (failed?' · '+l('تعذر حذف: ','Failed: ')+num(failed):'')
-      );
-      setSelectedIds([]);
-      setConfirmSelected(false);
+      setMessage(l('تم حذف المحدد: ','Selected deleted: ')+num(deleted)+(failed?' · '+l('تعذر حذف: ','Failed: ')+num(failed):''));
       await load(filters,appliedSearch);
-    }finally{
-      setBusy(false);
-    }
-  }
-
-  async function saveEdit(id){
-    if(!editValue.trim()) return;
-    const out=await mutate({operation:'update',codeId:id,code:editValue},l('تم تعديل الكود.','Code updated.'));
-    if(out){setEditId('');setEditValue('');}
-  }
-
-  async function deleteOne(id){
-    const out=await mutate({operation:'delete',codeId:id},l('تم حذف الكود.','Code deleted.'));
-    if(out) setDeleteId('');
+    }finally{setBusy(false);}
   }
 
   async function deleteAll(){
     const ok=confirmText.trim()==='حذف'||confirmText.trim().toUpperCase()==='DELETE';
-    if(!ok) return;
-    const out=await mutate(
-      {operation:'delete_all',sourceId:filters.sourceId||'',scope:deleteScope},
-      l('تم تنفيذ حذف الأكواد.','Code deletion completed.')
-    );
-    if(out){setDeleteAllOpen(false);setConfirmText('');}
+    if(!ok)return;
+    setBusy(true);
+    setMessage('');
+    try{
+      const out=await call('/api/admin/code-stock',{method:'POST',body:{kind,operation:'delete_all',sourceId:filters.sourceId||'',scope:deleteScope}});
+      setMessage(l('تم حذف ','Deleted ')+num(out.deleted||0)+l(' كود.',' codes.'));
+      setDeleteAllOpen(false);
+      setConfirmText('');
+      await load(filters,appliedSearch);
+    }catch(e){
+      setMessage(l('تعذر تنفيذ الحذف: ','Delete failed: ')+String(e.message||e));
+    }finally{setBusy(false);}
   }
 
   const statusLabel=(status)=>({
@@ -1966,20 +1954,15 @@ function CodeStockManager({kind,call,balanceConfig}) {
     disabled:l('متوقف','Disabled')
   }[status]||status);
 
-  return <section className="section codeStockPage">
-    <div className="codeStockHead codeStockHeadCompact">
+  return <section className="section codeStockPage unifiedDeletePage">
+    <div className="unifiedCodeHead">
       <div>
-        <span className="codeStockEyebrow">{isSharing?'SHARING':'IPTV'}</span>
-        <h2>{isSharing?l('إدارة أكواد الشيرنج','Manage sharing codes'):l('إدارة أكواد IPTV','Manage IPTV codes')}</h2>
-        <p>{l('إدارة جماعية: أضف ملف أو مجموعة أكواد، حدّد الكل أو جزء منها واحذف مباشرة من نفس المكان. الحذف متاح للإدارة فقط.','Bulk management: import a file or many codes, select all or part of the list, and delete from the same screen. Deletion is admin-only.')}</p>
+        <h2>{l('إدارة أكواد شيرنج وIPTV','Manage sharing & IPTV codes')}</h2>
+        <p>{l('هذه الصفحة للحذف فقط. اختر IPTV أو الشيرنج، ثم احذف كودًا واحدًا أو مجموعة محددة أو الكل.','This page is deletion-only. Choose IPTV or Sharing, then delete one code, selected codes, or all.')}</p>
       </div>
-      <div className="codeStockHeadActions">
-        <button type="button" className="codeBulkAddOpen" onClick={()=>setBulkOpen(v=>!v)}>
-          {bulkOpen?l('إغلاق الإضافة','Close add'):l('إضافة أكواد','Add codes')}
-        </button>
-        <button type="button" className="codeDeleteAllBtn" onClick={()=>setDeleteAllOpen(v=>!v)}>
-          {l('حذف الكل','Delete all')}
-        </button>
+      <div className="codeTypeSwitch">
+        <button type="button" className={kind==='iptv'?'active':''} onClick={()=>setKind('iptv')}>IPTV</button>
+        <button type="button" className={kind==='sharing'?'active':''} onClick={()=>setKind('sharing')}>{l('شيرنج','Sharing')}</button>
       </div>
     </div>
 
@@ -2014,58 +1997,20 @@ function CodeStockManager({kind,call,balanceConfig}) {
       </form>
     </div>
 
-    {bulkOpen&&<form className="codeBulkImporter" onSubmit={importBulk}>
-      <div className="codeBulkImporterHead">
-        <div>
-          <b>{l('إضافة جماعية','Bulk add')}</b>
-          <small>{l('الصق الأكواد أو اختر ملف TXT — كود في كل سطر.','Paste codes or choose a TXT file — one code per line.')}</small>
-        </div>
-        <strong>{num(bulkUnique.length)} / 700</strong>
+    <div className="deleteCommandRow">
+      <div>
+        <b>{kind==='iptv'?'IPTV':l('شيرنج','Sharing')}</b>
+        <span>{l('أدوات الحذف فقط','Delete tools only')}</span>
       </div>
-      <select value={bulkForm.sourceId} onChange={e=>{
-        const sourceId=e.target.value;
-        const source=data.sources.find(s=>s.id===sourceId);
-        setBulkForm(v=>({...v,sourceId,codeCost:source?Number(source.credit_cost||0):''}));
-      }} required>
-        <option value="">{isSharing?l('اختر نوع الشيرنج','Select sharing service'):l('اختر السيرفر','Select server')}</option>
-        {data.sources.map(s=><option key={s.id} value={s.id}>{sourceName(s)}</option>)}
-      </select>
-      <label className="codeBulkPrice">
-        <span>{l('سعر الكود / الخصم','Code price / deduction')}</span>
-        <div>
-          <input
-            dir="ltr"
-            type="number"
-            min="0"
-            inputMode="numeric"
-            value={bulkForm.codeCost}
-            onChange={e=>setBulkForm(v=>({...v,codeCost:e.target.value}))}
-            required
-          />
-          <b>{balanceUnit(balanceConfig,lang)}</b>
-        </div>
-        <small>{balanceConfig?.mode==='credit'
-          ? l('يظهر للموزعين كريدت','Shown to resellers as credits')
-          : l('يظهر للموزعين بالعملة المفعلة','Shown to resellers in the active currency')}</small>
-      </label>
-      <label className="codeBulkFile">
-        <span>{l('اختيار ملف TXT','Choose TXT')}</span>
-        <input type="file" accept=".txt,text/plain" onChange={pickBulkFile}/>
-        <b>{bulkForm.filename}</b>
-      </label>
-      <textarea rows="6" dir="ltr" value={bulkForm.text} onChange={e=>setBulkForm(v=>({...v,text:e.target.value}))} placeholder={l('الصق الأكواد هنا — كود في كل سطر','Paste codes here — one per line')}/>
-      <button className="codeAddBtn" disabled={busy||!bulkForm.sourceId||bulkForm.codeCost===''||bulkUnique.length===0||bulkUnique.length>700}>
-        {busy?l('جارٍ الإضافة…','Adding…'):l('إضافة المجموعة','Add batch')}
-      </button>
-      {bulkUnique.length>700&&<em>{l('قسّم الأكواد إلى دفعات، الحد 700 كود في كل مرة.','Split the codes into batches; maximum 700 per import.')}</em>}
-    </form>}
+      <button type="button" className="codeDeleteAllBtn" onClick={()=>setDeleteAllOpen(v=>!v)}>{l('حذف الكل','Delete all')}</button>
+    </div>
 
     {deleteAllOpen&&<div className="codeStockDanger">
       <div>
         <b>{l('حذف جماعي كامل','Full bulk deletion')}</b>
         <span>{filters.sourceId
           ? l('سيتم تطبيق الحذف على القسم المحدد فقط.','Deletion will apply only to the selected source.')
-          : l('لم تحدد قسمًا: الحذف سيشمل كل الأقسام.','No source selected: deletion will apply to all sources.')}</span>
+          : l('لم تحدد قسمًا: الحذف سيشمل كل الأقسام من النوع المختار.','No source selected: deletion will cover all sources of the selected type.')}</span>
       </div>
       <select value={deleteScope} onChange={e=>setDeleteScope(e.target.value)}>
         <option value="available">{l('حذف كل الأكواد المتاحة فقط','Delete all available codes only')}</option>
@@ -2112,9 +2057,7 @@ function CodeStockManager({kind,call,balanceConfig}) {
           </label>
           <div className="codeStockIdentity">
             <span>{codeSourceName(row)}</span>
-            {editId===row.id
-              ? <input dir="ltr" value={editValue} onChange={e=>setEditValue(e.target.value)} autoFocus/>
-              : <b dir="ltr">{row.code}</b>}
+            <b dir="ltr">{row.code}</b>
           </div>
           <div className="codeStockMeta">
             <span className={'codeStockStatus '+row.status}>{statusLabel(row.status)}</span>
@@ -2122,16 +2065,11 @@ function CodeStockManager({kind,call,balanceConfig}) {
             <small>{fmt(row.issued_at||row.created_at,lang)}</small>
           </div>
           <div className="codeStockActions">
-            {editId===row.id ? <>
-              <button type="button" className="save" disabled={busy||!editValue.trim()} onClick={()=>saveEdit(row.id)}>{l('حفظ','Save')}</button>
-              <button type="button" onClick={()=>{setEditId('');setEditValue('');}}>{l('إلغاء','Cancel')}</button>
-            </> : deleteId===row.id ? <>
+            {deleteId===row.id ? <>
               <button type="button" className="danger" disabled={busy} onClick={()=>deleteOne(row.id)}>{l('تأكيد','Confirm')}</button>
               <button type="button" onClick={()=>setDeleteId('')}>{l('إلغاء','Cancel')}</button>
-            </> : <>
-              <button type="button" onClick={()=>{setEditId(row.id);setEditValue(row.code);setDeleteId('');}}>{l('تعديل','Edit')}</button>
-              <button type="button" className="dangerGhost" onClick={()=>{setDeleteId(row.id);setEditId('');}}>{l('حذف','Delete')}</button>
-            </>}
+            </> :
+              <button type="button" className="dangerGhost" onClick={()=>setDeleteId(row.id)}>{l('حذف','Delete')}</button>}
           </div>
         </article>;
       })}
