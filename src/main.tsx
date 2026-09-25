@@ -463,7 +463,7 @@ function Panel({ user, csrf, onLogout }) {
       {id:'reseller-manage',label:l('إدارة الموزعين','Manage resellers'),icon:'manageUsers'}
     ]},
     {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
-    {id:'credit',label:l('طلبات الكريدت','Credit requests'),icon:'credit'},
+    {id:'credit',label:l('طلبات الرصيد','Balance requests'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
     {id:'sharing',label:l('الشيرنج','Sharing'),icon:'sharing'},
     {id:'partners',label:l('الشركاء','Administrators'),icon:'users'},
@@ -1337,14 +1337,14 @@ function ResellerOverview({data,goTo}) {
     {label:l('إجمالي الأكواد','Total codes'),value:c.issued||0,icon:'codes'},
     {label:l('أكواد السيرفر','Server codes'),value:c.main_issued||0,icon:'server'},
     {label:l('أكواد الشيرنج','Sharing codes'),value:c.sharing_issued||0,icon:'sharing'},
-    {label:l('طلبات الرصيد','Credit requests'),value:c.pending_requests||0,icon:'credit'}
+    {label:l('طلبات الرصيد','Balance requests'),value:c.pending_requests||0,icon:'credit'}
   ];
 
   const quickActions=[
-    {id:'issue',label:l('إنشاء كود','Issue code'),hint:l('سيرفرات الأكواد','Server codes'),icon:'issue'},
-    {id:'sharing',label:l('إنشاء شيرنج','Issue sharing'),hint:l('خدمات الشيرنج','Sharing services'),icon:'sharing'},
+    {id:'issue',label:l('إنشاء كود IPTV','Issue IPTV code'),hint:l('اختر السيرفر ثم أنشئ الكود','Choose server and issue'),icon:'issue'},
+    {id:'sharing',label:l('إنشاء كود شيرنج','Issue sharing code'),hint:l('اختر نوع الشيرنج ثم أنشئ','Choose sharing service'),icon:'sharing'},
     {id:'mycodes',label:l('أكوادي','My codes'),hint:l('عرض كل الأكواد','View issued codes'),icon:'codes'},
-    {id:'credit',label:l('طلب رصيد','Request credit'),hint:l('إرسال طلب للإدارة','Send request'),icon:'credit'}
+    {id:'credit',label:l('طلب رصيد','Request balance'),hint:l('إرسال طلب للإدارة','Send request'),icon:'credit'}
   ];
 
   return <>
@@ -1352,7 +1352,7 @@ function ResellerOverview({data,goTo}) {
       <div className="resellerBoardHero">
         <div className="resellerBoardIdentity">
           <div className="resellerBoardEyebrow">
-            <span>{l('لوحة الموزع','RESELLER DASHBOARD')}</span>
+            <span>{user.accountType==='agent'?l('لوحة الوكيل','AGENT DASHBOARD'):l('لوحة الموزع','RESELLER DASHBOARD')}</span>
             <i className={profile.status==='blocked'?'blocked':'active'}>{profile.status==='blocked'?l('متوقف','DISABLED'):l('نشط','ACTIVE')}</i>
           </div>
           <h2>{user.displayName||profile.displayName||user.username||''}</h2>
@@ -1758,7 +1758,7 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
 
               {admin&&<div className="resellerCreditPocket">
                 <div className="resellerCreditField">
-                  <span>{l('تعديل الرصيد','Adjust credit')}</span>
+                  <span>{l('تعديل الرصيد','Adjust balance')}</span>
                   <div className="creditMiniInput">
                     <input
                       type="number"
@@ -1768,7 +1768,7 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
                       value={amounts[r.id]??''}
                       onChange={e=>setAmounts(v=>({...v,[r.id]:e.target.value}))}
                     />
-                    <small>CREDIT</small>
+                    <small>{balanceUnit(balanceConfig,lang)}</small>
                   </div>
                 </div>
 
@@ -1957,7 +1957,7 @@ function AdminCredit({data,action,busy}) {
   return <section className="section">
     <div className="sectionHead"><div><h2>{l('طلبات الرصيد','Balance requests')}</h2></div></div>
     <Table><thead><tr><th>{l('الموزع','Reseller')}</th><th>{l('الكمية','Amount')}</th><th>{l('الملاحظة','Note')}</th><th>{l('الحالة','Status')}</th><th>{l('التاريخ','Date')}</th><th>{l('قرار','Action')}</th></tr></thead>
-    <tbody>{data.requests.map(r=><tr key={r.id}><td>{r.display_name||r.username}</td><td>{r.amount}</td><td>{r.note||'—'}</td><td><span className={'badge '+r.status}>{r.status}</span></td><td>{fmt(r.created_at,lang)}</td><td>{r.status==='pending'?<div className="inlineBtns"><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'approved'})}>{l('قبول','Approve')}</button><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'rejected'})}>{l('رفض','Reject')}</button></div>:'—'}</td></tr>)}</tbody></Table>
+    <tbody>{data.requests.map(r=><tr key={r.id}><td>{r.display_name||r.username}</td><td>{num(r.amount)} {balanceUnit(data.balanceConfig,lang)}</td><td>{r.note||'—'}</td><td><span className={'badge '+r.status}>{r.status}</span></td><td>{fmt(r.created_at,lang)}</td><td>{r.status==='pending'?<div className="inlineBtns"><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'approved'})}>{l('قبول','Approve')}</button><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'rejected'})}>{l('رفض','Reject')}</button></div>:'—'}</td></tr>)}</tbody></Table>
   </section>;
 }
 
@@ -1968,6 +1968,7 @@ function RequestCredit({data,action,busy}) {
     <section className="section">
       <div className="sectionHead"><div><h2>{l('طلب رصيد','Request balance')}</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/credit-requests',form);setForm({amount:10,note:''});}}>
+        <label>{l('المبلغ','Amount')} ({balanceUnit(data.balanceConfig,lang)})</label>
         <input type="number" min="1" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} required/>
         <textarea rows="5" placeholder={l('ملاحظة','Note')} value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/>
         <button className="primary" disabled={busy}>{l('إرسال الطلب','Send request')}</button>
@@ -2059,10 +2060,10 @@ function Logs({logs,admin}) {
   const actionMeta={
     LOGIN_SUCCESS:[l('تسجيل دخول','Login'),'session'],
     LOGOUT:[l('تسجيل خروج','Logout'),'session'],
-    CREDIT_REQUEST_CREATED:[l('طلب رصيد','Credit request'),'credit'],
-    CREDIT_REQUEST_APPROVED:[l('قبول طلب رصيد','Credit approved'),'credit'],
-    CREDIT_REQUEST_REJECTED:[l('رفض طلب رصيد','Credit rejected'),'credit'],
-    CREDIT_ADJUSTED:[l('تعديل رصيد','Credit adjusted'),'credit'],
+    CREDIT_REQUEST_CREATED:[l('طلب رصيد','Balance request'),'credit'],
+    CREDIT_REQUEST_APPROVED:[l('قبول طلب رصيد','Balance approved'),'credit'],
+    CREDIT_REQUEST_REJECTED:[l('رفض طلب رصيد','Balance rejected'),'credit'],
+    CREDIT_ADJUSTED:[l('تعديل رصيد','Balance adjusted'),'credit'],
     RESELLER_CREATED:[l('إنشاء موزع','Reseller created'),'account'],
     ADMIN_PARTNER_CREATED:[l('إنشاء شريك أدمن','Admin partner created'),'account'],
     CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
@@ -2076,7 +2077,7 @@ function Logs({logs,admin}) {
   };
   const entityNames={
     session:l('جلسة','Session'),
-    credit_request:l('طلب رصيد','Credit request'),
+    credit_request:l('طلب رصيد','Balance request'),
     user:l('حساب','Account'),
     code_batch:l('دفعة أكواد','Code batch'),
     issue_order:l('تفعيل أكواد','Code issue'),
@@ -2087,7 +2088,7 @@ function Logs({logs,admin}) {
     app:l('تطبيق','App')
   };
   const detailNames={
-    amount:l('الرصيد','Credit'),
+    amount:l('الرصيد','Balance'),
     before:l('قبل','Before'),
     after:l('بعد','After'),
     quantity:l('العدد','Quantity'),
@@ -2098,7 +2099,7 @@ function Logs({logs,admin}) {
     duplicateCount:l('المكرر','Duplicates'),
     displayName:l('الاسم','Name'),
     username:'Username',
-    initialCredits:l('رصيد البداية','Starting credit'),
+    initialCredits:l('رصيد البداية','Starting balance'),
     name:l('الاسم','Name'),
     platform:l('النوع','Type'),
     visibility:l('الظهور','Visibility'),
@@ -2127,7 +2128,7 @@ function Logs({logs,admin}) {
       <select value={kind} onChange={e=>setKind(e.target.value)}>
         <option value="all">{l('كل العمليات','All')}</option>
         <option value="codes">{l('الأكواد','Codes')}</option>
-        <option value="credit">{l('الرصيد','Credit')}</option>
+        <option value="credit">{l('الرصيد','Balance')}</option>
         <option value="account">{l('الحسابات','Accounts')}</option>
         <option value="session">{l('الدخول والخروج','Sessions')}</option>
         <option value="system">{l('النظام','System')}</option>
