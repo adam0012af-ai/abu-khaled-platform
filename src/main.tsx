@@ -85,29 +85,48 @@ function Table({ children }) {
   return <div className="tableWrap"><table>{children}</table></div>;
 }
 
+function NavIcon({name}) {
+  const common={width:20,height:20,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':'true'};
+  const paths={
+    home:<><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></>,
+    server:<><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/><path d="M8 7h.01M8 17h.01M12 7h4M12 17h4"/></>,
+    inventory:<><path d="M4 7.5 12 3l8 4.5-8 4.5-8-4.5Z"/><path d="M4 12l8 4.5 8-4.5M4 16.5 12 21l8-4.5"/></>,
+    upload:<><path d="M12 16V4"/><path d="m7.5 8.5 4.5-4.5 4.5 4.5"/><path d="M5 20h14"/></>,
+    users:<><path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-3A4.5 4.5 0 0 0 4 18.5V20"/><circle cx="10" cy="7" r="3"/><path d="M17 11a3 3 0 0 0 0-6M19 20v-1a4 4 0 0 0-2.5-3.7"/></>,
+    userPlus:<><circle cx="9" cy="7" r="3"/><path d="M3.5 20v-1.5A4.5 4.5 0 0 1 8 14h2a4.5 4.5 0 0 1 4.5 4.5V20M18 8v6M15 11h6"/></>,
+    manageUsers:<><circle cx="8" cy="8" r="3"/><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h2"/><path d="m15 14 1.5-1.5 3 3L18 17l-3-3Zm0 0-3.5 3.5V21H15l3-3"/></>,
+    codes:<><path d="M7 5h10a2 2 0 0 1 2 2v3a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5V7a2 2 0 0 1 2-2Z"/><path d="M12 8v8"/></>,
+    issue:<><path d="M6 4h9l3 3v13H6z"/><path d="M14 4v4h4M9 13h6M12 10v6"/></>,
+    credit:<><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h18M7 15h4"/></>,
+    apps:<><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
+    logs:<><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></>
+  };
+  return <svg {...common}>{paths[name]||paths.home}</svg>;
+}
+
 function Panel({ user, csrf, onLogout }) {
   const isAdmin = user.role === 'admin';
   const adminNav = [
-    {id:'overview',label:'الرئيسية',icon:'⌂'},
-    {id:'servers',label:'إضافة سيرفر',icon:'◉'},
-    {id:'inventory',label:'المخزون',icon:'▦'},
-    {id:'import',label:'رفع الأكواد',icon:'⇧'},
-    {id:'resellers',label:'الموزعون',icon:'♟',children:[
-      {id:'reseller-create',label:'إنشاء موزع'},
-      {id:'reseller-manage',label:'إدارة الموزعين'}
+    {id:'overview',label:'الرئيسية',icon:'home'},
+    {id:'servers',label:'إضافة سيرفر',icon:'server'},
+    {id:'inventory',label:'المخزون',icon:'inventory'},
+    {id:'import',label:'رفع الأكواد',icon:'upload'},
+    {id:'resellers',label:'الموزعون',icon:'users',children:[
+      {id:'reseller-create',label:'إنشاء موزع',icon:'userPlus'},
+      {id:'reseller-manage',label:'إدارة الموزعين',icon:'manageUsers'}
     ]},
-    {id:'issued',label:'الأكواد المفعلة',icon:'▣'},
-    {id:'credit',label:'طلبات الكريدت',icon:'◈'},
-    {id:'apps',label:'التطبيقات والسوفت وير',icon:'A'},
-    {id:'logs',label:'السجل الكامل',icon:'◷'}
+    {id:'issued',label:'الأكواد المفعلة',icon:'codes'},
+    {id:'credit',label:'طلبات الكريدت',icon:'credit'},
+    {id:'apps',label:'التطبيقات والسوفت وير',icon:'apps'},
+    {id:'logs',label:'السجل الكامل',icon:'logs'}
   ];
   const resellerNav = [
-    {id:'overview',label:'الرئيسية',icon:'⌂'},
-    {id:'issue',label:'إنشاء الأكواد',icon:'＋'},
-    {id:'mycodes',label:'أكوادي',icon:'▣'},
-    {id:'credit',label:'طلب كريدت',icon:'◈'},
-    {id:'apps',label:'التطبيقات والسوفت وير',icon:'A'},
-    {id:'logs',label:'السجل',icon:'◷'}
+    {id:'overview',label:'الرئيسية',icon:'home'},
+    {id:'issue',label:'إنشاء الأكواد',icon:'issue'},
+    {id:'mycodes',label:'أكوادي',icon:'codes'},
+    {id:'credit',label:'طلب كريدت',icon:'credit'},
+    {id:'apps',label:'التطبيقات والسوفت وير',icon:'apps'},
+    {id:'logs',label:'السجل',icon:'logs'}
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
 
@@ -230,33 +249,48 @@ function Panel({ user, csrf, onLogout }) {
       <aside className={'fullSidebar '+(menuOpen?'open':'')}>
         <div className="sidebarTop">
           <Logo compact/>
-          <button className="sidebarClose" onClick={()=>setMenuOpen(false)} aria-label="إغلاق">×</button>
+          <button className="sidebarClose" onClick={()=>setMenuOpen(false)} aria-label="إغلاق">
+            <span>×</span>
+          </button>
         </div>
 
-        <div className="sidebarLabel">NAVIGATION</div>
+        <div className="sidebarAccountCard">
+          <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
+          <div className="sidebarAccountCopy">
+            <span>{isAdmin?'ADMIN PANEL':'RESELLER PANEL'}</span>
+            <b>{user.displayName||user.username}</b>
+            {!isAdmin&&<small>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</small>}
+          </div>
+          <span className="sidebarOnlineDot" title="Online"/>
+        </div>
+
+        <div className="sidebarSectionTitle">القائمة</div>
 
         <nav className="sidebarNav">
           {navItems.map(item=>{
             if(item.children){
               const childActive=item.children.some(x=>x.id===tab);
-              return <div className={'sidebarPocket '+(childActive?'active':'')} key={item.id}>
+              return <div className={'sidebarPocket '+(childActive?'active':'')+' '+(resellerPocketOpen?'expanded':'')} key={item.id}>
                 <button
                   type="button"
                   className={'sidebarPocketHead '+(childActive?'active':'')}
                   onClick={()=>setResellerPocketOpen(v=>!v)}
                 >
-                  <span className="sidebarIcon">{item.icon}</span>
+                  <span className="sidebarIcon"><NavIcon name={item.icon}/></span>
                   <span className="sidebarText">{item.label}</span>
-                  <span className="sidebarPocketArrow">{resellerPocketOpen?'−':'+'}</span>
+                  <span className="sidebarChevron">{resellerPocketOpen?'⌃':'⌄'}</span>
                 </button>
-                {resellerPocketOpen&&<div className="sidebarSubnav">
+                <div className={'sidebarSubnav '+(resellerPocketOpen?'show':'')}>
                   {item.children.map(child=><button
                     type="button"
                     key={child.id}
                     className={tab===child.id?'active':''}
                     onClick={()=>goTo(child.id)}
-                  >{child.label}</button>)}
-                </div>}
+                  >
+                    <span className="sidebarSubIcon"><NavIcon name={child.icon}/></span>
+                    <span>{child.label}</span>
+                  </button>)}
+                </div>
               </div>;
             }
             return <button
@@ -265,23 +299,20 @@ function Panel({ user, csrf, onLogout }) {
               className={tab===item.id?'active':''}
               onClick={()=>goTo(item.id)}
             >
-              <span className="sidebarIcon">{item.icon}</span>
+              <span className="sidebarIcon"><NavIcon name={item.icon}/></span>
               <span className="sidebarText">{item.label}</span>
-              {item.id==='overview' && isAdmin &&
-                <span className="sidebarBadge">{num(data.dashboard?.counts?.available||0)}</span>}
+              <span className="sidebarNavArrow">›</span>
             </button>;
           })}
         </nav>
 
-        <div className="sidebarUser">
-          <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
-          <div>
-            <b>{user.displayName||user.username}</b>
-            <span>{isAdmin?'ADMIN':num(data.dashboard?.user?.credits ?? user.credits)+' CREDIT'}</span>
-          </div>
+        <div className="sidebarFooter">
+          <button className="sidebarLogout" onClick={logout}>
+            <span className="sidebarLogoutIcon">↪</span>
+            <span>تسجيل الخروج</span>
+          </button>
+          <small>ACTIVE CODE MULTI</small>
         </div>
-
-        <button className="sidebarLogout" onClick={logout}>⇥ <span>تسجيل الخروج</span></button>
       </aside>
 
       {menuOpen && <button className="sidebarBackdrop" onClick={()=>setMenuOpen(false)} aria-label="إغلاق القائمة"/>}
