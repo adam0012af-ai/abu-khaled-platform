@@ -164,6 +164,61 @@ CREATE TABLE IF NOT EXISTS tx_guards (
   ok INTEGER NOT NULL CHECK (ok = 1)
 );
 
+CREATE TABLE IF NOT EXISTS sharing_services (
+  id TEXT PRIMARY KEY,
+  name_ar TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  credit_cost INTEGER NOT NULL DEFAULT 1 CHECK (credit_cost >= 0),
+  active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0,1)),
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sharing_batches (
+  id TEXT PRIMARY KEY,
+  service_id TEXT NOT NULL REFERENCES sharing_services(id),
+  filename TEXT,
+  imported_by TEXT NOT NULL REFERENCES users(id),
+  total_lines INTEGER NOT NULL DEFAULT 0,
+  blank_count INTEGER NOT NULL DEFAULT 0,
+  inserted_count INTEGER NOT NULL DEFAULT 0,
+  duplicate_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sharing_orders (
+  id TEXT PRIMARY KEY,
+  reseller_id TEXT NOT NULL REFERENCES users(id),
+  service_id TEXT NOT NULL REFERENCES sharing_services(id),
+  customer_ref TEXT,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  unit_cost INTEGER NOT NULL CHECK (unit_cost >= 0),
+  total_cost INTEGER NOT NULL CHECK (total_cost >= 0),
+  credits_before INTEGER NOT NULL,
+  credits_after INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed','cancelled')),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sharing_codes (
+  id TEXT PRIMARY KEY,
+  service_id TEXT NOT NULL REFERENCES sharing_services(id),
+  batch_id TEXT NOT NULL REFERENCES sharing_batches(id),
+  code TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','issued','disabled')),
+  reseller_id TEXT REFERENCES users(id),
+  order_id TEXT REFERENCES sharing_orders(id),
+  customer_ref TEXT,
+  issued_at TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sharing_codes_unique ON sharing_codes(code);
+CREATE INDEX IF NOT EXISTS idx_sharing_codes_stock ON sharing_codes(service_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_sharing_codes_reseller ON sharing_codes(reseller_id, issued_at);
+CREATE INDEX IF NOT EXISTS idx_sharing_orders_reseller ON sharing_orders(reseller_id, created_at);
+
 CREATE INDEX IF NOT EXISTS idx_codes_stock ON codes(server_id, package_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_codes_reseller ON codes(reseller_id, issued_at);
 CREATE INDEX IF NOT EXISTS idx_orders_reseller ON issue_orders(reseller_id, created_at);
