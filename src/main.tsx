@@ -73,6 +73,7 @@ const ADMIN_ROUTE_TO_TAB = {
   credit:'credit',
   apps:'apps',
   sharing:'sharing',
+  partners:'partners',
   logs:'logs',
   profile:'profile'
 };
@@ -452,6 +453,7 @@ function Panel({ user, csrf, onLogout }) {
     {id:'credit',label:l('طلبات الكريدت','Credit requests'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
     {id:'sharing',label:l('الشيرنج','Sharing'),icon:'sharing'},
+    {id:'partners',label:l('الشركاء','Administrators'),icon:'users'},
     {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'},
     {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
@@ -750,6 +752,7 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
             {tab==='sharing' && <Sharing admin={isAdmin} call={call} action={action} busy={busy}/>} 
+            {tab==='partners' && isAdmin && <AdminPartners call={call} action={action} busy={busy}/>}
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>} 
             {tab==='profile' && <ProfilePage profile={data.profile||user} user={user} call={call} logout={logout}/>}
           </section>}
@@ -759,6 +762,109 @@ function Panel({ user, csrf, onLogout }) {
   );
 }
 
+
+function AdminPartners({call,action,busy}){
+  const {lang,l}=useLanguage();
+  const [partners,setPartners]=useState([]);
+  const [ready,setReady]=useState(false);
+  const [form,setForm]=useState({username:'',email:'',displayName:'',password:''});
+  const [showPassword,setShowPassword]=useState(false);
+
+  async function load(){
+    try{
+      const out=await call('/api/admin/partners');
+      setPartners(out.partners||[]);
+    }finally{
+      setReady(true);
+    }
+  }
+
+  useEffect(()=>{load();},[]);
+
+  async function submit(e){
+    e.preventDefault();
+    await action('/api/admin/partners',form);
+    setForm({username:'',email:'',displayName:'',password:''});
+    setShowPassword(false);
+    await load();
+  }
+
+  function countryName(code){
+    if(!code) return '—';
+    try{
+      return new Intl.DisplayNames([lang==='en'?'en':'ar'],{type:'region'}).of(String(code).toUpperCase())||code;
+    }catch{return code;}
+  }
+
+  return <div className="adminPartnersPage">
+    <section className="section adminPartnerCreate">
+      <div className="sectionHead">
+        <div><h2>{l('إضافة شريك أدمن','Add administrator partner')}</h2></div>
+        <span className="fullAccessBadge">{l('صلاحيات كاملة','FULL ACCESS')}</span>
+      </div>
+
+      <form className="adminPartnerForm" onSubmit={submit}>
+        <label className="acmField">
+          <span>{l('اسم المستخدم','Username')}</span>
+          <input dir="ltr" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
+        </label>
+
+        <label className="acmField">
+          <span>{l('كلمة المرور','Password')}</span>
+          <div className="acmPasswordBox">
+            <input dir="ltr" type={showPassword?'text':'password'} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
+            <button type="button" onClick={()=>setShowPassword(v=>!v)}>{showPassword?l('إخفاء','Hide'):l('إظهار','Show')}</button>
+          </div>
+        </label>
+
+        <label className="acmField">
+          <span>{l('اسم الشريك','Partner name')}</span>
+          <input value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})}/>
+        </label>
+
+        <label className="acmField">
+          <span>{l('البريد الإلكتروني','Email')}</span>
+          <input dir="ltr" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+        </label>
+
+        <button className="acmPrimaryBtn adminPartnerCreateBtn" disabled={busy}>
+          <NavIcon name="userPlus"/>
+          <span>{l('إنشاء شريك أدمن','Create admin partner')}</span>
+        </button>
+      </form>
+    </section>
+
+    <section className="section adminPartnersListSection">
+      <div className="sectionHead">
+        <div><h2>{l('الشركاء','Administrators')}</h2></div>
+        <small>{num(partners.length)}</small>
+      </div>
+
+      {!ready ? <div className="panelLoadingState"><span className="panelLoadingLine"/></div> :
+      <div className="adminPartnersList">
+        {partners.map(p=>{
+          const owner=String(p.username||'').toLowerCase()==='owner';
+          return <article className="adminPartnerCard" key={p.id}>
+            <div className="adminPartnerAvatar">{(p.display_name||p.username||'A').slice(0,1).toUpperCase()}</div>
+            <div className="adminPartnerIdentity">
+              <div>
+                <b>{p.display_name||p.username}</b>
+                <span className={owner?'ownerBadge':'partnerBadge'}>{owner?l('المالك','OWNER'):l('شريك','PARTNER')}</span>
+              </div>
+              <small>@{p.username}</small>
+            </div>
+            <div className="adminPartnerMeta">
+              <div><span>{l('الدولة','Country')}</span><b>{countryName(p.last_country)}</b></div>
+              <div><span>IP</span><b dir="ltr">{p.last_login_ip||'—'}</b></div>
+              <div><span>{l('آخر دخول','Last login')}</span><b>{p.last_login_at?fmt(p.last_login_at,lang):'—'}</b></div>
+              <div><span>{l('الحالة','Status')}</span><b>{p.status==='active'?l('نشط','Active'):l('متوقف','Disabled')}</b></div>
+            </div>
+          </article>;
+        })}
+      </div>}
+    </section>
+  </div>;
+}
 
 function Sharing({admin,call,action,busy}){
   const {lang,l}=useLanguage();
@@ -1118,52 +1224,72 @@ function AdminOverview({data}) {
 function ResellerOverview({data}) {
   const {lang,l}=useLanguage();
   const c=data.dashboard?.counts||{};
-  const balance=Number(data.dashboard?.user?.credits||0);
+  const user=data.dashboard?.user||{};
+  const balance=Number(user.credits||0);
   const recentCodes=(data.codes||[]).slice(0,4);
-  const recentRequests=(data.requests||[]).slice(0,4);
+  const recentRequests=(data.requests||[]).slice(0,3);
+
+  const stats=[
+    {label:l('إجمالي الأكواد','Total codes'),value:c.issued||0,icon:'codes'},
+    {label:l('أكواد السيرفر','Server codes'),value:c.main_issued||0,icon:'server'},
+    {label:l('أكواد الشيرنج','Sharing codes'),value:c.sharing_issued||0,icon:'sharing'},
+    {label:l('طلبات الرصيد','Credit requests'),value:c.pending_requests||0,icon:'credit'}
+  ];
 
   return <>
-    <section className="section resellerHome">
-      <div className="resellerHomeTop">
-        <div>
-          <h2>{l('الرئيسية','Dashboard')}</h2>
-          <span>{data.dashboard?.user?.displayName||data.dashboard?.user?.username||''}</span>
+    <section className="section resellerPremiumBoard">
+      <div className="resellerBoardHero">
+        <div className="resellerBoardIdentity">
+          <span>{l('لوحة الموزع','RESELLER DASHBOARD')}</span>
+          <h2>{user.displayName||user.username||''}</h2>
+          <small>@{user.username||''}</small>
         </div>
-        <div className="resellerMainBalance">
-          <span>{l('الرصيد','Balance')}</span>
+
+        <div className="resellerWalletCard">
+          <span>{l('الرصيد الحالي','Current balance')}</span>
           <strong>{num(balance)}</strong>
           <small>CREDIT</small>
         </div>
       </div>
 
-      <div className="resellerQuickStats">
-        <div><span>{l('أكوادي','My codes')}</span><strong>{num(c.issued)}</strong></div>
-        <div><span>{l('طلبات الرصيد المعلقة','Pending credit requests')}</span><strong>{num(c.pending_requests)}</strong></div>
+      <div className="resellerBoardStats">
+        {stats.map(item=><article key={item.label}>
+          <div className="resellerStatIcon"><NavIcon name={item.icon}/></div>
+          <div><span>{item.label}</span><b>{num(item.value)}</b></div>
+        </article>)}
       </div>
     </section>
 
-    <div className="twoCol dashboardDetails">
-      <section className="section">
-        <div className="sectionHead"><div><h2>{l('آخر الأكواد','Recent codes')}</h2></div></div>
-        {recentCodes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد.','No codes yet.')}</div> :
-          <div className="list">
-            {recentCodes.map(x=><div className="listRow recentCodeRow" key={x.id}>
-              <div><b>{x.server_name}</b><span>{x.customer_ref||'—'}</span></div>
-              <code>{x.code}</code>
+    <div className="resellerDashboardGrid">
+      <section className="section resellerRecentPanel">
+        <div className="sectionHead">
+          <div><h2>{l('آخر الأكواد','Recent codes')}</h2></div>
+          <small>{num(recentCodes.length)}</small>
+        </div>
+        {recentCodes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد حتى الآن.','No codes yet.')}</div> :
+          <div className="resellerRecentList">
+            {recentCodes.map(x=><article key={x.id}>
+              <div>
+                <span>{x.server_name}</span>
+                <b dir="ltr">{x.code}</b>
+              </div>
               <small>{fmt(x.issued_at,lang)}</small>
-            </div>)}
+            </article>)}
           </div>}
       </section>
 
-      <section className="section">
-        <div className="sectionHead"><div><h2>{l('طلبات الرصيد','Credit requests')}</h2></div></div>
+      <section className="section resellerRecentPanel">
+        <div className="sectionHead">
+          <div><h2>{l('طلبات الرصيد','Credit requests')}</h2></div>
+          <small>{num(recentRequests.length)}</small>
+        </div>
         {recentRequests.length===0 ? <div className="emptyState compact">{l('لا توجد طلبات.','No requests.')}</div> :
-          <div className="list">
-            {recentRequests.map(r=><div className="listRow" key={r.id}>
-              <b>{num(r.amount)} Credit</b>
+          <div className="resellerRequestList">
+            {recentRequests.map(r=><article key={r.id}>
+              <div><b>{num(r.amount)}</b><span>CREDIT</span></div>
               <span className={'badge '+r.status}>{r.status}</span>
               <small>{fmt(r.created_at,lang)}</small>
-            </div>)}
+            </article>)}
           </div>}
       </section>
     </div>
@@ -1762,6 +1888,7 @@ function Logs({logs,admin}) {
     CREDIT_REQUEST_REJECTED:[l('رفض طلب رصيد','Credit rejected'),'credit'],
     CREDIT_ADJUSTED:[l('تعديل رصيد','Credit adjusted'),'credit'],
     RESELLER_CREATED:[l('إنشاء موزع','Reseller created'),'account'],
+    ADMIN_PARTNER_CREATED:[l('إنشاء شريك أدمن','Admin partner created'),'account'],
     CODES_IMPORTED:[l('رفع أكواد','Codes imported'),'codes'],
     CODES_ISSUED:[l('تفعيل أكواد','Codes issued'),'codes'],
     SHARING_CODES_IMPORTED:[l('رفع أكواد شيرنج','Sharing codes imported'),'codes'],
