@@ -2316,10 +2316,18 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
 function Codes({codes,admin=false}) {
   const {lang,l}=useLanguage();
   const [openId,setOpenId]=useState(null);
+  const [query,setQuery]=useState('');
+  const filteredCodes=useMemo(()=>{
+    const q=query.trim().toLowerCase();
+    if(!q) return codes;
+    return codes.filter(c=>[
+      c.code,c.server_name,c.package_name,c.duration_label,c.customer_ref,c.reseller_name,c.reseller_username
+    ].some(v=>String(v||'').toLowerCase().includes(q)));
+  },[codes,query]);
 
   async function copy(v){await navigator.clipboard.writeText(v);}
   function download(){
-    const text=codes.map(x=>x.code).join('\n');
+    const text=filteredCodes.map(x=>x.code).join('\n');
     const a=document.createElement('a');
     a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));
     a.download='active-code-multi.txt';
@@ -2330,12 +2338,23 @@ function Codes({codes,admin=false}) {
   return <section className="section codesSection">
     <div className="sectionHead">
       <div><h2>{admin?l('كل الأكواد المفعلة','Issued codes'):l('أكوادي','My codes')}</h2></div>
-      {codes.length>0&&<button className="secondary" onClick={download}>{l('تنزيل TXT','Download TXT')}</button>}
+      {filteredCodes.length>0&&<button className="secondary" onClick={download}>{l('تنزيل TXT','Download TXT')}</button>}
     </div>
 
-    {codes.length===0 ? <div className="emptyState compact">{l('لا توجد أكواد.','No codes.')}</div> :
+    <div className="issuedCodesToolbar">
+      <div className="issuedCodesSearch">
+        <span aria-hidden="true">⌕</span>
+        <input value={query} onChange={e=>setQuery(e.target.value)}
+          placeholder={admin?l('بحث بالكود، السيرفر، الموزع أو العميل','Search code, server, reseller, or customer'):l('بحث بالكود، السيرفر أو العميل','Search code, server, or customer')}
+          autoComplete="off"/>
+        {query&&<button type="button" onClick={()=>setQuery('')} aria-label={l('مسح البحث','Clear search')}>×</button>}
+      </div>
+      <div className="issuedCodesCount"><b>{num(filteredCodes.length)}</b><span>{l('نتيجة','results')}</span></div>
+    </div>
+
+    {filteredCodes.length===0 ? <div className="emptyState compact">{query?l('لا توجد نتائج مطابقة.','No matching results.'):l('لا توجد أكواد.','No codes.')}</div> :
       <div className="codesAccordion">
-        {codes.map(c=>{
+        {filteredCodes.map(c=>{
           const isOpen=openId===c.id;
           const d=c.issued_at?new Date(c.issued_at):null;
           const dateText=d&&!Number.isNaN(d.getTime())?d.toLocaleDateString(lang==='en'?'en-US':'ar-EG',{year:'numeric',month:'2-digit',day:'2-digit'}):'—';
