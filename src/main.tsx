@@ -248,7 +248,7 @@ function Login({ onAuth }) {
             <h1>{l('تسجيل الدخول','Sign in')}</h1>
           </div>
 
-          <form className="acmAuthForm" onSubmit={submit} autoComplete="on">
+          <form className="acmAuthForm" onSubmit={submit} onKeyDown={e=>{if(e.key==='Enter') e.preventDefault();}} autoComplete="on">
             <label className="acmField">
               <span>{l('اسم المستخدم أو البريد الإلكتروني','Username or email')}</span>
               <input
@@ -615,7 +615,7 @@ function Panel({ user, csrf, onLogout }) {
         </div>
       </aside>
 
-      {menuOpen && <button className="sidebarBackdrop" onClick={()=>setMenuOpen(false)} aria-label="إغلاق القائمة"/>}
+      {menuOpen && <button className="sidebarBackdrop" onClick={()=>setMenuOpen(false)} aria-label={l('إغلاق القائمة','Close menu')}/>}
 
       <main className="contentArea">
         <header className="contentHeader">
@@ -1518,7 +1518,7 @@ function App() {
     document.body.dir=lang==='en'?'ltr':'rtl';
   },[lang]);
 
-  const content=loading ? <div className="bootShell" aria-label="تحميل اللوحة">
+  const content=loading ? <div className="bootShell" aria-label={lang==='en'?'Loading dashboard':'تحميل اللوحة'}>
     <header className="bootHeader">
       <div className="bootBrandText">ACTIVE CODE MULTI</div>
       <div className="bootMenuBox">☰</div>
