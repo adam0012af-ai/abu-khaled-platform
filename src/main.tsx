@@ -1733,13 +1733,7 @@ function App() {
     document.body.dir=lang==='en'?'ltr':'rtl';
   },[lang]);
 
-  const content=loading ? <div className="bootShell" aria-label={lang==='en'?'Loading dashboard':'تحميل اللوحة'}>
-    <header className="bootHeader">
-      <div className="bootBrandText">ACTIVE CODE MULTI</div>
-      <div className="bootMenuBox">☰</div>
-    </header>
-    <div className="bootProgress"><span/></div>
-  </div>
+  const content=loading ? <div className="bootGate" aria-label={lang==='en'?'Loading':'جارٍ التحميل'}/>
     : !user ? <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>
     : user.mustChangePassword ? <ForcePasswordChange csrf={csrf} onDone={()=>setUser({...user,mustChangePassword:false})}/>
     : <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
