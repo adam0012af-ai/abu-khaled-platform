@@ -119,44 +119,11 @@ a{color:inherit}
 .brand.compact strong{font-size:13px}.brand.compact em{font-size:7px}
 
 /* Boot / first paint */
-.bootShell{min-height:100dvh;background:var(--bg)}
-.bootHeader{
-  min-height:70px;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 clamp(16px,4vw,32px);
-  background:rgba(255,255,255,.88);
-  border-bottom:1px solid var(--line);
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px)
+.bootGate{
+  min-height:100dvh;
+  width:100%;
+  background:#F8FAFC;
 }
-.bootBrandText{font:800 10px "Inter",sans-serif;letter-spacing:2.6px;color:var(--muted)}
-.bootMenuBox{
-  width:42px;height:42px;display:grid;place-items:center;
-  border:1px solid var(--line);border-radius:11px;
-  background:#fff;color:var(--text-2);font-size:22px
-}
-.bootProgress,.panelLoadingState{
-  height:2px;
-  overflow:hidden;
-  background:#EAF0F6
-}
-.bootProgress span,.panelLoadingLine{
-  display:block;width:28%;height:100%;
-  border-radius:999px;
-  background:linear-gradient(90deg,#34D399,var(--emerald),#6EE7B7);
-  animation:panelLoad 1s ease-in-out infinite
-}
-.panelLoadingState{
-  width:min(1120px,calc(100% - 40px));
-  margin:14px auto 0;
-  border-radius:999px
-}
-@keyframes panelLoad{
-  0%{transform:translateX(340%)}
-  50%{transform:translateX(110%)}
-  100%{transform:translateX(-130%)}
-}
-
 /* App shell */
 .panelShell{
   min-height:100dvh;
