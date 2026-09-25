@@ -1041,14 +1041,8 @@ tr:last-child td{border-bottom:0}
   .creditActionBtns button{flex:1}
 
 
-  .resellerManagementPage{padding:13px}
-  .resellerProfileCard{min-height:0;padding:12px;border-radius:12px}
-  .resellerInfoGrid{grid-template-columns:1fr 1fr}
-  .resellerMetricGrid strong{font-size:22px}
   .managementSummary>div{padding:8px 9px}
   .managementSummary b{font-size:16px}
-  .inlineCreditControl{grid-template-columns:minmax(0,1fr) 66px}
-  .inlineCreditControl button{padding:0 8px}
 
 
   .dashboardHeader,.resellerHomeTop{align-items:stretch;flex-direction:column}
