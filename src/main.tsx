@@ -154,6 +154,37 @@ function Panel({ user, csrf, onLogout }) {
 
   useEffect(()=>{ refresh(); },[]);
   useEffect(()=>{ const id=setInterval(refresh,30000); return()=>clearInterval(id); },[]);
+  useEffect(()=>{
+    if(!menuOpen) return;
+    const y=window.scrollY;
+    const body=document.body;
+    const html=document.documentElement;
+    const oldBody={
+      position:body.style.position,
+      top:body.style.top,
+      width:body.style.width,
+      overflow:body.style.overflow
+    };
+    const oldHtmlOverflow=html.style.overflow;
+    const oldOverscroll=html.style.overscrollBehavior;
+
+    body.style.position='fixed';
+    body.style.top='-'+y+'px';
+    body.style.width='100%';
+    body.style.overflow='hidden';
+    html.style.overflow='hidden';
+    html.style.overscrollBehavior='none';
+
+    return ()=>{
+      body.style.position=oldBody.position;
+      body.style.top=oldBody.top;
+      body.style.width=oldBody.width;
+      body.style.overflow=oldBody.overflow;
+      html.style.overflow=oldHtmlOverflow;
+      html.style.overscrollBehavior=oldOverscroll;
+      window.scrollTo(0,y);
+    };
+  },[menuOpen]);
 
   async function action(path, body) {
     setBusy(true); setNotice('');
@@ -165,7 +196,7 @@ function Panel({ user, csrf, onLogout }) {
     } catch (e) {
       const map = {
         INSUFFICIENT_CREDIT:'الرصيد غير كافٍ.',
-        INSUFFICIENT_STOCK:'المخزون غير كافٍ.',
+        INSUFFICIENT_STOCK:'',
         SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
         IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع.',
@@ -173,6 +204,10 @@ function Panel({ user, csrf, onLogout }) {
         INVALID_RESELLER:'اكتب Username وPassword. لا يوجد حد أدنى.',
         ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.'
       };
+      if(e.message==='INSUFFICIENT_STOCK'){
+        setNotice('');
+        return null;
+      }
       setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
       throw e;
     } finally { setBusy(false); }
@@ -456,7 +491,7 @@ function Issue({data,action,busy}) {
   async function submit(e){
     e.preventDefault();
     const out=await action('/api/issue',{serverId:form.serverId,customerRef:form.customerRef,quantity:q});
-    setResult(out);
+    if(out) setResult(out);
   }
   async function copyAll(){await navigator.clipboard.writeText((result?.codes||[]).map(x=>x.code).join('\n'));}
   function download(){
