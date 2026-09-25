@@ -460,6 +460,10 @@ function Panel({ user, csrf, onLogout }) {
       {id:'inventory',label:l('المخزون','Inventory'),icon:'inventory'},
       {id:'import',label:l('رفع الأكواد','Import codes'),icon:'upload'}
     ]},
+    {id:'code-stock',label:l('إدارة الأكواد','Code management'),icon:'codes',children:[
+      {id:'iptv-stock',label:l('أكواد IPTV','IPTV codes'),icon:'codes'},
+      {id:'sharing-stock',label:l('أكواد الشيرنج','Sharing codes'),icon:'sharing'}
+    ]},
     {id:'resellers',label:l('الموزعون','Resellers'),icon:'users',children:[
       {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
       {id:'reseller-manage',label:l('إدارة الموزعين','Manage resellers'),icon:'manageUsers'}
@@ -491,7 +495,7 @@ function Panel({ user, csrf, onLogout }) {
   const initialTab = useMemo(()=>tabFromHash(user.role,allowedTabs),[user.role,allowedTabs]);
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
-  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','import'].includes(initialTab)}));
+  const [openPockets,setOpenPockets] = useState(()=>({creation:['issue','sharing'].includes(initialTab),resellers:['reseller-create','reseller-manage'].includes(initialTab),'servers-pocket':['servers','inventory','import'].includes(initialTab),'code-stock':['iptv-stock','sharing-stock'].includes(initialTab)}));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
   const emptyData={ dashboard:null, profile:null, balanceConfig:{mode:'currency',currency:'EGP',unit:'EGP'}, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
@@ -790,6 +794,9 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='servers' && isAdmin && <Servers action={action} busy={busy} balanceConfig={data.balanceConfig}/>}
             {tab==='inventory' && isAdmin && <Inventory data={data}/>}
             {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
+            {tab==='iptv-stock' && isAdmin && <CodeStockManager kind="iptv" call={call}/>}
+            {tab==='sharing-stock' && isAdmin && <CodeStockManager kind="sharing" call={call}/>}
+
             {tab==='reseller-create' && canManageResellers && <CreateReseller action={action} busy={busy} endpoint={isAdmin?'/api/admin/resellers':'/api/team/resellers'} balanceConfig={data.balanceConfig} agentMode={isAgent}/>}
             {tab==='reseller-manage' && canManageResellers && <ManageResellers data={data} action={action} busy={busy} admin={isAdmin} balanceConfig={data.balanceConfig}/>}
             {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
