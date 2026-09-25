@@ -147,6 +147,7 @@ function Panel({ user, csrf, onLogout }) {
   const [menuOpen,setMenuOpen] = useState(false);
   const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
   const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
+  const [dataReady,setDataReady] = useState(false);
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
 
@@ -187,6 +188,8 @@ function Panel({ user, csrf, onLogout }) {
     } catch (e) {
       if (String(e.message).includes('UNAUTHORIZED')) onLogout(true);
       else setNotice('تعذر تحديث البيانات.');
+    } finally {
+      setDataReady(true);
     }
   }
 
@@ -196,10 +199,11 @@ function Panel({ user, csrf, onLogout }) {
   useEffect(()=>{
     try{sessionStorage.setItem(panelStateKey(user.role,'tab'),tab);}catch{}
     if(['reseller-create','reseller-manage'].includes(tab)) setResellerPocketOpen(true);
+    if(!dataReady) return;
     const y=readPanelScroll(user.role,tab);
-    const raf=requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'}));
+    const raf=requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'})));
     return()=>cancelAnimationFrame(raf);
-  },[tab,user.role]);
+  },[tab,user.role,dataReady]);
 
   useEffect(()=>{
     let timer=0;
@@ -374,6 +378,10 @@ function Panel({ user, csrf, onLogout }) {
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
 
         <div className="pageContent">
+          {!dataReady ? <div className="panelPageSkeleton" aria-hidden="true">
+            <div className="panelSkeletonTitle"/>
+            <div className="panelSkeletonCards"><span/><span/><span/><span/></div>
+          </div> : <>
           {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
           {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
           {tab==='servers' && isAdmin && <Servers action={action} busy={busy}/>}
@@ -388,6 +396,7 @@ function Panel({ user, csrf, onLogout }) {
           {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
           {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
           {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+          </>}
         </div>
       </main>
     </div>
