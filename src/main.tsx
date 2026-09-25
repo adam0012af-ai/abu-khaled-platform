@@ -1,17 +1,49 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import './style.css';
 
 const fmt = (v) => v ? new Date(v).toLocaleString('ar-EG') : '—';
 const num = (v) => Number(v || 0).toLocaleString('en-US');
 
 const panelStateKey = (role, key) => `acm:${role}:${key}`;
-function readPanelTab(role, allowed){
+
+const ADMIN_ROUTE_TO_TAB = {
+  dashboard:'overview',
+  servers:'servers',
+  inventory:'inventory',
+  'codes/import':'import',
+  'dealers/new':'reseller-create',
+  dealers:'reseller-manage',
+  codes:'issued',
+  credit:'credit',
+  apps:'apps',
+  logs:'logs'
+};
+const RESELLER_ROUTE_TO_TAB = {
+  dashboard:'overview',
+  issue:'issue',
+  codes:'mycodes',
+  credit:'credit',
+  apps:'apps',
+  logs:'logs'
+};
+const ADMIN_TAB_TO_ROUTE = Object.fromEntries(Object.entries(ADMIN_ROUTE_TO_TAB).map(([route,tab])=>[tab,route]));
+const RESELLER_TAB_TO_ROUTE = Object.fromEntries(Object.entries(RESELLER_ROUTE_TO_TAB).map(([route,tab])=>[tab,route]));
+
+function cleanHashRoute(){
   try{
-    const saved=sessionStorage.getItem(panelStateKey(role,'tab'));
-    return allowed.includes(saved)?saved:'overview';
-  }catch{return 'overview';}
+    return decodeURIComponent(window.location.hash.replace(/^#\/?/,'').replace(/\/+$/,''));
+  }catch{return '';}
 }
+function tabFromHash(role,allowed){
+  const map=role==='admin'?ADMIN_ROUTE_TO_TAB:RESELLER_ROUTE_TO_TAB;
+  const tab=map[cleanHashRoute()]||'overview';
+  return allowed.includes(tab)?tab:'overview';
+}
+function hashForTab(role,tab){
+  const map=role==='admin'?ADMIN_TAB_TO_ROUTE:RESELLER_TAB_TO_ROUTE;
+  return '#/'+(map[tab]||'dashboard');
+}
+
 function readPanelScroll(role, tab){
   try{return Math.max(0,Number(sessionStorage.getItem(panelStateKey(role,'scroll:'+tab))||0));}
   catch{return 0;}
@@ -178,10 +210,12 @@ function Panel({ user, csrf, onLogout }) {
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
   const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?[item.id,...item.children.map(x=>x.id)]:[item.id]).filter(id=>id!=='resellers'),[isAdmin]);
-  const initialTab = useMemo(()=>readPanelTab(user.role,allowedTabs),[user.role]);
+  const initialTab = useMemo(()=>tabFromHash(user.role,allowedTabs),[user.role,allowedTabs]);
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
   const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
+  const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
+  const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || 'الرئيسية';
   const emptyData={ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
   const cachedData=useMemo(()=>readPanelData(user.role),[user.role]);
   const [data,setData] = useState(()=>cachedData||emptyData);
@@ -236,8 +270,23 @@ function Panel({ user, csrf, onLogout }) {
   useEffect(()=>{ const id=setInterval(refresh,30000); return()=>clearInterval(id); },[]);
 
   useEffect(()=>{
-    try{sessionStorage.setItem(panelStateKey(user.role,'tab'),tab);}catch{}
-    if(['reseller-create','reseller-manage'].includes(tab)) setResellerPocketOpen(true);
+    const syncFromHash=()=>{
+      const next=tabFromHash(user.role,allowedTabs);
+      setTab(next);
+      setMenuOpen(false);
+      if(['reseller-create','reseller-manage'].includes(next)) setResellerPocketOpen(true);
+    };
+
+    const canonical=hashForTab(user.role,tabFromHash(user.role,allowedTabs));
+    if(window.location.hash!==canonical){
+      window.history.replaceState(null,'',canonical);
+    }
+    syncFromHash();
+    window.addEventListener('hashchange',syncFromHash);
+    return()=>window.removeEventListener('hashchange',syncFromHash);
+  },[user.role,allowedTabs]);
+
+  useEffect(()=>{
     if(!dataReady) return;
     const y=readPanelScroll(user.role,tab);
     const raf=requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'})));
@@ -323,18 +372,19 @@ function Panel({ user, csrf, onLogout }) {
     try { await call('/api/logout',{method:'POST',body:{}}); } catch {}
     try{
       sessionStorage.removeItem(panelStateKey(user.role,'data'));
-      sessionStorage.removeItem(panelStateKey(user.role,'tab'));
     }catch{}
+    window.history.replaceState(null,'',window.location.pathname+window.location.search);
     onLogout();
   }
 
   function goTo(id){
     try{
       sessionStorage.setItem(panelStateKey(user.role,'scroll:'+tab),String(Math.max(0,window.scrollY||0)));
-      sessionStorage.setItem(panelStateKey(user.role,'tab'),id);
     }catch{}
+    const target=hashForTab(user.role,id);
     setTab(id);
     setMenuOpen(false);
+    if(window.location.hash!==target) window.location.hash=target;
   }
 
   return (
@@ -412,10 +462,11 @@ function Panel({ user, csrf, onLogout }) {
 
       <main className="contentArea">
         <header className="contentHeader">
-          <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
-          <div className="contentBrand">
+          <div className="contentHeaderMeta">
             <span>ACTIVE CODE MULTI</span>
+            <b>{currentLabel}</b>
           </div>
+          <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
         </header>
 
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
@@ -423,22 +474,22 @@ function Panel({ user, csrf, onLogout }) {
         <div className="pageContent">
           {!dataReady ? <div className="panelLoadingState" aria-hidden="true">
             <span className="panelLoadingLine"/>
-          </div> : <>
-          {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
-          {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
-          {tab==='servers' && isAdmin && <Servers action={action} busy={busy}/>}
-          {tab==='inventory' && isAdmin && <Inventory data={data}/>}
-          {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
-          {tab==='reseller-create' && isAdmin && <CreateReseller action={action} busy={busy}/>}
-          {tab==='reseller-manage' && isAdmin && <ManageResellers data={data} action={action} busy={busy}/>}
-          {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
-          {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
-          {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
-          {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
-          {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
-          {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
-          {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
-          </>}
+          </div> : <section className="routeView active" data-route={tab} key={tab}>
+            {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
+            {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
+            {tab==='servers' && isAdmin && <Servers action={action} busy={busy}/>}
+            {tab==='inventory' && isAdmin && <Inventory data={data}/>}
+            {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
+            {tab==='reseller-create' && isAdmin && <CreateReseller action={action} busy={busy}/>}
+            {tab==='reseller-manage' && isAdmin && <ManageResellers data={data} action={action} busy={busy}/>}
+            {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
+            {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
+            {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
+            {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
+            {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
+            {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
+            {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+          </section>}
         </div>
       </main>
     </div>
