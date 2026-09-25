@@ -5,6 +5,18 @@ import './style.css';
 const fmt = (v) => v ? new Date(v).toLocaleString('ar-EG') : '—';
 const num = (v) => Number(v || 0).toLocaleString('en-US');
 
+const panelStateKey = (role, key) => `acm:${role}:${key}`;
+function readPanelTab(role, allowed){
+  try{
+    const saved=sessionStorage.getItem(panelStateKey(role,'tab'));
+    return allowed.includes(saved)?saved:'overview';
+  }catch{return 'overview';}
+}
+function readPanelScroll(role, tab){
+  try{return Math.max(0,Number(sessionStorage.getItem(panelStateKey(role,'scroll:'+tab))||0));}
+  catch{return 0;}
+}
+
 function Logo({ compact = false }) {
   return (
     <div className={'brand '+(compact?'compact':'')}>
@@ -129,10 +141,11 @@ function Panel({ user, csrf, onLogout }) {
     {id:'logs',label:'السجل',icon:'logs'}
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
-
-  const [tab,setTab] = useState('overview');
+  const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?[item.id,...item.children.map(x=>x.id)]:[item.id]).filter(id=>id!=='resellers'),[isAdmin]);
+  const initialTab = useMemo(()=>readPanelTab(user.role,allowedTabs),[user.role]);
+  const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
-  const [resellerPocketOpen,setResellerPocketOpen] = useState(false);
+  const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
   const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
@@ -179,6 +192,35 @@ function Panel({ user, csrf, onLogout }) {
 
   useEffect(()=>{ refresh(); },[]);
   useEffect(()=>{ const id=setInterval(refresh,30000); return()=>clearInterval(id); },[]);
+
+  useEffect(()=>{
+    try{sessionStorage.setItem(panelStateKey(user.role,'tab'),tab);}catch{}
+    if(['reseller-create','reseller-manage'].includes(tab)) setResellerPocketOpen(true);
+    const y=readPanelScroll(user.role,tab);
+    const raf=requestAnimationFrame(()=>window.scrollTo({top:y,left:0,behavior:'auto'}));
+    return()=>cancelAnimationFrame(raf);
+  },[tab,user.role]);
+
+  useEffect(()=>{
+    let timer=0;
+    const save=()=>{
+      clearTimeout(timer);
+      timer=window.setTimeout(()=>{
+        try{sessionStorage.setItem(panelStateKey(user.role,'scroll:'+tab),String(Math.max(0,window.scrollY||0)));}catch{}
+      },80);
+    };
+    window.addEventListener('scroll',save,{passive:true});
+    const onPageHide=()=>{
+      try{sessionStorage.setItem(panelStateKey(user.role,'scroll:'+tab),String(Math.max(0,window.scrollY||0)));}catch{}
+    };
+    window.addEventListener('pagehide',onPageHide);
+    return()=>{
+      clearTimeout(timer);
+      window.removeEventListener('scroll',save);
+      window.removeEventListener('pagehide',onPageHide);
+      onPageHide();
+    };
+  },[tab,user.role]);
   useEffect(()=>{
     if(!menuOpen) return;
     const y=window.scrollY;
@@ -240,6 +282,10 @@ function Panel({ user, csrf, onLogout }) {
   }
 
   function goTo(id){
+    try{
+      sessionStorage.setItem(panelStateKey(user.role,'scroll:'+tab),String(Math.max(0,window.scrollY||0)));
+      sessionStorage.setItem(panelStateKey(user.role,'tab'),id);
+    }catch{}
     setTab(id);
     setMenuOpen(false);
   }
@@ -1213,9 +1259,17 @@ function App() {
   }
 
   useEffect(()=>{boot();},[]);
-  if (loading) return <div className="splash"><Logo/><span>SECURE STARTUP</span></div>;
+  if (loading) return <div className="bootShell" aria-label="تحميل اللوحة">
+    <header className="bootHeader"><div className="bootBrandLine"/><div className="bootMenuBox">☰</div></header>
+    <main className="bootContent">
+      <div className="bootTitleLine"/>
+      <div className="bootCardGrid">
+        <div/><div/><div/><div/>
+      </div>
+    </main>
+  </div>;
   if (!user) return <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>;
   if (user.mustChangePassword) return <ForcePasswordChange csrf={csrf} onDone={()=>setUser({...user,mustChangePassword:false})}/>;
   return <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
 }
-createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
+createRoot(document.getElementById('root')).render(<App/>);
