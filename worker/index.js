@@ -1062,7 +1062,7 @@ async function api(request,env){
   }
 
   if(path==='/api/admin/resellers' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,p.username parent_username,p.display_name parent_name,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u LEFT JOIN users p ON p.id=u.parent_user_id WHERE u.role='reseller' ORDER BY CASE u.account_type WHEN 'agent' THEN 0 ELSE 1 END,u.created_at DESC LIMIT 500").all()).results||[];
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.role,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,p.username parent_username,p.display_name parent_name,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u LEFT JOIN users p ON p.id=u.parent_user_id WHERE COALESCE(u.account_type,'reseller')<>'owner' AND LOWER(u.username)<>'owner' ORDER BY CASE COALESCE(u.account_type,'reseller') WHEN 'admin' THEN 0 WHEN 'agent' THEN 1 ELSE 2 END,u.created_at DESC LIMIT 500").all()).results||[];
     return json({resellers:rows});
   }
 
@@ -1070,16 +1070,62 @@ async function api(request,env){
     const body=await bodyJson(request);
     const username=clean(body.username,80), email=clean(body.email,120).toLowerCase(), password=String(body.password||'');
     const displayName=clean(body.displayName,80)||username;
+    const accountType=['admin','agent','reseller'].includes(body.accountType)?body.accountType:'reseller';
     const credits=Math.max(0,Math.trunc(Number(body.credits||0)));
     if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||password.length>256||!Number.isSafeInteger(credits)) return json({error:'INVALID_RESELLER'},400);
     const salt=randomToken(18), id=uid('usr'), at=now();
+    const dbRole=accountType==='admin'?'admin':'reseller';
+    const parentId=accountType==='admin'?null:user.id;
+    const startingBalance=accountType==='admin'?0:credits;
     try{
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,account_type,parent_user_id,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'reseller','reseller',?,?,?,'active',?,?)").bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,user.id,displayName,credits,at,at),
-        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'RESELLER_CREATED','user',id,JSON.stringify({username,email:email||null,displayName,initialCredits:credits}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
+        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,account_type,parent_user_id,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,'active',?,?)").bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,dbRole,accountType,parentId,displayName,startingBalance,at,at),
+        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'ACCOUNT_CREATED','user',id,JSON.stringify({username,email:email||null,displayName,accountType,initialBalance:startingBalance}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
       ]);
-      return json({ok:true,id},201);
+      return json({ok:true,id,accountType},201);
     }catch{return json({error:'ACCOUNT_EXISTS'},409);}
+  }
+
+  if(path==='/api/admin/user-edit' && method==='POST'){
+    const body=await bodyJson(request);
+    const userId=clean(body.userId,80);
+    const username=clean(body.username,80);
+    const email=clean(body.email,120).toLowerCase();
+    const displayName=clean(body.displayName,80)||username;
+    const accountTypeValue=['admin','agent','reseller'].includes(body.accountType)?body.accountType:'';
+    const status=['active','blocked'].includes(body.status)?body.status:'';
+    const newPassword=String(body.password||'');
+    if(!userId||!validUsername(username)||!accountTypeValue||!status||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||newPassword.length>256) return json({error:'INVALID_USER_EDIT'},400);
+
+    const target=await env.DB.prepare("SELECT * FROM users WHERE id=? LIMIT 1").bind(userId).first();
+    if(!target) return json({error:'USER_NOT_FOUND'},404);
+    if(String(target.username||'').toLowerCase()==='owner'||accountType(target)==='owner') return json({error:'OWNER_EDIT_LOCKED'},409);
+
+    const dbRole=accountTypeValue==='admin'?'admin':'reseller';
+    const parentId=accountTypeValue==='admin'?null:(target.parent_user_id||user.id);
+    const at=now();
+    const details={before:{username:target.username,email:target.email||'',displayName:target.display_name||'',accountType:accountType(target),status:target.status},after:{username,email,displayName,accountType:accountTypeValue,status},passwordChanged:Boolean(newPassword)};
+
+    try{
+      if(newPassword){
+        const salt=randomToken(18);
+        await env.DB.batch([
+          env.DB.prepare("UPDATE users SET username=?,email=?,display_name=?,role=?,account_type=?,parent_user_id=?,status=?,password_hash=?,password_salt=?,password_iterations=?,must_change_password=0,updated_at=? WHERE id=?")
+            .bind(username,email||null,displayName,dbRole,accountTypeValue,parentId,status,await hashPassword(newPassword,salt),salt,PASSWORD_ITERATIONS,at,userId),
+          env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(userId)
+        ]);
+      }else{
+        await env.DB.batch([
+          env.DB.prepare("UPDATE users SET username=?,email=?,display_name=?,role=?,account_type=?,parent_user_id=?,status=?,updated_at=? WHERE id=?")
+            .bind(username,email||null,displayName,dbRole,accountTypeValue,parentId,status,at,userId),
+          env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(userId)
+        ]);
+      }
+      await audit(env,request,user,'USER_EDITED','user',userId,details);
+      return json({ok:true,userId,accountType:accountTypeValue});
+    }catch{
+      return json({error:'ACCOUNT_EXISTS'},409);
+    }
   }
 
   if(path==='/api/admin/user-role' && method==='POST'){
