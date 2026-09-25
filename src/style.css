@@ -1627,19 +1627,111 @@ tr:last-child td{border-bottom:0}
   font-size:8px;
   font-weight:800
 }
-.turnstileSlot{
+.turnstileManualBlock{
   width:100%;
-  min-height:65px;
+  display:grid;
+  justify-items:center;
+  gap:7px
+}
+.turnstileStartBtn{
+  width:min(300px,100%);
+  min-height:42px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:8px 12px;
+  border:1px solid #D9E1EA;
+  border-radius:10px;
+  background:#F8FAFC;
+  color:#334155;
+  font-size:9px;
+  font-weight:800;
+  box-shadow:none
+}
+.turnstileStartBtn:hover{
+  background:#F1F5F9;
+  border-color:#CBD5E1
+}
+.turnstileStartBtn:disabled{
+  opacity:.68;
+  cursor:default
+}
+.turnstileShield{
+  width:20px;
+  height:20px;
+  display:grid;
+  place-items:center;
+  border-radius:6px;
+  background:#0F172A;
+  color:#fff;
+  font:800 10px/1 "Inter",sans-serif
+}
+.turnstileSlot{
+  width:min(300px,100%);
+  height:0;
+  min-height:0;
   display:flex;
   align-items:center;
   justify-content:center;
   overflow:hidden;
-  padding:4px;
-  border:1px solid #E2E8F0;
-  border-radius:10px;
-  background:#FAFBFC
+  opacity:0;
+  pointer-events:none;
+  transition:height .16s ease,min-height .16s ease,opacity .16s ease
 }
-.turnstileSlot>div,.turnstileSlot iframe{max-width:100%!important}
+.turnstileSlot.active{
+  height:auto;
+  min-height:65px;
+  opacity:1;
+  pointer-events:auto
+}
+.turnstileSlot.verified{
+  height:0;
+  min-height:0;
+  opacity:0;
+  pointer-events:none
+}
+.turnstileSlot>div,.turnstileSlot iframe{
+  max-width:300px!important;
+  width:300px!important
+}
+.turnstileVerified{
+  width:min(300px,100%);
+  min-height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:7px 10px;
+  border:1px solid #BBF7D0;
+  border-radius:10px;
+  background:#F0FDF4;
+  color:#047857
+}
+.turnstileVerified span{
+  width:20px;
+  height:20px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:#10B981;
+  color:#fff;
+  font:800 11px/1 "Inter",sans-serif
+}
+.turnstileVerified b{
+  font-size:9px;
+  font-weight:800
+}
+.turnstileInlineError{
+  width:min(300px,100%);
+  padding:6px 8px;
+  border:1px solid #FECACA;
+  border-radius:8px;
+  background:#FFF7F7;
+  color:#B42318;
+  font-size:8px;
+  text-align:center
+}
 .acmAuthError{
   padding:8px 9px;
   border:1px solid #FECACA;
@@ -2239,3 +2331,11 @@ html[dir="ltr"] .contentHeaderMeta{direction:ltr;text-align:right}
 
 html[dir="ltr"] .languagePopover{left:0;right:auto}
 html[dir="rtl"] .languagePopover{left:0;right:auto}
+
+@media(max-width:360px){
+  .turnstileSlot.active{
+    transform:scale(.92);
+    transform-origin:center top;
+    margin-bottom:-5px
+  }
+}
