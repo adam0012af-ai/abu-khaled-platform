@@ -34,7 +34,8 @@ const ADMIN_ROUTE_TO_TAB = {
   codes:'issued',
   credit:'credit',
   apps:'apps',
-  logs:'logs'
+  logs:'logs',
+  profile:'profile'
 };
 const RESELLER_ROUTE_TO_TAB = {
   dashboard:'overview',
@@ -42,7 +43,8 @@ const RESELLER_ROUTE_TO_TAB = {
   codes:'mycodes',
   credit:'credit',
   apps:'apps',
-  logs:'logs'
+  logs:'logs',
+  profile:'profile'
 };
 const ADMIN_TAB_TO_ROUTE = Object.fromEntries(Object.entries(ADMIN_ROUTE_TO_TAB).map(([route,tab])=>[tab,route]));
 const RESELLER_TAB_TO_ROUTE = Object.fromEntries(Object.entries(RESELLER_ROUTE_TO_TAB).map(([route,tab])=>[tab,route]));
@@ -335,7 +337,8 @@ function NavIcon({name}) {
     issue:<><path d="M6 4h9l3 3v13H6z"/><path d="M14 4v4h4M9 13h6M12 10v6"/></>,
     credit:<><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 9h18M7 15h4"/></>,
     apps:<><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></>,
-    logs:<><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></>
+    logs:<><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></>,
+    profile:<><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></>
   };
   return <svg {...common}>{paths[name]||paths.home}</svg>;
 }
@@ -355,7 +358,8 @@ function Panel({ user, csrf, onLogout }) {
     {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
     {id:'credit',label:l('طلبات الكريدت','Credit requests'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
-    {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'}
+    {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'},
+    {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
   const resellerNav = [
     {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
@@ -363,7 +367,8 @@ function Panel({ user, csrf, onLogout }) {
     {id:'mycodes',label:l('أكوادي','My codes'),icon:'codes'},
     {id:'credit',label:l('طلب كريدت','Request credit'),icon:'credit'},
     {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
-    {id:'logs',label:l('السجل','Activity'),icon:'logs'}
+    {id:'logs',label:l('السجل','Activity'),icon:'logs'},
+    {id:'profile',label:l('البروفايل','Profile'),icon:'profile'}
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
   const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?[item.id,...item.children.map(x=>x.id)]:[item.id]).filter(id=>id!=='resellers'),[isAdmin]);
@@ -373,7 +378,7 @@ function Panel({ user, csrf, onLogout }) {
   const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
   const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
-  const emptyData={ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
+  const emptyData={ dashboard:null, profile:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
   const cachedData=useMemo(()=>readPanelData(user.role),[user.role]);
   const [data,setData] = useState(()=>cachedData||emptyData);
   const [dataReady,setDataReady] = useState(()=>Boolean(cachedData));
@@ -393,12 +398,13 @@ function Panel({ user, csrf, onLogout }) {
 
   async function refresh() {
     try {
-      const [dash, servers, apps, logs, requests] = await Promise.all([
-        call('/api/dashboard'), call('/api/servers'), call('/api/apps'), call('/api/logs'), call('/api/credit-requests')
+      const [dash, profile, servers, apps, logs, requests] = await Promise.all([
+        call('/api/dashboard'), call('/api/profile'), call('/api/servers'), call('/api/apps'), call('/api/logs'), call('/api/credit-requests')
       ]);
       const next = {
         ...data,
         dashboard:dash,
+        profile:profile.profile||null,
         servers:servers.servers||[],
         packages:servers.packages||[],
         apps:apps.apps||[],
@@ -607,10 +613,6 @@ function Panel({ user, csrf, onLogout }) {
         </nav>
 
         <div className="sidebarFooter">
-          <button className="sidebarLogout" onClick={logout}>
-            <span className="sidebarLogoutIcon">↪</span>
-            <span>{l('تسجيل الخروج','Sign out')}</span>
-          </button>
           <small>Developed by TTV4K</small>
         </div>
       </aside>
@@ -625,6 +627,9 @@ function Panel({ user, csrf, onLogout }) {
           </div>
           <div className="contentHeaderActions">
             <LanguageSwitcher compact/>
+            <button className={'headerProfileBtn '+(tab==='profile'?'active':'')} onClick={()=>goTo('profile')} aria-label={l('البروفايل','Profile')}>
+              <span>{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</span>
+            </button>
             <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label={l('فتح القائمة','Open menu')}>☰</button>
           </div>
         </header>
@@ -649,11 +654,126 @@ function Panel({ user, csrf, onLogout }) {
             {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
             {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
             {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+            {tab==='profile' && <ProfilePage profile={data.profile||user} user={user} call={call} logout={logout}/>}
           </section>}
         </div>
       </main>
     </div>
   );
+}
+
+
+function ProfilePage({profile,user,call,logout}) {
+  const {lang,l}=useLanguage();
+  const [form,setForm]=useState({currentPassword:'',newPassword:'',confirmPassword:''});
+  const [show,setShow]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+  const p=profile||user||{};
+  const country=p.lastCountry||p.last_country||'—';
+  const lastLogin=p.lastLoginAt||p.last_login_at||null;
+  const initial=(p.displayName||p.display_name||p.username||'U').slice(0,1).toUpperCase();
+
+  async function changePassword(e){
+    e.preventDefault();
+    setMessage('');
+    if(!form.currentPassword||!form.newPassword){
+      setMessage(l('أدخل كلمة المرور الحالية والجديدة.','Enter current and new password.'));
+      return;
+    }
+    if(form.newPassword!==form.confirmPassword){
+      setMessage(l('تأكيد كلمة المرور غير مطابق.','Password confirmation does not match.'));
+      return;
+    }
+    setBusy(true);
+    try{
+      await call('/api/change-password',{method:'POST',body:{
+        currentPassword:form.currentPassword,
+        newPassword:form.newPassword
+      }});
+      setForm({currentPassword:'',newPassword:'',confirmPassword:''});
+      setMessage(l('تم تغيير كلمة المرور.','Password changed.'));
+    }catch(e){
+      const code=String(e.message||e);
+      setMessage(
+        code.includes('CURRENT_PASSWORD_WRONG')
+          ? l('كلمة المرور الحالية غير صحيحة.','Current password is incorrect.')
+          : l('تعذر تغيير كلمة المرور.','Unable to change password.')
+      );
+    }finally{
+      setBusy(false);
+    }
+  }
+
+  return <section className="profilePage">
+    <div className="profileHero">
+      <div className="profileAvatarLarge">{initial}</div>
+      <div className="profileIdentity">
+        <h2>{p.displayName||p.display_name||p.username}</h2>
+        <span className="mono">@{p.username}</span>
+        <div className="profileBadges">
+          <span>{user.role==='admin'?l('إدارة','Admin'):l('موزع','Reseller')}</span>
+          <span className="online">{l('نشط','Active')}</span>
+        </div>
+      </div>
+      {user.role==='reseller'&&<div className="profileBalance">
+        <span>{l('الرصيد','Balance')}</span>
+        <strong>{num(p.credits)}</strong>
+        <small>CREDIT</small>
+      </div>}
+    </div>
+
+    <div className="profileGrid">
+      <section className="profileCard">
+        <div className="profileCardHead">
+          <h3>{l('بيانات الحساب','Account')}</h3>
+        </div>
+        <div className="profileInfoGrid">
+          <div><span>{l('اسم المستخدم','Username')}</span><b className="mono">{p.username||'—'}</b></div>
+          <div><span>{l('البريد الإلكتروني','Email')}</span><b>{p.email||'—'}</b></div>
+          <div><span>{l('الدولة','Country')}</span><b>{country}</b></div>
+          <div><span>{l('آخر IP','Last IP')}</span><b className="mono">{p.lastLoginIp||p.last_login_ip||'—'}</b></div>
+          <div><span>{l('آخر دخول','Last login')}</span><b>{lastLogin?fmt(lastLogin,lang):'—'}</b></div>
+          <div><span>{l('الحالة','Status')}</span><b>{l('نشط','Active')}</b></div>
+        </div>
+      </section>
+
+      <section className="profileCard">
+        <div className="profileCardHead">
+          <h3>{l('تغيير كلمة المرور','Change password')}</h3>
+        </div>
+        <form className="profilePasswordForm" onSubmit={changePassword}>
+          <label>
+            <span>{l('كلمة المرور الحالية','Current password')}</span>
+            <input type={show?'text':'password'} value={form.currentPassword} onChange={e=>setForm({...form,currentPassword:e.target.value})} autoComplete="current-password"/>
+          </label>
+          <label>
+            <span>{l('كلمة المرور الجديدة','New password')}</span>
+            <input type={show?'text':'password'} value={form.newPassword} onChange={e=>setForm({...form,newPassword:e.target.value})} autoComplete="new-password"/>
+          </label>
+          <label>
+            <span>{l('تأكيد كلمة المرور','Confirm password')}</span>
+            <input type={show?'text':'password'} value={form.confirmPassword} onChange={e=>setForm({...form,confirmPassword:e.target.value})} autoComplete="new-password"/>
+          </label>
+          <div className="profilePasswordActions">
+            <button type="button" className="profileShowBtn" onClick={()=>setShow(v=>!v)}>{show?l('إخفاء','Hide'):l('إظهار','Show')}</button>
+            <button className="primary" disabled={busy}>{busy?l('جارٍ الحفظ…','Saving…'):l('حفظ','Save')}</button>
+          </div>
+          {message&&<div className="profileMessage">{message}</div>}
+        </form>
+      </section>
+    </div>
+
+    <section className="profileDangerCard">
+      <div>
+        <h3>{l('الجلسة الحالية','Current session')}</h3>
+      </div>
+      <button type="button" className="profileLogoutBtn" onClick={logout}>
+        <span>↪</span>
+        {l('تسجيل الخروج','Sign out')}
+      </button>
+    </section>
+  </section>;
 }
 
 function AdminOverview({data}) {
