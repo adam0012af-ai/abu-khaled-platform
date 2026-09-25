@@ -1631,11 +1631,13 @@ tr:last-child td{border-bottom:0}
   position:relative
 }
 .loginPassword input{
-  padding-inline-end:50px
+  padding-right:13px;
+  padding-left:52px
 }
 .passwordToggle{
   position:absolute;
-  inset-inline-end:6px;
+  left:6px;
+  right:auto;
   top:50%;
   transform:translateY(-50%);
   width:34px;
@@ -1666,19 +1668,23 @@ tr:last-child td{border-bottom:0}
 .loginVerify{
   width:100%;
   display:grid;
+  justify-items:center;
   gap:7px
 }
 .turnstileHost.native{
-  width:100%;
+  width:300px;
+  max-width:100%;
   min-height:65px;
-  display:block;
+  display:grid;
+  place-items:center;
   overflow:hidden;
-  border-radius:11px
+  border-radius:11px;
+  direction:ltr
 }
 .turnstileHost.native>div,
 .turnstileHost.native iframe{
-  width:100%!important;
-  max-width:100%!important
+  width:300px!important;
+  max-width:300px!important
 }
 .verifyError,
 .loginError{
@@ -1746,6 +1752,15 @@ tr:last-child td{border-bottom:0}
 
 html[dir="ltr"] .loginField>span{
   text-align:left
+}
+
+html[dir="ltr"] .loginPassword input{
+  padding-left:13px;
+  padding-right:52px
+}
+html[dir="ltr"] .passwordToggle{
+  left:auto;
+  right:6px
 }
 
 @media(max-width:420px){
@@ -1817,6 +1832,12 @@ html[dir="ltr"] .loginField>span{
 }
 
 @media(max-width:340px){
+  .turnstileHost.native{
+    transform:scale(.90);
+    transform-origin:center top;
+    margin-bottom:-6px
+  }
+
   .loginPanel{
     width:calc(100vw - 16px)
   }
