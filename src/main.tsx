@@ -1816,7 +1816,8 @@ function CodeStockManager({kind,call}) {
   async function pickBulkFile(e){
     const file=e.target.files?.[0];
     if(!file)return;
-    setBulkForm(v=>({...v,filename:file.name,text:await file.text()}));
+    const text=await file.text();
+    setBulkForm(v=>({...v,filename:file.name,text}));
   }
 
   async function importBulk(e){
