@@ -1111,8 +1111,8 @@ function SharingAdminManager({call,action,busy,balanceConfig}){
       </div>}
     </section>
 
-    <Sharing admin call={call} action={action} busy={busy} balanceConfig={balanceConfig}/>
     <CodeStockManager kind="sharing" call={call}/>
+    <Sharing admin call={call} action={action} busy={busy} balanceConfig={balanceConfig}/>
   </div>;
 }
 
