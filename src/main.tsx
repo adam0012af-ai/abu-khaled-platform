@@ -88,13 +88,13 @@ function Table({ children }) {
 function Panel({ user, csrf, onLogout }) {
   const isAdmin = user.role === 'admin';
   const adminTabs = [
-    ['overview','الرئيسية'],['servers','السيرفرات والباقات'],['import','رفع الأكواد'],
-    ['resellers','الموزعون'],['issued','الأكواد المفعلة'],['credit','طلبات الكريدت'],
-    ['apps','التطبيقات والسوفت وير'],['logs','السجل الكامل']
+    ['overview','الرئيسية','⌂'],['servers','السيرفرات والباقات','◉'],['import','رفع الأكواد','⇧'],
+    ['resellers','الموزعون','♟'],['issued','الأكواد المفعلة','▣'],['credit','طلبات الكريدت','◈'],
+    ['apps','التطبيقات والسوفت وير','A'],['logs','السجل الكامل','◷']
   ];
   const resellerTabs = [
-    ['issue','إنشاء الأكواد'],['mycodes','أكوادي'],['credit','طلب كريدت'],
-    ['apps','التطبيقات والسوفت وير'],['logs','السجل']
+    ['issue','إنشاء الأكواد','＋'],['mycodes','أكوادي','▣'],['credit','طلب كريدت','◈'],
+    ['apps','التطبيقات والسوفت وير','A'],['logs','السجل','◷']
   ];
   const tabs = isAdmin ? adminTabs : resellerTabs;
   const [tab,setTab] = useState(tabs[0][0]);
@@ -169,40 +169,40 @@ function Panel({ user, csrf, onLogout }) {
   return (
     <div className="appShell">
       <aside className={menuOpen?'mobileOpen':''}>
-        <div className="sideHeader">
+        <div className="drawerBrand">
           <Logo compact/>
-          <div className="sideActions">
-            <button className="menuToggle" onClick={()=>setMenuOpen(v=>!v)} aria-expanded={menuOpen}>
-              <span className="menuGlyph">☰</span>
-              <span>{menuOpen?'إغلاق':'القائمة'}</span>
-            </button>
-            <button className="logout" onClick={logout}>تسجيل الخروج</button>
-          </div>
+          <button className="drawerClose" onClick={()=>setMenuOpen(false)} aria-label="إغلاق القائمة">×</button>
         </div>
-        <div className="userMini">
-          <div><span>{user.displayName}</span><b>{isAdmin?'ADMIN CONTROL':'RESELLER'}</b></div>
-          {isAdmin ? <strong className="adminState"><i/> متصل</strong> : <em>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</em>}
-        </div>
-        <div className={'menuPocket '+(menuOpen?'open':'')}>
-          <div className="menuPocketHead">
-            <div><span>CONTROL MENU</span><b>القائمة الرئيسية</b></div>
-            <small>{tabs.length} أقسام</small>
-          </div>
-          <nav>{tabs.map(([id,label],index)=><button key={id} onClick={()=>{setTab(id);setMenuOpen(false);}} className={tab===id?'active':''}>
-            <span className="navIndex">{String(index+1).padStart(2,'0')}</span>
+
+        <div className="drawerSectionLabel">NAVIGATION</div>
+
+        <nav className="drawerNav">
+          {tabs.map(([id,label,icon])=><button key={id} onClick={()=>{setTab(id);setMenuOpen(false);}} className={tab===id?'active':''}>
+            <span className="navIcon">{icon}</span>
             <span className="navLabel">{label}</span>
-          </button>)}</nav>
+            {id==='overview' && isAdmin && <span className="navBadge">{num(data.dashboard?.counts?.available||0)}</span>}
+            {['servers','logs','apps'].includes(id) && <span className="navChevron">‹</span>}
+          </button>)}
+        </nav>
+
+        <div className="drawerAccount">
+          <div className="drawerAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
+          <div><b>{user.displayName||user.username}</b><span>{isAdmin?'ADMIN':'RESELLER'}</span></div>
         </div>
+
+        <button className="drawerLogout" onClick={logout}><span>⇥</span> تسجيل الخروج</button>
       </aside>
       {menuOpen && <button className="menuBackdrop" aria-label="إغلاق القائمة" onClick={()=>setMenuOpen(false)}/>}
       <main className="panelMain">
         <header className="panelHeader">
-          <div className="panelTitle">
-            <button className="mobileMenuOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
-            <div><span>ACTIVE CODE MULTI</span><h1>{tabs.find(x=>x[0]===tab)?.[1]}</h1></div>
-          </div>
-          <div className="live"><i/> LIVE SYNC</div>
+          <button className="mobileMenuOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
+          <div className="headerGridIcon">⌘</div>
+          <Logo compact/>
         </header>
+        <div className="pageTitleBar">
+          <span>ACTIVE CODE MULTI</span>
+          <h1>{tabs.find(x=>x[0]===tab)?.[1]}</h1>
+        </div>
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
         {tab==='overview' && isAdmin && <AdminOverview data={data} onNavigate={setTab}/>}
         {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>}
@@ -222,107 +222,47 @@ function Panel({ user, csrf, onLogout }) {
 
 function AdminOverview({data,onNavigate}) {
   const c=data.dashboard?.counts||{};
-  const total=Number(c.total_codes||0);
-  const available=Number(c.available||0);
-  const issued=Number(c.issued||0);
-  const availability=total>0?Math.round((available/total)*100):0;
+  const cards=[
+    {key:'available',label:'الأكواد المتاحة',value:c.available,sub:'Available Codes',tone:'green',icon:'✓',tab:'servers'},
+    {key:'total',label:'إجمالي الأكواد',value:c.total_codes,sub:'Total Inventory',tone:'blue',icon:'▣',tab:'import'},
+    {key:'issued',label:'الأكواد المفعلة',value:c.issued,sub:'Activated Codes',tone:'violet',icon:'⚡',tab:'issued'},
+    {key:'resellers',label:'الموزعون',value:c.resellers,sub:'Reseller Accounts',tone:'orange',icon:'♟',tab:'resellers'},
+    {key:'credits',label:'رصيد الموزعين',value:c.reseller_credits,sub:'Available Balance',tone:'cyan',icon:'▤',tab:'resellers'},
+    {key:'requests',label:'طلبات الكريدت',value:c.pending_requests,sub:'Pending Requests',tone:'pink',icon:'◈',tab:'credit'}
+  ];
 
   return <>
-    <section className="overviewHero">
-      <div className="overviewIntro">
-        <span className="overviewEyebrow">ADMIN CONTROL CENTER</span>
-        <h2>كل حاجة قدامك من مكان واحد</h2>
-        <p>تابع المخزون، الموزعين، الرصيد، الطلبات، والسيرفرات لحظيًا بدون ما تدخل بين صفحات كثيرة.</p>
-      </div>
-      <div className="overviewHealth">
-        <span><i/> النظام يعمل</span>
-        <strong>{availability}%</strong>
-        <small>من المخزون ما زال متاحًا</small>
-      </div>
+    <section className="offerCard">
+      <div className="offerIcon">⌁</div>
+      <div><h2>ACTIVE CODE MULTI</h2><p>إدارة الأكواد والموزعين من لوحة واحدة</p></div>
+      <button onClick={()=>onNavigate?.('import')}>＋</button>
     </section>
 
-    <div className="primaryStats">
-      <button className="metricCard metricTotal" onClick={()=>onNavigate?.('import')}>
-        <span>إجمالي الأكواد</span><strong>{num(c.total_codes)}</strong><small>كل الأكواد داخل النظام</small>
-      </button>
-      <button className="metricCard metricAvailable" onClick={()=>onNavigate?.('servers')}>
-        <span>الأكواد المتاحة</span><strong>{num(c.available)}</strong><small>جاهزة للصرف الآن</small>
-      </button>
-      <button className="metricCard metricIssued" onClick={()=>onNavigate?.('issued')}>
-        <span>الأكواد المفعلة</span><strong>{num(c.issued)}</strong><small>تم تسليمها للموزعين</small>
-      </button>
-      <button className="metricCard metricResellers" onClick={()=>onNavigate?.('resellers')}>
-        <span>الموزعون</span><strong>{num(c.resellers)}</strong><small>حسابات الموزعين الحالية</small>
-      </button>
+    <div className="referenceCardGrid">
+      {cards.map(card=><button key={card.key} className={'referenceCard '+card.tone} onClick={()=>onNavigate?.(card.tab)}>
+        <div className="cardAccent"/>
+        <div className="referenceIcon">{card.icon}</div>
+        <span>{card.label}</span>
+        <strong>{num(card.value)}</strong>
+        <small>{card.sub}</small>
+      </button>)}
     </div>
 
-    <div className="secondaryStats">
-      <div><span>الباقات النشطة</span><b>{num(c.active_packages)}</b></div>
-      <div><span>إجمالي رصيد الموزعين</span><b>{num(c.reseller_credits)} <small>CREDIT</small></b></div>
-      <button onClick={()=>onNavigate?.('credit')}><span>طلبات الكريدت</span><b>{num(c.pending_requests)}</b></button>
-    </div>
-
-    <section className="quickPanel">
-      <div className="sectionHead">
-        <div><span>QUICK ACTIONS</span><h2>الوصول السريع</h2></div>
-        <small>أكثر العمليات استخدامًا</small>
-      </div>
-      <div className="quickGrid">
-        <button onClick={()=>onNavigate?.('import')}><b>رفع أكواد</b><span>TXT إلى سيرفر وباقة محددة</span></button>
-        <button onClick={()=>onNavigate?.('resellers')}><b>إضافة موزع</b><span>حساب جديد + رصيد ابتدائي</span></button>
-        <button onClick={()=>onNavigate?.('servers')}><b>السيرفرات والباقات</b><span>التكلفة والمخزون والتنظيم</span></button>
-        <button onClick={()=>onNavigate?.('issued')}><b>الأكواد المفعلة</b><span>كل كود وموزعه ووقته</span></button>
-      </div>
-    </section>
-
-    <div className="demoBanner">
-      <div>
-        <span>TEST INVENTORY</span>
-        <strong>المخزون الحالي تجريبي</strong>
-        <p>200 كود Demo لكل سيرفر، بإجمالي 1,000 كود. عند رفع الأكواد الحقيقية تقدر تميّزها من اسم الدفعة والسيرفر.</p>
-      </div>
-      <b>1,000 DEMO</b>
-    </div>
-
-    <section className="section inventorySection">
-      <div className="sectionHead">
-        <div><span>LIVE INVENTORY</span><h2>المخزون حسب السيرفر</h2></div>
-        <small>يتحدث تلقائيًا كل 30 ثانية</small>
+    <section className="section referenceInventory">
+      <div className="referenceSectionTitle">
+        <h2>المخزون حسب السيرفر</h2>
+        <span>{num(c.active_packages)} باقات نشطة</span>
       </div>
       <div className="serverGrid">{data.servers.map(s=>{
-        const low=Number(s.available_codes)<=Number(s.low_stock_threshold);
         const packs=data.packages.filter(p=>p.server_id===s.id);
-        const sTotal=Math.max(1,Number(s.total_codes||0));
-        const sAvailable=Number(s.available_codes||0);
-        const percent=Math.round((sAvailable/sTotal)*100);
-        return <button className={'serverCard '+(low?'low':'')} key={s.id} onClick={()=>onNavigate?.('servers')}>
+        return <button className="serverCard" key={s.id} onClick={()=>onNavigate?.('servers')}>
           <div className="serverTop"><b>{s.name}</b><span>{Number(s.active)===1?'ACTIVE':'OFF'}</span></div>
-          <div className="serverNumbers">
-            <div><strong>{num(s.available_codes)}</strong><small>متاح</small></div>
-            <div><strong>{num(s.issued_codes)}</strong><small>مفعّل</small></div>
-          </div>
-          <div className="meter"><i style={{width:Math.min(100,percent)+'%'}}/></div>
-          <div className="serverFoot"><span>الإجمالي {num(s.total_codes)}</span><span>{percent}% متاح</span></div>
-          <div className="packageMini">
-            {packs.map(p=><div key={p.id}><span>{p.name}</span><b>{num(p.available_codes)} متاح</b><em>{num(p.credit_cost)} Credit</em></div>)}
-          </div>
-          {low && <em className="stockAlert">مخزون منخفض</em>}
+          <strong>{num(s.available_codes)}</strong><small>كود متاح</small>
+          <div className="serverFoot"><span>الإجمالي {num(s.total_codes)}</span><span>المفعّل {num(s.issued_codes)}</span></div>
+          <div className="packageMini">{packs.map(p=><div key={p.id}><span>{p.name}</span><b>{num(p.available_codes)}</b><em>{num(p.credit_cost)} Credit</em></div>)}</div>
         </button>
       })}</div>
     </section>
-
-    <div className="twoCol dashboardBottom">
-      <section className="section">
-        <div className="sectionHead"><div><span>RESELLERS</span><h2>الموزعون</h2></div><button className="textAction" onClick={()=>onNavigate?.('resellers')}>عرض الكل</button></div>
-        {data.resellers.length===0 ? <div className="emptyState mini">لا يوجد موزعون بعد. أنشئ أول موزع من الوصول السريع.</div> :
-        <div className="list">{data.resellers.slice(0,6).map(r=><div className="listRow" key={r.id}><b>{r.display_name}</b><span>{r.username}</span><small>{num(r.credits)} Credit</small></div>)}</div>}
-      </section>
-      <section className="section">
-        <div className="sectionHead"><div><span>RECENT ACTIVITY</span><h2>آخر العمليات</h2></div><button className="textAction" onClick={()=>onNavigate?.('logs')}>السجل الكامل</button></div>
-        {data.logs.length===0 ? <div className="emptyState mini">لا توجد عمليات مسجلة بعد.</div> :
-        <div className="list">{data.logs.slice(0,6).map((l,i)=><div className="listRow logMini" key={l.id||i}><b>{l.action}</b><span>{l.actor_name||l.actor_username||'SYSTEM'}</span><small>{fmt(l.created_at)}</small></div>)}</div>}
-      </section>
-    </div>
   </>;
 }
 function Servers({data,action,busy}) {
