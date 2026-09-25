@@ -1331,7 +1331,7 @@ function ResellerOverview({data,goTo}) {
       LOGIN_SUCCESS:l('تسجيل دخول','Signed in'),
       CODES_ISSUED:l('إصدار أكواد','Codes issued'),
       SHARING_CODES_ISSUED:l('إصدار كود شيرنج','Sharing code issued'),
-      CREDIT_REQUEST_CREATED:l('طلب رصيد','Credit request'),
+      CREDIT_REQUEST_CREATED:l('طلب رصيد','Balance request'),
       PASSWORD_CHANGED:l('تغيير كلمة المرور','Password changed')
     };
     return map[action]||String(action||'').replaceAll('_',' ');
@@ -1425,7 +1425,7 @@ function ResellerOverview({data,goTo}) {
 
       <section className="section resellerRecentPanel">
         <div className="sectionHead">
-          <div><h2>{l('طلبات الرصيد','Credit requests')}</h2></div>
+          <div><h2>{l('طلبات الرصيد','Balance requests')}</h2></div>
           <small>{num(recentRequests.length)}</small>
         </div>
         {recentRequests.length===0 ? <div className="emptyState compact">{l('لا توجد طلبات.','No requests.')}</div> :
@@ -1679,7 +1679,7 @@ function ManageResellers({data,action,busy,admin=false,balanceConfig}) {
     await action('/api/admin/credit-adjust',{
       resellerId:reseller.id,
       amount,
-      note:direction==='minus'?l('خصم رصيد','Credit deduction'):l('إضافة رصيد','Credit addition')
+      note:direction==='minus'?l('خصم رصيد','Balance deduction'):l('إضافة رصيد','Balance addition')
     });
     setAmounts(v=>({...v,[reseller.id]:''}));
   }
