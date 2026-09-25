@@ -1,5 +1,5 @@
 const SESSION_COOKIE = 'acm_session';
-const SESSION_HOURS = 12;
+const SESSION_HOURS = 24 * 30;
 const PASSWORD_ITERATIONS = 100000;
 let schemaReady = false;
 
@@ -38,10 +38,23 @@ function clean(v,max=160){ return String(v??'').trim().slice(0,max); }
 function validUsername(v){ const s=String(v||'').trim(); return s.length>0 && s.length<=80; }
 function slugify(v){ return clean(v,60).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 
+function securityHeaders(extra={}){
+  return {
+    'x-content-type-options':'nosniff',
+    'x-frame-options':'DENY',
+    'referrer-policy':'no-referrer',
+    'permissions-policy':'camera=(), microphone=(), geolocation=()',
+    'cross-origin-opener-policy':'same-origin',
+    'cross-origin-resource-policy':'same-origin',
+    'content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    ...extra
+  };
+}
+
 function json(data,status=200,headers={}){
   return new Response(JSON.stringify(data),{
     status,
-    headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers}
+    headers:securityHeaders({'content-type':'application/json; charset=utf-8','cache-control':'no-store',...headers})
   });
 }
 
@@ -140,9 +153,20 @@ async function createSession(env,request,userId){
 async function authUser(env,request){
   const token=cookieValue(request,SESSION_COOKIE);
   if(!token) return null;
-  const row=await env.DB.prepare("SELECT s.id session_id,s.csrf_token,s.expires_at,u.id,u.username,u.email,u.display_name,u.role,u.credits,u.must_change_password,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1")
+  const row=await env.DB.prepare("SELECT s.id session_id,s.csrf_token,s.expires_at,s.user_agent,s.last_seen_at,u.id,u.username,u.email,u.display_name,u.role,u.credits,u.must_change_password,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1")
     .bind(await sha256(token),now()).first();
   if(!row || row.status!=='active') return null;
+
+  const ua=(request.headers.get('user-agent')||'').slice(0,300);
+  if(row.user_agent && ua && row.user_agent!==ua){
+    await env.DB.prepare("DELETE FROM sessions WHERE id=?").bind(row.session_id).run();
+    return null;
+  }
+
+  const last=Date.parse(row.last_seen_at||0);
+  if(!Number.isFinite(last) || Date.now()-last>5*60*1000){
+    await env.DB.prepare("UPDATE sessions SET last_seen_at=? WHERE id=?").bind(now(),row.session_id).run();
+  }
   return row;
 }
 
@@ -303,7 +327,9 @@ async function api(request,env){
 
   if(method!=='GET' && method!=='HEAD'){
     const origin=request.headers.get('origin');
+    const fetchSite=(request.headers.get('sec-fetch-site')||'').toLowerCase();
     if(origin && origin!==url.origin) return json({error:'ORIGIN_NOT_ALLOWED'},403);
+    if(fetchSite==='cross-site') return json({error:'CROSS_SITE_NOT_ALLOWED'},403);
   }
 
   if(path==='/api/health'){
@@ -311,7 +337,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-reseller-management-v6',
+      version:'worker-secure-session-v7',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
@@ -663,6 +689,7 @@ export default {
         headers.set('x-acm-ui-version','sidebar-clean-v1');
       }
 
+      for(const [k,v] of Object.entries(securityHeaders())) headers.set(k,v);
       return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers});
     }catch(error){
       console.error('ACTIVE CODE MULTI',error);
@@ -670,6 +697,7 @@ export default {
       const asset=await env.ASSETS.fetch(request);
       const headers=new Headers(asset.headers);
       headers.set('cache-control','no-store');
+      for(const [k,v] of Object.entries(securityHeaders())) headers.set(k,v);
       return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers});
     }
   }
