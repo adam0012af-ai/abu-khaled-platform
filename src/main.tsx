@@ -14,9 +14,8 @@ function Logo({ compact = false }) {
   );
 }
 
-function Login({ setup, onAuth }) {
-  const [mode, setMode] = useState(setup.needsSetup ? 'setup' : 'login');
-  const [form, setForm] = useState({ username:'', password:'', displayName:'Owner', setupKey:'' });
+function Login({ onAuth }) {
+  const [form, setForm] = useState({ identifier:'', password:'' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -24,26 +23,22 @@ function Login({ setup, onAuth }) {
     e.preventDefault();
     setBusy(true); setError('');
     try {
-      const headers = { 'content-type':'application/json' };
-      if (mode === 'setup') headers['x-setup-key'] = form.setupKey;
-      const res = await fetch(mode === 'setup' ? '/api/setup' : '/api/login', {
-        method:'POST', credentials:'same-origin', headers,
-        body:JSON.stringify(mode === 'setup'
-          ? { username:form.username, password:form.password, displayName:form.displayName }
-          : { username:form.username, password:form.password })
+      const res = await fetch('/api/login', {
+        method:'POST',
+        credentials:'same-origin',
+        headers:{ 'content-type':'application/json' },
+        body:JSON.stringify({ identifier:form.identifier, password:form.password })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'LOGIN_FAILED');
       onAuth(data.user, data.csrf);
     } catch (e) {
-      const m = String(e.message || e);
+      const code = String(e.message || e);
       setError(
-        m.includes('SETUP_KEY_NOT_CONFIGURED') ? 'يلزم إضافة SETUP_KEY في إعدادات Cloudflare أولاً.' :
-        m.includes('INVALID_SETUP_KEY') ? 'مفتاح الإعداد غير صحيح.' :
-        m.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. تم إيقاف المحاولة مؤقتاً.' :
-        m.includes('INVALID_LOGIN') ? 'اسم المستخدم أو كلمة المرور غير صحيحة.' :
-        m.includes('INVALID_OWNER_CREDENTIALS') ? 'اسم المستخدم 3 أحرف على الأقل وكلمة المرور 10 أحرف على الأقل.' :
-        'تعذر إتمام العملية.'
+        code.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. تم إيقاف المحاولة مؤقتاً.' :
+        code.includes('INVALID_LOGIN') ? 'اسم المستخدم / البريد الإلكتروني أو كلمة المرور غير صحيحة.' :
+        code.includes('SYSTEM_NOT_INITIALIZED') ? 'حساب الإدارة الأول لم يتم تجهيزه بعد.' :
+        'تعذر تسجيل الدخول.'
       );
     } finally { setBusy(false); }
   }
@@ -56,40 +51,32 @@ function Login({ setup, onAuth }) {
         <div className="visualCopy">
           <span className="eyebrow">SECURE DISTRIBUTION PLATFORM</span>
           <h1>إدارة الأكواد.<br/>بدون خلط.<br/><mark>بدون تكرار.</mark></h1>
-          <p>مخزون منفصل لكل سيرفر وباكدج، توزيع فردي وجماعي، رصيد موحد، وسجل كامل لكل حركة.</p>
+          <p>دخول موحد وآمن. لا يوجد تسجيل حسابات من الصفحة العامة؛ جميع الحسابات تُنشأ من لوحة الإدارة فقط.</p>
         </div>
         <div className="securityStrip">
-          <div>01 <b>Server Isolation</b></div>
-          <div>02 <b>Atomic Issue</b></div>
+          <div>01 <b>Admin Managed</b></div>
+          <div>02 <b>Server Isolation</b></div>
           <div>03 <b>Full Audit</b></div>
         </div>
       </section>
       <section className="loginCardWrap">
         <form className="loginCard" onSubmit={submit}>
           <div className="mobileBrand"><Logo compact/></div>
-          <span className="panelTag">{mode === 'setup' ? 'FIRST OWNER SETUP' : 'CONTROL PANEL'}</span>
-          <h2>{mode === 'setup' ? 'إنشاء حساب المالك' : 'تسجيل الدخول'}</h2>
-          <p>{mode === 'setup' ? 'يتم تنفيذ هذه الخطوة مرة واحدة فقط.' : 'استخدم بيانات الحساب المخصصة لك.'}</p>
-          {mode === 'setup' && <>
-            <label>الاسم الظاهر</label>
-            <input value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} placeholder="Owner"/>
-            <label>Setup Key</label>
-            <input value={form.setupKey} onChange={e=>setForm({...form,setupKey:e.target.value})} placeholder="Cloudflare SETUP_KEY" autoComplete="off"/>
-          </>}
-          <label>Username</label>
-          <input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="username" autoCapitalize="none" required/>
+          <span className="panelTag">CONTROL PANEL</span>
+          <h2>تسجيل الدخول</h2>
+          <p>استخدم اسم المستخدم أو البريد الإلكتروني وكلمة المرور.</p>
+          <label>Username or Email</label>
+          <input value={form.identifier} onChange={e=>setForm({...form,identifier:e.target.value})} placeholder="username@example.com" autoCapitalize="none" autoComplete="username" required/>
           <label>Password</label>
-          <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••••" required/>
+          <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••••" autoComplete="current-password" required/>
           {error && <div className="errorBox">{error}</div>}
-          <button className="primary wide" disabled={busy}>{busy ? 'جاري التنفيذ…' : mode === 'setup' ? 'إنشاء المالك' : 'دخول آمن'}</button>
-          {setup.needsSetup && <button type="button" className="linkBtn" onClick={()=>setMode(mode==='setup'?'login':'setup')}>{mode==='setup'?'لدي حساب بالفعل':'إعداد المالك لأول مرة'}</button>}
-          <small className="secureNote">Session Protected • CSRF Guard • Login Rate Limit</small>
+          <button className="primary wide" disabled={busy}>{busy ? 'جاري الدخول…' : 'دخول آمن'}</button>
+          <small className="secureNote">Admin Managed Accounts • Session Protected • CSRF Guard</small>
         </form>
       </section>
     </div>
   );
 }
-
 function Stat({ label, value, sub }) {
   return <div className="stat"><span>{label}</span><strong>{num(value)}</strong>{sub && <small>{sub}</small>}</div>;
 }
@@ -163,7 +150,7 @@ function Panel({ user, csrf, onLogout }) {
         INSUFFICIENT_STOCK:'المخزون غير كافٍ.',
         SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
-        USERNAME_EXISTS:'اسم المستخدم مستخدم من قبل.',
+        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.',
         IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع. للملفات الأكبر يتم تقسيمها على أكثر من دفعة.',
         NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.'
       };
@@ -280,13 +267,14 @@ function ImportCodes({data,action,busy}) {
 }
 
 function Resellers({data,action,busy}) {
-  const [form,setForm]=useState({username:'',displayName:'',password:'',credits:0});
+  const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
   const [credit,setCredit]=useState({resellerId:'',amount:1,note:''});
   return <div className="twoCol">
     <section className="section">
       <div className="sectionHead"><div><span>ACCOUNTS</span><h2>إضافة موزع</h2></div></div>
-      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/resellers',form);setForm({username:'',displayName:'',password:'',credits:0});}}>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/resellers',form);setForm({username:'',email:'',displayName:'',password:'',credits:0});}}>
         <input placeholder="Username" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
+        <input type="email" placeholder="Email - اختياري" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
         <input placeholder="اسم الموزع" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/>
         <input type="password" minLength="10" placeholder="Password - 10+ chars" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
         <input type="number" min="0" placeholder="رصيد البداية" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
@@ -302,7 +290,7 @@ function Resellers({data,action,busy}) {
     </section>
     <section className="section">
       <div className="sectionHead"><div><span>RESELLERS</span><h2>الحسابات</h2></div></div>
-      <Table><thead><tr><th>الموزع</th><th>Username</th><th>الرصيد</th><th>الحالة</th></tr></thead><tbody>{data.resellers.map(r=><tr key={r.id}><td>{r.display_name}</td><td>{r.username}</td><td className="mono">{r.credits}</td><td><span className="badge">{r.status}</span></td></tr>)}</tbody></Table>
+      <Table><thead><tr><th>الموزع</th><th>Username</th><th>Email</th><th>الرصيد</th><th>الحالة</th></tr></thead><tbody>{data.resellers.map(r=><tr key={r.id}><td>{r.display_name}</td><td>{r.username}</td><td>{r.email||'—'}</td><td className="mono">{r.credits}</td><td><span className="badge">{r.status}</span></td></tr>)}</tbody></Table>
     </section>
   </div>;
 }
@@ -416,23 +404,23 @@ function Logs({logs,admin}) {
 
 function App() {
   const [loading,setLoading]=useState(true);
-  const [setup,setSetup]=useState({needsSetup:false,setupKeyConfigured:false});
   const [user,setUser]=useState(null);
   const [csrf,setCsrf]=useState('');
 
   async function boot() {
     try {
-      const s=await fetch('/api/setup/status',{credentials:'same-origin'}); const sd=await s.json(); setSetup(sd);
-      if (!sd.needsSetup) {
-        const r=await fetch('/api/me',{credentials:'same-origin'});
-        if (r.ok) { const d=await r.json(); setUser(d.user); setCsrf(d.csrf); }
+      const r=await fetch('/api/me',{credentials:'same-origin'});
+      if (r.ok) {
+        const d=await r.json();
+        setUser(d.user);
+        setCsrf(d.csrf);
       }
     } finally { setLoading(false); }
   }
+
   useEffect(()=>{boot();},[]);
   if (loading) return <div className="splash"><Logo/><span>SECURE STARTUP</span></div>;
-  if (!user) return <Login setup={setup} onAuth={(u,c)=>{setUser(u);setCsrf(c);setSetup({...setup,needsSetup:false});}}/>;
+  if (!user) return <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>;
   return <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
 }
-
 createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
