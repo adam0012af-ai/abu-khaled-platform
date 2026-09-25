@@ -93,7 +93,7 @@ function Panel({ user, csrf, onLogout }) {
     ['apps','التطبيقات والسوفت وير'],['logs','السجل الكامل']
   ];
   const resellerTabs = [
-    ['issue','إنشاء كود'],['mycodes','أكوادي'],['credit','طلب كريدت'],
+    ['issue','إنشاء الأكواد'],['mycodes','أكوادي'],['credit','طلب كريدت'],
     ['apps','التطبيقات والسوفت وير'],['logs','السجل']
   ];
   const tabs = isAdmin ? adminTabs : resellerTabs;
@@ -153,7 +153,7 @@ function Panel({ user, csrf, onLogout }) {
         ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
         IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع. للملفات الأكبر يتم تقسيمها على أكثر من دفعة.',
         NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.',
-        INVALID_RESELLER:'اليوزر والباسورد لازم يكونوا 6 خانات على الأقل. البريد الإلكتروني اختياري.',
+        INVALID_RESELLER:'اكتب Username وPassword واسم الموزع. لا يوجد حد أدنى لليوزر أو الباسورد.',
         ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل. اختار Username مختلف.'
       };
       setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
@@ -168,7 +168,7 @@ function Panel({ user, csrf, onLogout }) {
 
   return (
     <div className="appShell">
-      <aside>
+      <aside className={menuOpen?'mobileOpen':''}>
         <div className="sideHeader">
           <Logo compact/>
           <div className="sideActions">
@@ -194,9 +194,13 @@ function Panel({ user, csrf, onLogout }) {
           </button>)}</nav>
         </div>
       </aside>
+      {menuOpen && <button className="menuBackdrop" aria-label="إغلاق القائمة" onClick={()=>setMenuOpen(false)}/>}
       <main className="panelMain">
         <header className="panelHeader">
-          <div><span>ACTIVE CODE MULTI</span><h1>{tabs.find(x=>x[0]===tab)?.[1]}</h1></div>
+          <div className="panelTitle">
+            <button className="mobileMenuOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
+            <div><span>ACTIVE CODE MULTI</span><h1>{tabs.find(x=>x[0]===tab)?.[1]}</h1></div>
+          </div>
           <div className="live"><i/> LIVE SYNC</div>
         </header>
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
@@ -377,11 +381,16 @@ function Resellers({data,action,busy}) {
     <section className="section">
       <div className="sectionHead"><div><span>ACCOUNTS</span><h2>إضافة موزع</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/resellers',form);setForm({username:'',email:'',displayName:'',password:'',credits:0});}}>
-        <input minLength="6" placeholder="Username - 6+ حروف أو أرقام" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
-        <input type="email" placeholder="Email - اختياري" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-        <input placeholder="اسم الموزع" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/>
-        <input type="password" minLength="6" placeholder="Password - 6+ حروف أو أرقام" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
-        <input type="number" min="0" placeholder="رصيد البداية" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
+        <label>Username للدخول</label>
+        <input placeholder="اكتب اليوزر كما تريد" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
+        <label>Email - اختياري</label>
+        <input type="email" placeholder="يمكن تركه فارغًا" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+        <label>اسم الموزع</label>
+        <input placeholder="الاسم الظاهر داخل اللوحة" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/>
+        <label>Password</label>
+        <input type="password" placeholder="اكتب الباسورد كما تريد" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} autoComplete="new-password" required/>
+        <label>رصيد البداية</label>
+        <input type="number" min="0" placeholder="مثال: 50" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
         <button className="primary" disabled={busy}>إنشاء الموزع</button>
       </form>
       <hr/>
@@ -420,36 +429,71 @@ function Issue({data,action,busy}) {
   const selected=packs.find(p=>p.id===form.packageId);
   const q=mode==='single'?1:Math.max(1,Math.min(100,Number(form.quantity)||1));
   const total=selected?Number(selected.credit_cost)*q:0;
-  async function submit(e){e.preventDefault();const out=await action('/api/issue',{...form,quantity:q});setResult(out);}
+
+  async function submit(e){
+    e.preventDefault();
+    const out=await action('/api/issue',{...form,quantity:q});
+    setResult(out);
+  }
   async function copyAll(){await navigator.clipboard.writeText((result?.codes||[]).map(x=>x.code).join('\n'));}
-  function download(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([(result?.codes||[]).map(x=>x.code).join('\n')],{type:'text/plain'}));a.download=(result?.order?.server||'codes')+'-'+Date.now()+'.txt';a.click();URL.revokeObjectURL(a.href);}
-  return <div className="issueLayout">
-    <section className="section issueCard">
-      <div className="sectionHead"><div><span>ONE PLACE TO ISSUE</span><h2>إنشاء كود</h2></div></div>
-      <div className="modeSwitch"><button className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button><button className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button></div>
-      <form className="formGrid" onSubmit={submit}>
-        <label>السيرفر</label>
-        <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value,packageId:''})} required><option value="">اختر السيرفر</option>{data.servers.filter(s=>Number(s.active)===1).map(s=><option value={s.id} key={s.id}>{s.name} — {s.available_codes} متاح</option>)}</select>
-        <label>الباكدج</label>
-        <select value={form.packageId} onChange={e=>setForm({...form,packageId:e.target.value})} required><option value="">اختر الباكدج</option>{packs.map(p=><option value={p.id} key={p.id}>{p.name} — {p.credit_cost} نقطة — {p.available_codes} متاح</option>)}</select>
-        <label>اسم العميل أو رقم الهاتف</label>
-        <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="مثال: 010... أو Ahmed"/>
-        {mode==='bulk'&&<><label>عدد الأكواد</label><input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></>}
-        <div className="costBox"><div><span>العدد</span><b>{q}</b></div><div><span>تكلفة الكود</span><b>{selected?.credit_cost||0}</b></div><div><span>الإجمالي</span><b>{total} نقطة</b></div><div><span>رصيدك</span><b>{data.dashboard?.user?.credits||0}</b></div></div>
-        <button className="primary wide" disabled={busy||!selected}>{busy?'جاري الصرف…':'تفعيل واستخراج'}</button>
-      </form>
-    </section>
-    <section className="section resultCard">
-      <div className="sectionHead"><div><span>RESULT</span><h2>الكود الناتج</h2></div></div>
-      {!result?<div className="emptyState">لم يتم إنشاء كود في هذه الجلسة بعد.</div>:<>
+  function download(){
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([(result?.codes||[]).map(x=>x.code).join('\n')],{type:'text/plain'}));
+    a.download=(result?.order?.server||'codes')+'-'+Date.now()+'.txt';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+
+  return <section className="section issueUnified">
+    <div className="sectionHead">
+      <div><span>ISSUE CENTER</span><h2>إنشاء واستخراج الأكواد</h2></div>
+      <small>الإنشاء والنتيجة في نفس المكان</small>
+    </div>
+
+    <div className="modeSwitch">
+      <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button>
+      <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button>
+    </div>
+
+    <form className="formGrid issueForm" onSubmit={submit}>
+      <label>السيرفر</label>
+      <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value,packageId:''});setResult(null);}} required>
+        <option value="">اختر السيرفر</option>
+        {data.servers.filter(s=>Number(s.active)===1).map(s=><option value={s.id} key={s.id}>{s.name} — {s.available_codes} متاح</option>)}
+      </select>
+
+      <label>الباكدج</label>
+      <select value={form.packageId} onChange={e=>{setForm({...form,packageId:e.target.value});setResult(null);}} required>
+        <option value="">اختر الباكدج</option>
+        {packs.map(p=><option value={p.id} key={p.id}>{p.name} — {p.credit_cost} نقطة — {p.available_codes} متاح</option>)}
+      </select>
+
+      <label>اسم العميل أو رقم الهاتف</label>
+      <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="مثال: Ahmed أو 010..."/>
+
+      {mode==='bulk'&&<><label>عدد الأكواد</label><input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></>}
+
+      <div className="costBox">
+        <div><span>العدد</span><b>{q}</b></div>
+        <div><span>تكلفة الكود</span><b>{selected?.credit_cost||0}</b></div>
+        <div><span>الإجمالي</span><b>{total} نقطة</b></div>
+        <div><span>رصيدك</span><b>{data.dashboard?.user?.credits||0}</b></div>
+      </div>
+      <button className="primary wide" disabled={busy||!selected}>{busy?'جاري الصرف…':'تفعيل واستخراج'}</button>
+    </form>
+
+    <div className={'inlineResult '+(result?'hasResult':'')}>
+      <div className="inlineResultHead">
+        <div><span>RESULT</span><h3>الأكواد الناتجة</h3></div>
+        {result&&<div className="rowBtns"><button className="secondary" type="button" onClick={copyAll}>نسخ الكل</button><button className="secondary" type="button" onClick={download}>تنزيل TXT</button></div>}
+      </div>
+
+      {!result ? <div className="emptyState compact">بعد التفعيل ستظهر الأكواد هنا مباشرة داخل نفس القسم.</div> : <>
         <div className="resultMeta"><b>{result.order.server}</b><span>{result.order.package}</span><em>{result.order.creditsBefore} → {result.order.creditsAfter} نقطة</em></div>
         <div className="issuedList">{result.codes.map(x=><button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>)}</div>
-        <div className="rowBtns"><button className="secondary" onClick={copyAll}>نسخ الكل</button><button className="secondary" onClick={download}>تنزيل TXT</button></div>
       </>}
-    </section>
-  </div>;
+    </div>
+  </section>;
 }
-
 function AdminCredit({data,action,busy}) {
   return <section className="section">
     <div className="sectionHead"><div><span>CREDIT REQUESTS</span><h2>طلبات الكريدت</h2></div></div>
