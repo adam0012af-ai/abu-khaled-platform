@@ -16,7 +16,7 @@ const BASE_SCHEMA = [
   "CREATE TABLE IF NOT EXISTS codes (id TEXT PRIMARY KEY, server_id TEXT NOT NULL REFERENCES servers(id), package_id TEXT NOT NULL REFERENCES packages(id), batch_id TEXT NOT NULL REFERENCES code_batches(id), code TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'available' CHECK(status IN ('available','issued','disabled')), reseller_id TEXT REFERENCES users(id), order_id TEXT REFERENCES issue_orders(id), customer_ref TEXT, issued_at TEXT, created_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS credit_transactions (id TEXT PRIMARY KEY, reseller_id TEXT NOT NULL REFERENCES users(id), amount INTEGER NOT NULL, type TEXT NOT NULL, reference_id TEXT, note TEXT, admin_id TEXT REFERENCES users(id), balance_before INTEGER NOT NULL, balance_after INTEGER NOT NULL, created_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS credit_requests (id TEXT PRIMARY KEY, reseller_id TEXT NOT NULL REFERENCES users(id), amount INTEGER NOT NULL CHECK(amount > 0), note TEXT, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')), admin_note TEXT, created_at TEXT NOT NULL, resolved_at TEXT, resolved_by TEXT REFERENCES users(id))",
-  "CREATE TABLE IF NOT EXISTS apps (id TEXT PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL CHECK(platform IN ('android','windows','receiver','other')), version TEXT, description TEXT, download_url TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'all' CHECK(visibility IN ('all','admin','reseller')), active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS apps (id TEXT PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL CHECK(platform IN ('android','windows','receiver','other')), version TEXT, description TEXT, image_url TEXT, download_url TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'all' CHECK(visibility IN ('all','admin','reseller')), active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), created_by TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS audit_logs (id TEXT PRIMARY KEY, actor_id TEXT REFERENCES users(id), actor_role TEXT, action TEXT NOT NULL, entity_type TEXT, entity_id TEXT, details_json TEXT, ip_hash TEXT, user_agent TEXT, created_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS tx_guards (id TEXT PRIMARY KEY, ok INTEGER NOT NULL CHECK(ok = 1))",
   "CREATE INDEX IF NOT EXISTS idx_codes_stock ON codes(server_id,package_id,status,created_at)",
@@ -99,6 +99,11 @@ async function ensureSchema(env){
   }
   if(!cols.some(c=>c.name==='last_credit_tx_id')){
     await env.DB.prepare("ALTER TABLE users ADD COLUMN last_credit_tx_id TEXT").run();
+  }
+
+  const appCols=(await env.DB.prepare("PRAGMA table_info(apps)").all()).results||[];
+  if(!appCols.some(c=>c.name==='image_url')){
+    await env.DB.prepare("ALTER TABLE apps ADD COLUMN image_url TEXT").run();
   }
 
   const duplicate=await env.DB.prepare("SELECT code,COUNT(*) c FROM codes GROUP BY code HAVING c>1 LIMIT 1").first();
@@ -291,7 +296,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-server-isolation-v4',
+      version:'worker-panel-polish-v5',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
@@ -348,7 +353,7 @@ async function api(request,env){
   }
 
   if(path==='/api/apps' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT id,name,platform,version,description,download_url,visibility,created_at FROM apps WHERE active=1 AND (visibility='all' OR visibility=?) ORDER BY created_at DESC LIMIT 100").bind(user.role).all()).results||[];
+    const rows=(await env.DB.prepare("SELECT id,name,platform,version,description,image_url,download_url,visibility,created_at FROM apps WHERE active=1 AND (visibility='all' OR visibility=?) ORDER BY created_at DESC LIMIT 100").bind(user.role).all()).results||[];
     return json({apps:rows});
   }
 
@@ -615,11 +620,11 @@ async function api(request,env){
   }
 
   if(path==='/api/admin/apps' && method==='POST'){
-    const body=await bodyJson(request), name=clean(body.name,100), platform=['android','windows','receiver','other'].includes(body.platform)?body.platform:'other', downloadUrl=clean(body.downloadUrl,500), visibility=['all','admin','reseller'].includes(body.visibility)?body.visibility:'all';
-    if(!name||!/^https?:\/\//i.test(downloadUrl)) return json({error:'INVALID_APP'},400);
+    const body=await bodyJson(request), name=clean(body.name,100), platform=['android','windows','receiver','other'].includes(body.platform)?body.platform:'other', imageUrl=clean(body.imageUrl,700), downloadUrl=clean(body.downloadUrl,700), visibility=['all','admin','reseller'].includes(body.visibility)?body.visibility:'all';
+    if(!name||!/^https?:\/\//i.test(downloadUrl)||(imageUrl&&!/^https?:\/\//i.test(imageUrl))) return json({error:'INVALID_APP'},400);
     const id=uid('app'), at=now();
-    await env.DB.prepare("INSERT INTO apps(id,name,platform,version,description,download_url,visibility,active,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,1,?,?,?)").bind(id,name,platform,clean(body.version,40),clean(body.description,500),downloadUrl,visibility,user.id,at,at).run();
-    await audit(env,request,user,'APP_ADDED','app',id,{name,platform,visibility});
+    await env.DB.prepare("INSERT INTO apps(id,name,platform,version,description,image_url,download_url,visibility,active,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,?,?,?)").bind(id,name,platform,clean(body.version,40),clean(body.description,500),imageUrl||null,downloadUrl,visibility,user.id,at,at).run();
+    await audit(env,request,user,'APP_ADDED','app',id,{name,platform,visibility,hasImage:Boolean(imageUrl)});
     return json({ok:true,id},201);
   }
 
