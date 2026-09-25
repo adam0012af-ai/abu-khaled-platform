@@ -170,6 +170,18 @@ CREATE INDEX IF NOT EXISTS idx_orders_reseller ON issue_orders(reseller_id, crea
 CREATE INDEX IF NOT EXISTS idx_logs_actor ON audit_logs(actor_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_credit_requests_status ON credit_requests(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_hash ON sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_parent_type_created ON users(parent_user_id, account_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_codes_status ON codes(status);
+CREATE INDEX IF NOT EXISTS idx_codes_server_status_created ON codes(server_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_codes_package_status ON codes(package_id, status);
+CREATE INDEX IF NOT EXISTS idx_codes_reseller_status_issued ON codes(reseller_id, status, issued_at);
+CREATE INDEX IF NOT EXISTS idx_sharing_codes_service_status_created ON sharing_codes(service_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_sharing_codes_reseller_status_issued ON sharing_codes(reseller_id, status, issued_at);
+CREATE INDEX IF NOT EXISTS idx_sharing_orders_service ON sharing_orders(service_id);
+CREATE INDEX IF NOT EXISTS idx_requests_reseller_status_created ON credit_requests(reseller_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_apps_active_visibility_created ON apps(active, visibility, created_at);
 
 INSERT OR IGNORE INTO servers(id,name,slug,active,low_stock_threshold,sort_order,created_at) VALUES
 ('srv_marvel','Marvel','marvel',1,10,10,datetime('now')),
