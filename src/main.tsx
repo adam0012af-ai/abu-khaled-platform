@@ -616,10 +616,30 @@ function Apps({data,action,busy,admin}) {
 }
 
 function Logs({logs,admin}) {
-  return <section className="section">
+  return <section className="section logsSection">
     <div className="sectionHead"><div><span>AUDIT TRAIL</span><h2>{admin?'السجل المتكامل':'سجل حسابي'}</h2></div></div>
-    <Table><thead><tr>{admin&&<th>المستخدم</th>}<th>الحدث</th><th>النوع</th><th>التفاصيل</th><th>الوقت</th></tr></thead>
-    <tbody>{logs.map(l=><tr key={l.id||l.created_at+l.action}>{admin&&<td>{l.actor_name||l.actor_username||'SYSTEM'}</td>}<td><span className="event">{l.action}</span></td><td>{l.entity_type||'—'}</td><td className="logDetails">{l.details_json||'{}'}</td><td>{fmt(l.created_at)}</td></tr>)}</tbody></Table>
+
+    <div className="desktopLogs">
+      <Table><thead><tr>{admin&&<th>المستخدم</th>}<th>الحدث</th><th>النوع</th><th>التفاصيل</th><th>الوقت</th></tr></thead>
+      <tbody>{logs.map(l=><tr key={l.id||l.created_at+l.action}>{admin&&<td>{l.actor_name||l.actor_username||'SYSTEM'}</td>}<td><span className="event">{l.action}</span></td><td>{l.entity_type||'—'}</td><td className="logDetails">{l.details_json||'{}'}</td><td>{fmt(l.created_at)}</td></tr>)}</tbody></Table>
+    </div>
+
+    <div className="mobileLogs">
+      {logs.length===0 ? <div className="emptyState compact">لا توجد عمليات مسجلة بعد.</div> :
+        logs.map(l=><article className="logCard" key={l.id||l.created_at+l.action}>
+          <div className="logCardTop">
+            <span className="event">{l.action}</span>
+            <time>{fmt(l.created_at)}</time>
+          </div>
+          {admin&&<div className="logLine"><span>المستخدم</span><b>{l.actor_name||l.actor_username||'SYSTEM'}</b></div>}
+          <div className="logLine"><span>النوع</span><b>{l.entity_type||'—'}</b></div>
+          <details>
+            <summary>التفاصيل</summary>
+            <pre>{l.details_json||'{}'}</pre>
+          </details>
+        </article>)
+      }
+    </div>
   </section>;
 }
 
