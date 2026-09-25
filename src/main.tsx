@@ -341,28 +341,29 @@ function NavIcon({name}) {
 }
 
 function Panel({ user, csrf, onLogout }) {
+  const {lang,l}=useLanguage();
   const isAdmin = user.role === 'admin';
   const adminNav = [
-    {id:'overview',label:'الرئيسية',icon:'home'},
-    {id:'servers',label:'إضافة سيرفر',icon:'server'},
-    {id:'inventory',label:'المخزون',icon:'inventory'},
-    {id:'import',label:'رفع الأكواد',icon:'upload'},
-    {id:'resellers',label:'الموزعون',icon:'users',children:[
-      {id:'reseller-create',label:'إنشاء موزع',icon:'userPlus'},
-      {id:'reseller-manage',label:'إدارة الموزعين',icon:'manageUsers'}
+    {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
+    {id:'servers',label:l('إضافة سيرفر','Add server'),icon:'server'},
+    {id:'inventory',label:l('المخزون','Inventory'),icon:'inventory'},
+    {id:'import',label:l('رفع الأكواد','Import codes'),icon:'upload'},
+    {id:'resellers',label:l('الموزعون','Resellers'),icon:'users',children:[
+      {id:'reseller-create',label:l('إنشاء موزع','Create reseller'),icon:'userPlus'},
+      {id:'reseller-manage',label:l('إدارة الموزعين','Manage resellers'),icon:'manageUsers'}
     ]},
-    {id:'issued',label:'الأكواد المفعلة',icon:'codes'},
-    {id:'credit',label:'طلبات الكريدت',icon:'credit'},
-    {id:'apps',label:'التطبيقات والسوفت وير',icon:'apps'},
-    {id:'logs',label:'السجل الكامل',icon:'logs'}
+    {id:'issued',label:l('الأكواد المفعلة','Issued codes'),icon:'codes'},
+    {id:'credit',label:l('طلبات الكريدت','Credit requests'),icon:'credit'},
+    {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
+    {id:'logs',label:l('السجل الكامل','Activity log'),icon:'logs'}
   ];
   const resellerNav = [
-    {id:'overview',label:'الرئيسية',icon:'home'},
-    {id:'issue',label:'إنشاء الأكواد',icon:'issue'},
-    {id:'mycodes',label:'أكوادي',icon:'codes'},
-    {id:'credit',label:'طلب كريدت',icon:'credit'},
-    {id:'apps',label:'التطبيقات والسوفت وير',icon:'apps'},
-    {id:'logs',label:'السجل',icon:'logs'}
+    {id:'overview',label:l('الرئيسية','Dashboard'),icon:'home'},
+    {id:'issue',label:l('إنشاء الأكواد','Issue codes'),icon:'issue'},
+    {id:'mycodes',label:l('أكوادي','My codes'),icon:'codes'},
+    {id:'credit',label:l('طلب كريدت','Request credit'),icon:'credit'},
+    {id:'apps',label:l('التطبيقات والسوفت وير','Apps & software'),icon:'apps'},
+    {id:'logs',label:l('السجل','Activity'),icon:'logs'}
   ];
   const navItems = isAdmin ? adminNav : resellerNav;
   const allowedTabs = useMemo(()=>navItems.flatMap(item=>item.children?[item.id,...item.children.map(x=>x.id)]:[item.id]).filter(id=>id!=='resellers'),[isAdmin]);
@@ -371,7 +372,7 @@ function Panel({ user, csrf, onLogout }) {
   const [menuOpen,setMenuOpen] = useState(false);
   const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
   const flatNavItems = useMemo(()=>navItems.flatMap(item=>item.children||[item]),[navItems]);
-  const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || 'الرئيسية';
+  const currentLabel = flatNavItems.find(item=>item.id===tab)?.label || l('الرئيسية','Dashboard');
   const emptyData={ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
   const cachedData=useMemo(()=>readPanelData(user.role),[user.role]);
   const [data,setData] = useState(()=>cachedData||emptyData);
@@ -416,7 +417,7 @@ function Panel({ user, csrf, onLogout }) {
       writePanelData(user.role,next);
     } catch (e) {
       if (String(e.message).includes('UNAUTHORIZED')) onLogout(true);
-      else setNotice('تعذر تحديث البيانات.');
+      else setNotice(l('تعذر تحديث البيانات.','Unable to refresh data.'));
     } finally {
       setDataReady(true);
     }
@@ -500,26 +501,26 @@ function Panel({ user, csrf, onLogout }) {
     setBusy(true); setNotice('');
     try {
       const out = await call(path,{method:'POST',body});
-      if(path!=='/api/issue') setNotice('تمت العملية بنجاح.');
+      if(path!=='/api/issue') setNotice(l('تمت العملية بنجاح.','Completed successfully.'));
       await refresh();
       return out;
     } catch (e) {
       const map = {
-        INSUFFICIENT_CREDIT:'الرصيد غير كافٍ.',
+        INSUFFICIENT_CREDIT:l('الرصيد غير كافٍ.','Insufficient credit.'),
         INSUFFICIENT_STOCK:'',
-        SERVER_PACKAGE_MISMATCH:'تعذر تحديد السيرفر.',
-        ISSUE_CONFLICT_RETRY:'تعذر التفعيل. حاول مرة أخرى.',
-        IMPORT_LIMIT_700:'الحد الحالي 700 كود في كل عملية رفع.',
-        NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.',
-        INVALID_RESELLER:'تحقق من بيانات الموزع.',
-        ACCOUNT_EXISTS:'اسم المستخدم أو البريد الإلكتروني مستخدم من قبل.',
-        INVALID_APP:'تحقق من رابط الصورة ورابط التحميل.'
+        SERVER_PACKAGE_MISMATCH:l('تعذر تحديد السيرفر.','Server not available.'),
+        ISSUE_CONFLICT_RETRY:l('تعذر التفعيل. حاول مرة أخرى.','Activation failed. Try again.'),
+        IMPORT_LIMIT_700:l('الحد الحالي 700 كود.','Maximum 700 codes per import.'),
+        NEGATIVE_BALANCE_NOT_ALLOWED:l('لا يمكن أن يصبح الرصيد بالسالب.','Balance cannot be negative.'),
+        INVALID_RESELLER:l('تحقق من بيانات الموزع.','Check reseller details.'),
+        ACCOUNT_EXISTS:l('اسم المستخدم أو البريد مستخدم.','Username or email already exists.'),
+        INVALID_APP:l('تحقق من الروابط.','Check the links.')
       };
       if(e.message==='INSUFFICIENT_STOCK'){
         setNotice('');
         return null;
       }
-      setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
+      setNotice(map[e.message] || l('لم تتم العملية: ','Request failed: ')+e.message);
       throw e;
     } finally { setBusy(false); }
   }
@@ -548,7 +549,7 @@ function Panel({ user, csrf, onLogout }) {
       <aside className={'fullSidebar '+(menuOpen?'open':'')}>
         <div className="sidebarTop">
           <Logo compact/>
-          <button className="sidebarClose" onClick={()=>setMenuOpen(false)} aria-label="إغلاق">
+          <button className="sidebarClose" onClick={()=>setMenuOpen(false)} aria-label={l('إغلاق','Close')}>
             <span>×</span>
           </button>
         </div>
@@ -556,14 +557,14 @@ function Panel({ user, csrf, onLogout }) {
         <div className="sidebarAccountCard">
           <div className="sidebarAvatar">{(user.displayName||user.username||'U').slice(0,1).toUpperCase()}</div>
           <div className="sidebarAccountCopy">
-            <span>{isAdmin?'ADMIN PANEL':'RESELLER PANEL'}</span>
+            <span>{isAdmin?l('لوحة الإدارة','ADMIN PANEL'):l('لوحة الموزع','RESELLER PANEL')}</span>
             <b>{user.displayName||user.username}</b>
             {!isAdmin&&<small>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</small>}
           </div>
           <span className="sidebarOnlineDot" title="Online"/>
         </div>
 
-        <div className="sidebarSectionTitle">القائمة</div>
+        <div className="sidebarSectionTitle">{l('القائمة','MENU')}</div>
 
         <nav className="sidebarNav">
           {navItems.map(item=>{
@@ -608,7 +609,7 @@ function Panel({ user, csrf, onLogout }) {
         <div className="sidebarFooter">
           <button className="sidebarLogout" onClick={logout}>
             <span className="sidebarLogoutIcon">↪</span>
-            <span>تسجيل الخروج</span>
+            <span>{l('تسجيل الخروج','Sign out')}</span>
           </button>
           <small>ACTIVE CODE MULTI</small>
         </div>
@@ -622,7 +623,10 @@ function Panel({ user, csrf, onLogout }) {
             <span>ACTIVE CODE MULTI</span>
             <b>{currentLabel}</b>
           </div>
-          <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label="فتح القائمة">☰</button>
+          <div className="contentHeaderActions">
+            <LanguageSwitcher compact/>
+            <button className="sidebarOpen" onClick={()=>setMenuOpen(true)} aria-label={l('فتح القائمة','Open menu')}>☰</button>
+          </div>
         </header>
 
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
