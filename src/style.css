@@ -49,109 +49,42 @@ textarea{resize:vertical}
 .brand.compact .brandMark{width:42px;height:42px;border-radius:11px}
 .brand.compact strong{font-size:14px}.brand.compact em{font-size:7px}
 
-/* login */
-.panelLoginPage,.loginPage{
-  min-height:100vh;
-  display:grid;place-items:center;
-  padding:22px;
-  background:
-    radial-gradient(circle at 15% 10%,rgba(64,137,210,.07),transparent 28%),
-    var(--bg);
-  color:var(--text)
+/* authentication — same visual system as panel */
+.authPage{min-height:100vh;background:var(--bg);color:var(--text)}
+.authTopbar{
+  height:68px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 clamp(16px,4vw,34px);border-bottom:1px solid #e5e9ed;background:#fff
 }
-.panelLoginShell{
-  width:min(430px,100%);
-  display:grid;gap:12px
+.authTopbar>span{font:800 9px Inter,sans-serif;letter-spacing:2.4px;color:#7f8a98}
+.authMain{min-height:calc(100vh - 68px);display:grid;place-items:center;padding:22px}
+.authCard{
+  width:min(430px,100%);padding:20px;border:1px solid #e2e7eb;border-radius:17px;
+  background:#fff;box-shadow:0 14px 36px rgba(35,45,60,.08)
 }
-.panelLoginBrand{
-  min-height:58px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:0 4px
+.authCardHead{margin-bottom:16px}
+.authCardHead>span{font:800 8px Inter,sans-serif;letter-spacing:2.2px;color:#5f9bd0}
+.authCardHead h1{margin:5px 0 3px;font-size:24px;color:#29313a}
+.authCardHead p{margin:0;color:#8a949f;font-size:10px}
+.authForm{display:grid;gap:11px}
+.authForm label{display:grid;gap:6px}
+.authForm label>span{font-size:10px;font-weight:700;color:#68727d}
+.authForm input{
+  min-height:46px;padding:10px 12px;border-radius:9px;background:#fbfcfd;font-size:14px
 }
-.panelLoginBrand .brand strong{color:#29313a}
-.panelLoginBrand>span{
-  font:800 8px Inter,sans-serif;
-  letter-spacing:2px;color:#8b96a2
+.authPasswordWrap{position:relative}
+.authPasswordWrap input{padding-left:66px}
+.authPasswordWrap button{
+  position:absolute;left:6px;top:50%;transform:translateY(-50%);height:32px;min-width:52px;
+  border:1px solid #e0e5ea;border-radius:7px;background:#f2f5f7;color:#68737e;font-size:8px;font-weight:800
 }
-.panelLoginCard,.loginCard{
-  width:100%;
-  padding:20px;
-  border:1px solid #e1e6eb;
-  border-radius:16px;
-  background:#fff;
-  box-shadow:var(--shadow)
-}
-.panelLoginHead{
-  display:flex;align-items:center;gap:12px;
-  margin-bottom:16px
-}
-.panelLoginIcon{
-  width:42px;height:42px;display:grid;place-items:center;
-  flex:0 0 auto;border-radius:11px;
-  background:#eef5fb;color:#397db7;
-  border:1px solid #dce8f3
-}
-.panelLoginIcon svg{width:20px;height:20px}
-.panelLoginHead>div:last-child{display:grid;gap:3px}
-.panelLoginHead h1{margin:0;font-size:22px;color:#29313a}
-.panelLoginHead p{margin:0;font-size:10px;color:#8a949f}
-.panelLoginField{
-  display:grid;gap:6px;
-  margin-top:10px
-}
-.panelLoginField>span,.loginCard label{
-  color:#65707c;font-size:9px;font-weight:700
-}
-.panelLoginField input,.loginCard input{
-  min-height:44px;
-  padding:9px 11px;
-  border-radius:9px;
-  background:#fbfcfd;
-  color:#29313a;
-  border-color:#dfe4e9;
-  font-size:14px
-}
-.panelLoginPassword{position:relative}
-.panelLoginPassword input{padding-left:62px}
-.panelLoginPassword button{
-  position:absolute;left:6px;top:50%;transform:translateY(-50%);
-  height:32px;min-width:50px;
-  border:1px solid #e1e6eb;border-radius:7px;
-  background:#f3f6f8;color:#66717d;
-  font-size:8px;font-weight:700
-}
-.panelLoginError,.errorBox{
-  margin-top:10px;padding:9px 10px;
-  border:1px solid #efc7cd;border-radius:8px;
-  background:#fff3f4;color:#b44d59;
-  font-size:10px
-}
-.panelLoginSubmit{
-  width:100%;min-height:44px;
-  margin-top:14px;border-radius:9px
-}
-.panelLoginSecurity{
-  display:flex;align-items:center;justify-content:center;gap:8px;
-  margin-top:12px;color:#8a949f;font-size:8px
-}
-.createStateDot{
-  width:7px;height:7px;border-radius:50%;
-  background:#2fbe7f;box-shadow:0 0 0 4px rgba(47,190,127,.09)
-}
-
-/* forced password step reuses the same light panel language */
-.loginVisual{display:none}
-.loginCardWrap{
-  width:min(430px,100%);
-  display:grid;place-items:center
-}
-.loginCard h2{margin:6px 0;font-size:22px;color:#29313a}
-.loginCard>p{margin:0 0 14px;color:#8a949f;font-size:10px;line-height:1.6}
-.loginCard .primary{margin-top:14px}
-.secureNote{display:block;text-align:center;color:#89939f;margin-top:11px;font:600 8px Inter,sans-serif}
-.mobileBrand{display:block;margin-bottom:14px}
-.panelTag,.eyebrow{font:800 8px Inter,sans-serif;letter-spacing:1.7px;color:#5f9fd4}
-.securityStrip,.loginGlow{display:none}
+.authError{padding:9px 10px;border:1px solid #f0c7cc;border-radius:8px;background:#fff2f3;color:#b54754;font-size:10px}
+.authSubmit{width:100%;min-height:44px;margin-top:2px}
+.authSecurity{display:flex;align-items:center;gap:9px;margin-top:13px;padding-top:12px;border-top:1px solid #edf0f3}
+.authSecurityDot{width:8px;height:8px;border-radius:50%;background:#2fbe7f;box-shadow:0 0 0 4px rgba(47,190,127,.1)}
+.authSecurity>div{display:grid;gap:1px}
+.authSecurity b{font-size:9px;color:#45505b}
+.authSecurity small{font-size:8px;color:#919aa4}
+.authPasswordCard{width:min(460px,100%)}
 
 .bootShell{
   min-height:100vh;
@@ -509,72 +442,46 @@ textarea{resize:vertical}
 
 .focusedForm{max-width:700px}
 
-.compactAdminForm{
-  width:min(760px,calc(100% - 40px));
-  padding:16px;
+.compactCreatePage{max-width:820px;padding:16px}
+.compactPageHead{
+  display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid #edf0f3
 }
-.compactFormHead{
-  display:flex;align-items:center;gap:10px;
-  padding-bottom:12px;margin-bottom:12px;
-  border-bottom:1px solid #edf0f3
+.compactPageIcon{
+  width:38px;height:38px;display:grid;place-items:center;border-radius:10px;
+  background:#eef6fd;color:#397fb8;border:1px solid #dce9f3
 }
-.compactFormIcon{
-  width:38px;height:38px;display:grid;place-items:center;
-  border-radius:10px;background:#eef5fb;color:#397db7
+.compactPageIcon svg{width:18px;height:18px}
+.compactPageHead>div:last-child{display:grid;gap:1px}
+.compactPageHead span{font:800 7px Inter,sans-serif;letter-spacing:1.8px;color:#659bc9}
+.compactPageHead h2{margin:0;font-size:19px;color:#2b333d}
+.compactCreateForm{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;margin-top:13px}
+.compactField{display:grid;gap:5px}
+.compactField label{font-size:9px;font-weight:700;color:#69737e}
+.compactField label em{margin-right:4px;color:#9aa2ac;font-style:normal;font-size:8px;font-weight:600}
+.compactField input,.compactField select{
+  min-height:43px;padding:9px 11px;border-radius:9px;background:#fbfcfd;font-size:13px
 }
-.compactFormIcon svg{width:19px;height:19px}
-.compactFormHead>div:last-child{display:grid;gap:2px}
-.compactFormHead h2{margin:0;font-size:19px;color:#29313a}
-.compactFormHead span{font-size:8px;color:#8e98a3}
-
-.compactFormGrid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px 12px
-}
-.compactFormGrid>label{
-  display:grid;gap:5px
-}
-.compactFormGrid>label>span{
-  font-size:9px;font-weight:700;color:#65707c
-}
-.compactFormGrid>label>span em{
-  margin-right:4px;
-  color:#929ba5;font-size:8px;font-style:normal;font-weight:600
-}
-.compactFormGrid input{
-  min-height:42px;padding:8px 10px;
-  border-radius:9px;background:#fbfcfd;
-  font-size:13px
-}
-.compactPassword{position:relative}
-.compactPassword input{padding-left:60px}
+.compactPassword,.compactCreditInput{position:relative}
+.compactPassword input{padding-left:65px}
 .compactPassword button{
-  position:absolute;left:5px;top:50%;transform:translateY(-50%);
-  height:30px;min-width:50px;
-  border:1px solid #e0e5ea;border-radius:7px;
-  background:#f3f6f8;color:#66717d;
-  font-size:8px;font-weight:700
+  position:absolute;left:6px;top:50%;transform:translateY(-50%);height:31px;min-width:51px;
+  border:1px solid #e1e6eb;border-radius:7px;background:#f2f5f7;color:#68737e;font-size:8px;font-weight:800
 }
-.compactCreditField>div{position:relative}
-.compactCreditField input{
-  direction:ltr;text-align:left;
-  padding-right:62px;
-  font:800 14px Inter,sans-serif
+.compactCreditInput input{direction:ltr;text-align:left;padding-right:62px;font:800 14px Inter,sans-serif}
+.compactCreditInput>span{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font:800 7px Inter,sans-serif;letter-spacing:.7px;color:#34a877
 }
-.compactCreditField b{
-  position:absolute;right:9px;top:50%;transform:translateY(-50%);
-  font:800 7px Inter,sans-serif;letter-spacing:.6px;color:#39a878
+.compactCreateAction{
+  grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-top:2px;padding-top:11px;border-top:1px solid #edf0f3
 }
-.compactFormAction{
-  display:flex;align-items:end;justify-content:flex-end
+.compactCreateAction>span{display:flex;align-items:center;gap:7px;color:#7f8994;font-size:9px}
+.compactCreateAction i{width:7px;height:7px;border-radius:50%;background:#2fbe7f}
+.compactCreateAction button{
+  min-width:145px;min-height:40px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px
 }
-.compactFormAction button{
-  min-width:145px;min-height:42px;
-  display:flex;align-items:center;justify-content:center;gap:7px;
-  border-radius:9px
-}
-.compactFormAction svg{width:16px;height:16px}
+.compactCreateAction button svg{width:15px;height:15px}
 
 .formGrid{display:grid;gap:10px}.formGrid label{font-size:11px;color:#6f7883;margin-top:3px}
 .twoCol{
@@ -797,97 +704,47 @@ tr:last-child td{border-bottom:0}
 .logCard summary{cursor:pointer;color:#397cc8;font-size:10px;font-weight:700}
 .logCard pre{margin:8px 0 0;padding:9px;border-radius:8px;background:#f7f9fb;color:#65707d;font:9px/1.6 Inter,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
 
-.compactIssuePage{
-  width:min(760px,calc(100% - 40px));
-  padding:16px
-}
-.compactIssueHead{
+.issueCompact{width:min(820px,calc(100% - 40px));padding:16px}
+.issueCompactHead{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding-bottom:12px;margin-bottom:12px;
-  border-bottom:1px solid #edf0f3
+  padding-bottom:12px;border-bottom:1px solid #edf0f3
 }
-.compactIssueHead>div:first-child{display:grid;gap:2px}
-.compactIssueHead h2{margin:0;font-size:19px;color:#29313a}
-.compactIssueHead>div:first-child>span{font-size:8px;color:#8e98a3}
-.compactBalance{
-  min-width:112px;
-  display:grid;grid-template-columns:1fr auto;align-items:end;gap:2px 6px;
+.issueCompactHead>div:first-child{display:grid;gap:2px}
+.issueCompactHead>div:first-child span{font:800 7px Inter,sans-serif;letter-spacing:1.8px;color:#5f9bd0}
+.issueCompactHead h2{margin:0;font-size:19px;color:#2b333d}
+.issueBalanceChip{
+  min-width:118px;display:grid;grid-template-columns:1fr auto;align-items:end;
   padding:8px 10px;border:1px solid #d8e9df;border-radius:10px;background:#f3fbf7
 }
-.compactBalance span{font-size:8px;color:#738178}
-.compactBalance strong{font:850 21px/1 Inter,sans-serif;color:#16865c}
-.compactBalance small{
-  grid-column:2;grid-row:1/3;align-self:center;
-  font:700 7px Inter,sans-serif;color:#3ba779;letter-spacing:.6px
+.issueBalanceChip span{grid-column:1/-1;font-size:8px;color:#738178}
+.issueBalanceChip strong{font:850 23px/1 Inter,sans-serif;color:#16845a}
+.issueBalanceChip small{padding-bottom:2px;font:700 7px Inter,sans-serif;letter-spacing:.6px;color:#3ba979}
+.issueModeTabs{
+  display:grid;grid-template-columns:1fr 1fr;gap:3px;margin:11px 0;padding:3px;
+  border:1px solid #e2e6ea;border-radius:9px;background:#f5f7f9
 }
-.compactModeSwitch{
-  width:260px;max-width:100%;
-  display:grid;grid-template-columns:1fr 1fr;
-  padding:3px;margin-bottom:12px;
-  border:1px solid #e0e4e8;border-radius:9px;background:#f4f6f8
+.issueModeTabs button{
+  min-height:34px;border-radius:7px;background:transparent;color:#747e89;font-size:10px;font-weight:700
 }
-.compactModeSwitch button{
-  min-height:34px;padding:6px 9px;
-  border-radius:7px;background:transparent;
-  color:#78828d;font-size:9px;font-weight:700
-}
-.compactModeSwitch button.active{
-  background:#fff;color:#2d3540;
-  box-shadow:0 2px 7px rgba(30,40,55,.07)
-}
-.compactIssueForm{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px 12px
-}
-.compactIssueForm>label{display:grid;gap:5px}
-.compactIssueForm>label>span{
-  font-size:9px;font-weight:700;color:#65707c
-}
-.compactIssueForm input,.compactIssueForm select{
-  min-height:42px;padding:8px 10px;
-  border-radius:9px;background:#fbfcfd;
-  font-size:13px
-}
-.compactIssueSummary{
-  grid-column:1/-1;
-  display:grid;grid-template-columns:repeat(3,1fr);gap:7px
-}
-.compactIssueSummary>div{
-  padding:8px 9px;border:1px solid #e6eaee;border-radius:8px;background:#fafbfc
-}
-.compactIssueSummary span{display:block;font-size:8px;color:#8d96a2}
-.compactIssueSummary b{
-  display:block;margin-top:4px;
-  color:#2d3540;font:750 10px Inter,sans-serif
-}
-.compactIssueSubmit{
-  grid-column:1/-1;
-  width:150px;min-height:42px;
-  justify-self:end;border-radius:9px
-}
-.compactIssueResult{
-  margin-top:12px;padding:12px;
-  border:1px solid #dfe5ea;border-radius:10px;background:#fbfcfd
-}
-.compactResultHead{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  margin-bottom:9px
-}
-.compactResultHead>div:first-child{display:grid;gap:2px}
-.compactResultHead b{font-size:11px;color:#27835f}
-.compactResultHead span{font-size:8px;color:#8b95a0}
-.compactResultActions{display:flex;gap:5px}
-.compactResultActions button{
-  height:30px;padding:0 9px;border-radius:7px;
-  background:#eef3f7;color:#46515d;font-size:8px;font-weight:700
-}
+.issueModeTabs button.active{background:#fff;color:#2c333d;box-shadow:0 2px 7px rgba(30,40,55,.07)}
+.issueCompactForm{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.issueSummaryBar{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.issueSummaryBar>div{padding:8px 9px;border:1px solid #e8ecef;border-radius:8px;background:#fafbfc}
+.issueSummaryBar span{display:block;font-size:8px;color:#89939e}
+.issueSummaryBar b{display:block;margin-top:3px;font:750 10px Inter,sans-serif;color:#333b45}
+.issueActivateBtn{grid-column:1/-1;min-height:41px;font-size:11px}
+.compactIssueResult{margin-top:12px;padding-top:12px;border-top:1px solid #edf0f3}
+.compactIssueResultHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.compactIssueResultHead>div:first-child{display:grid;gap:2px}
+.compactIssueResultHead b{font-size:11px;color:#333b45}
+.compactIssueResultHead span{font-size:8px;color:#1b9b6b}
 .issuedList{display:grid;gap:6px}
 .issuedCode{
-  padding:9px;border:1px solid #d5e4f3;border-radius:8px;
-  background:#f5f9ff;color:#176bb7;font-weight:700;text-align:center
+  padding:9px 10px;border:1px solid #d5e4f3;border-radius:8px;background:#f5f9ff;
+  color:#176bb7;font-size:11px;font-weight:700;text-align:center
 }
-.inlineBtns{display:flex;gap:7px}
+.rowBtns,.inlineBtns{display:flex;gap:6px}
+.rowBtns button{min-height:32px;padding:6px 9px;font-size:9px}
 .inlineBtns button{padding:6px 9px;border-radius:7px;background:#eef3f7;color:#3f4b58}
 
 .codesAccordion{display:grid;gap:9px}
@@ -1052,12 +909,11 @@ tr:last-child td{border-bottom:0}
 }
 
 @media(max-width:820px){
-  .panelLoginPage,.loginPage{padding:14px}
-  .panelLoginShell,.loginCardWrap{width:min(420px,100%)}
-  .compactAdminForm,.compactIssuePage{width:calc(100% - 28px)}
-  .compactFormGrid,.compactIssueForm{grid-template-columns:1fr}
-  .compactFormAction,.compactIssueSubmit{grid-column:1}
-  .compactFormAction button,.compactIssueSubmit{width:100%;min-width:0}
+  .authMain{padding:16px}
+  .compactCreatePage,.issueCompact{width:calc(100% - 28px)}
+  .compactCreateForm,.issueCompactForm{grid-template-columns:1fr}
+  .compactCreateAction,.issueSummaryBar,.issueActivateBtn{grid-column:1}
+
 
   .resellerAccordionSummary{
     grid-template-columns:minmax(0,1fr) auto 30px;
@@ -1072,11 +928,6 @@ tr:last-child td{border-bottom:0}
   .managementSummary{width:100%}
   .managementSummary>div{flex:1;min-width:0}
 
-  .resellerCreatePage{width:calc(100% - 28px)}
-  .resellerFieldsGrid{grid-template-columns:1fr}
-  .resellerFieldWide{grid-column:auto}
-  .resellerCreateFooter{align-items:stretch;flex-direction:column}
-  .createResellerBtn{width:100%;min-width:0}
 
   .panelShell{display:block}
   .fullSidebar{
@@ -1115,10 +966,6 @@ tr:last-child td{border-bottom:0}
   .desktopLogs{display:none}
   .mobileLogs{display:grid;gap:9px}
 
-  .loginPage{grid-template-columns:1fr}
-  .loginVisual{display:none}
-  .loginCardWrap{min-height:100vh;padding:14px}
-  .mobileBrand{display:block;margin-bottom:24px}
 
   .panelShell{display:block;width:100%;max-width:100%;overflow-x:hidden}
   .sidebarOpen{display:grid;place-items:center;flex:0 0 auto}
@@ -1143,26 +990,30 @@ tr:last-child td{border-bottom:0}
   .twoCol>.section{width:100%}
   .serverGrid{grid-template-columns:1fr}
   .appGrid{grid-template-columns:1fr}
-  .costBox{grid-template-columns:1fr 1fr}
-  .inlineResultHead{align-items:flex-start;flex-direction:column}
-  .inlineResultHead .rowBtns{width:100%}.inlineResultHead .rowBtns button{flex:1}
 }
 
 @media(max-width:480px){
-  .panelLoginPage,.loginPage{padding:11px}
-  .panelLoginBrand{min-height:52px}
-  .panelLoginCard,.loginCard{padding:15px;border-radius:14px}
-  .panelLoginHead{margin-bottom:12px}
-  .panelLoginHead h1{font-size:19px}
-  .panelLoginField input,.loginCard input{min-height:42px}
-  .compactAdminForm,.compactIssuePage{width:calc(100% - 22px);padding:13px}
-  .compactFormHead,.compactIssueHead{padding-bottom:10px;margin-bottom:10px}
-  .compactFormHead h2,.compactIssueHead h2{font-size:18px}
-  .compactFormGrid,.compactIssueForm{gap:9px}
-  .compactFormGrid input,.compactIssueForm input,.compactIssueForm select{min-height:40px;font-size:12px}
-  .compactModeSwitch{width:100%}
-  .compactIssueSummary{grid-template-columns:1fr 1fr}
-  .compactIssueSummary>div:last-child{grid-column:1/-1}
+  .authTopbar{height:62px;padding:0 13px}
+  .authTopbar .brandMark{width:36px;height:36px}
+  .authTopbar .brand strong{font-size:12px}
+  .authMain{min-height:calc(100vh - 62px);padding:14px}
+  .authCard{padding:16px;border-radius:14px}
+  .authCardHead h1{font-size:21px}
+  .authForm input{min-height:44px;font-size:16px}
+
+  .compactCreatePage,.issueCompact{width:calc(100% - 22px);padding:13px}
+  .compactPageHead,.issueCompactHead{padding-bottom:10px}
+  .compactPageHead h2,.issueCompactHead h2{font-size:18px}
+  .compactField input,.compactField select{min-height:42px;font-size:16px}
+  .compactCreateForm,.issueCompactForm{gap:9px}
+  .compactCreateAction{align-items:stretch;flex-direction:column}
+  .compactCreateAction button{width:100%;min-width:0}
+  .issueBalanceChip{min-width:105px}
+  .issueBalanceChip strong{font-size:21px}
+  .issueSummaryBar{gap:5px}
+  .issueSummaryBar>div{padding:7px}
+  .issueSummaryBar b{font-size:9px}
+
 
   .bootHeader{height:68px;padding:0 14px}
   .bootBrandText{font-size:8px;letter-spacing:2.4px}
@@ -1189,9 +1040,6 @@ tr:last-child td{border-bottom:0}
   .creditActionBtns{width:100%}
   .creditActionBtns button{flex:1}
 
-  .bootHeader{height:76px;padding:0 14px}
-  .bootBrandLine{width:142px;height:12px}
-  .bootMenuBox{width:44px;height:44px}
 
   .resellerManagementPage{padding:13px}
   .resellerProfileCard{min-height:0;padding:12px;border-radius:12px}
@@ -1202,20 +1050,6 @@ tr:last-child td{border-bottom:0}
   .inlineCreditControl{grid-template-columns:minmax(0,1fr) 66px}
   .inlineCreditControl button{padding:0 8px}
 
-  .resellerCreatePage{width:calc(100% - 22px);border-radius:15px}
-  .resellerCreateHeader{padding:16px}
-  .resellerCreateIcon{width:42px;height:42px;border-radius:12px}
-  .resellerCreateHeader h2{font-size:20px}
-  .resellerCreateHeader p{font-size:9px}
-  .resellerCreateForm{padding:12px;gap:11px}
-  .resellerFormGroup{border-radius:12px}
-  .resellerFormGroupHead{padding:10px 11px}
-  .resellerFieldsGrid{padding:11px;gap:10px}
-  .resellerField{gap:6px}
-  .resellerField input{min-height:46px;padding:10px 12px}
-  .passwordFieldWrap input{padding-left:70px}
-  .resellerCreateFooter{padding:11px}
-  .createAccountState small{display:none}
 
   .dashboardHeader,.resellerHomeTop{align-items:stretch;flex-direction:column}
   .adminBalanceOpen,.resellerMainBalance{width:100%;min-width:0}
@@ -1228,8 +1062,6 @@ tr:last-child td{border-bottom:0}
   .proLogSummary{grid-template-columns:5px minmax(0,1fr) 30px}
   .proLogEntity{display:none}
   .proLogDetails{grid-template-columns:1fr}
-  .resellerManageCard{grid-template-columns:1fr}
-  .resellerManageCard>div:first-child{grid-column:auto}
 
   .codeAccordionSummary{
     grid-template-columns:minmax(62px,.7fr) minmax(0,1.4fr) 32px;
@@ -1256,6 +1088,5 @@ tr:last-child td{border-bottom:0}
   .referenceCard{min-height:200px;padding:30px 20px 20px}
   .referenceIcon{width:60px;height:60px}
   .formGrid input,.formGrid select,.formGrid textarea{font-size:16px}
-  .resultMeta{grid-template-columns:1fr;gap:5px}
   .issuedCode{white-space:normal;overflow-wrap:anywhere}
 }
