@@ -28,3 +28,6 @@ Cloudflare Workers Builds can use:
 - Deploy command: npx wrangler deploy
 
 The D1 binding is declared without an account-specific ID so current Wrangler automatic resource provisioning can create/link the database on Cloudflare. The Worker also creates the schema safely on first API request; migrations/0001_init.sql remains the versioned schema source.
+
+
+Cloudflare production branch trigger: feature/code-panel-cloudflare
