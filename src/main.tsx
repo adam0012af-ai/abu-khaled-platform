@@ -1,10 +1,28 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 const fmt = (v) => v ? new Date(v).toLocaleString('ar-EG') : '—';
 const num = (v) => Number(v || 0).toLocaleString('en-US');
 
 const panelStateKey = (role, key) => `acm:${role}:${key}`;
+
+const LanguageContext=createContext({lang:'ar',setLang:()=>{}});
+function useLanguage(){
+  const ctx=useContext(LanguageContext);
+  const l=(ar,en)=>ctx.lang==='en'?en:ar;
+  return {...ctx,l};
+}
+function LanguageSwitcher({compact=false}){
+  const {lang,setLang}=useLanguage();
+  return <div className={'languageSwitcher '+(compact?'compact':'')} role="group" aria-label="Language">
+    <button type="button" className={lang==='ar'?'active':''} onClick={()=>setLang('ar')} aria-label="العربية">
+      <span className="langFlag">🇸🇦</span><span className="langText">عربي</span>
+    </button>
+    <button type="button" className={lang==='en'?'active':''} onClick={()=>setLang('en')} aria-label="English">
+      <span className="langFlag">🇺🇸</span><span className="langText">EN</span>
+    </button>
+  </div>;
+}
 
 const ADMIN_ROUTE_TO_TAB = {
   dashboard:'overview',
@@ -107,20 +125,96 @@ function PremiumLoginLogo() {
 }
 
 function Login({ onAuth }) {
+  const {lang,l}=useLanguage();
   const [form, setForm] = useState({ identifier:'', password:'' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPassword,setShowPassword]=useState(false);
+  const [turnstile,setTurnstile]=useState({enabled:false,siteKey:''});
+  const [turnstileToken,setTurnstileToken]=useState('');
+  const turnstileNode=useRef(null);
+  const turnstileWidget=useRef(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    fetch('/api/public-config',{credentials:'same-origin'})
+      .then(r=>r.ok?r.json():null)
+      .then(cfg=>{
+        if(!cancelled&&cfg?.turnstile){
+          setTurnstile({
+            enabled:Boolean(cfg.turnstile.enabled),
+            siteKey:String(cfg.turnstile.siteKey||'')
+          });
+        }
+      })
+      .catch(()=>{});
+    return()=>{cancelled=true;};
+  },[]);
+
+  useEffect(()=>{
+    if(!turnstile.enabled||!turnstile.siteKey||!turnstileNode.current) return;
+    let stopped=false, timer=0;
+    const render=()=>{
+      if(stopped) return;
+      if(window.turnstile?.render){
+        try{
+          if(turnstileWidget.current!==null){
+            window.turnstile.remove(turnstileWidget.current);
+            turnstileWidget.current=null;
+          }
+          turnstileWidget.current=window.turnstile.render(turnstileNode.current,{
+            sitekey:turnstile.siteKey,
+            theme:'light',
+            size:'flexible',
+            language:lang==='en'?'en':'ar',
+            callback:(token)=>setTurnstileToken(token||''),
+            'expired-callback':()=>setTurnstileToken(''),
+            'error-callback':()=>setTurnstileToken('')
+          });
+        }catch{}
+      }else timer=window.setTimeout(render,120);
+    };
+    render();
+    return()=>{
+      stopped=true;
+      clearTimeout(timer);
+      try{
+        if(turnstileWidget.current!==null&&window.turnstile?.remove) window.turnstile.remove(turnstileWidget.current);
+      }catch{}
+      turnstileWidget.current=null;
+      setTurnstileToken('');
+    };
+  },[turnstile.enabled,turnstile.siteKey,lang]);
+
+  function resetTurnstile(){
+    setTurnstileToken('');
+    try{
+      if(turnstileWidget.current!==null&&window.turnstile?.reset) window.turnstile.reset(turnstileWidget.current);
+    }catch{}
+  }
 
   async function submit(e) {
     e.preventDefault();
+
+    const submitter=e.nativeEvent?.submitter;
+    if(!submitter||submitter.dataset.manualLogin!=='1') return;
+
+    if(turnstile.enabled&&!turnstileToken){
+      setError(l('أكمل التحقق أولاً.','Complete verification first.'));
+      return;
+    }
+
     setBusy(true); setError('');
     try {
       const res = await fetch('/api/login', {
         method:'POST',
         credentials:'same-origin',
         headers:{ 'content-type':'application/json' },
-        body:JSON.stringify({ identifier:form.identifier, password:form.password })
+        body:JSON.stringify({
+          identifier:form.identifier,
+          password:form.password,
+          turnstileToken
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'LOGIN_FAILED');
@@ -128,10 +222,12 @@ function Login({ onAuth }) {
     } catch (e) {
       const code = String(e.message || e);
       setError(
-        code.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. حاول مرة أخرى لاحقًا.' :
-        code.includes('INVALID_LOGIN') ? 'بيانات الدخول غير صحيحة.' :
-        'تعذر تسجيل الدخول.'
+        code.includes('TURNSTILE') ? l('فشل التحقق. حاول مرة أخرى.','Verification failed. Try again.') :
+        code.includes('TOO_MANY_ATTEMPTS') ? l('محاولات كثيرة. حاول لاحقًا.','Too many attempts. Try again later.') :
+        code.includes('INVALID_LOGIN') ? l('بيانات الدخول غير صحيحة.','Invalid login details.') :
+        l('تعذر تسجيل الدخول.','Unable to sign in.')
       );
+      resetTurnstile();
     } finally { setBusy(false); }
   }
 
@@ -139,25 +235,27 @@ function Login({ onAuth }) {
     <div className="acmAuthGlow acmAuthGlowOne" aria-hidden="true"/>
     <div className="acmAuthGlow acmAuthGlowTwo" aria-hidden="true"/>
 
+    <div className="acmAuthTopActions">
+      <LanguageSwitcher compact/>
+    </div>
+
     <main className="acmAuthStage">
       <div className="acmAuthCenter">
         <PremiumLoginLogo/>
 
         <section className="acmAuthCard">
           <div className="acmAuthHeading">
-            <span>SECURE ACCESS</span>
-            <h1>تسجيل الدخول</h1>
-            <p>دخول الإدارة والموزعين إلى لوحة التحكم</p>
+            <h1>{l('تسجيل الدخول','Sign in')}</h1>
           </div>
 
-          <form className="acmAuthForm" onSubmit={submit}>
+          <form className="acmAuthForm" onSubmit={submit} autoComplete="on">
             <label className="acmField">
-              <span>اسم المستخدم أو البريد الإلكتروني</span>
+              <span>{l('اسم المستخدم أو البريد الإلكتروني','Username or email')}</span>
               <input
                 dir="ltr"
                 value={form.identifier}
                 onChange={e=>setForm({...form,identifier:e.target.value})}
-                placeholder="Username or Email"
+                placeholder={l('اسم المستخدم أو البريد','Username or Email')}
                 autoCapitalize="none"
                 autoComplete="username"
                 required
@@ -165,47 +263,51 @@ function Login({ onAuth }) {
             </label>
 
             <label className="acmField">
-              <span>كلمة المرور</span>
+              <span>{l('كلمة المرور','Password')}</span>
               <div className="acmPasswordBox">
                 <input
                   dir="ltr"
                   type={showPassword?'text':'password'}
                   value={form.password}
                   onChange={e=>setForm({...form,password:e.target.value})}
-                  placeholder="Password"
+                  placeholder={l('كلمة المرور','Password')}
                   autoComplete="current-password"
                   required
                 />
                 <button type="button" onClick={()=>setShowPassword(v=>!v)}>
-                  {showPassword?'إخفاء':'إظهار'}
+                  {showPassword?l('إخفاء','Hide'):l('إظهار','Show')}
                 </button>
               </div>
             </label>
 
+            {turnstile.enabled&&<div className="turnstileSlot" ref={turnstileNode}/>}
+
             {error&&<div className="acmAuthError">{error}</div>}
 
-            <button className="acmPrimaryBtn acmAuthSubmit" disabled={busy}>
-              {busy?'جارٍ الدخول…':'تسجيل الدخول'}
+            <button
+              className="acmPrimaryBtn acmAuthSubmit"
+              type="submit"
+              data-manual-login="1"
+              disabled={busy||(turnstile.enabled&&!turnstileToken)}
+            >
+              {busy?l('جارٍ الدخول…','Signing in…'):l('تسجيل الدخول','Sign in')}
             </button>
           </form>
-
-          <div className="acmSecureNote">
-            <span className="acmSecureDot"/>
-            <span>جلسة آمنة ومحمية</span>
-          </div>
         </section>
       </div>
     </main>
 
     <footer className="acmAuthFooter">
-      <div className="acmAuthFooterCopyright">جميع الحقوق محفوظة © ACTIVE CODE MULTI</div>
+      <div className="acmAuthFooterCopyright">
+        © ACTIVE CODE MULTI · <b>TTV4K</b>
+      </div>
       <div className="acmAuthFooterSecurity" dir="ltr">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M7 10V8a5 5 0 0 1 10 0v2"/>
           <rect x="5" y="10" width="14" height="10" rx="3"/>
           <path d="M12 14v2"/>
         </svg>
-        <span>256-bit SSL Encryption</span>
+        <span>256-bit SSL</span>
       </div>
     </footer>
   </div>;
@@ -1374,6 +1476,14 @@ function ForcePasswordChange({ csrf, onDone }) {
 }
 
 function App() {
+  const [lang,setLangState]=useState(()=>{
+    try{return localStorage.getItem('acm_language')==='en'?'en':'ar';}catch{return 'ar';}
+  });
+  const setLang=(value)=>{
+    const next=value==='en'?'en':'ar';
+    setLangState(next);
+    try{localStorage.setItem('acm_language',next);}catch{}
+  };
   const [loading,setLoading]=useState(true);
   const [user,setUser]=useState(null);
   const [csrf,setCsrf]=useState('');
@@ -1390,15 +1500,25 @@ function App() {
   }
 
   useEffect(()=>{boot();},[]);
-  if (loading) return <div className="bootShell" aria-label="تحميل اللوحة">
+  useEffect(()=>{
+    document.documentElement.lang=lang==='en'?'en':'ar';
+    document.documentElement.dir=lang==='en'?'ltr':'rtl';
+    document.body.dir=lang==='en'?'ltr':'rtl';
+  },[lang]);
+
+  const content=loading ? <div className="bootShell" aria-label="تحميل اللوحة">
     <header className="bootHeader">
       <div className="bootBrandText">ACTIVE CODE MULTI</div>
       <div className="bootMenuBox">☰</div>
     </header>
     <div className="bootProgress"><span/></div>
-  </div>;
-  if (!user) return <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>;
-  if (user.mustChangePassword) return <ForcePasswordChange csrf={csrf} onDone={()=>setUser({...user,mustChangePassword:false})}/>;
-  return <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
+  </div>
+    : !user ? <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>
+    : user.mustChangePassword ? <ForcePasswordChange csrf={csrf} onDone={()=>setUser({...user,mustChangePassword:false})}/>
+    : <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
+
+  return <LanguageContext.Provider value={{lang,setLang}}>
+    {content}
+  </LanguageContext.Provider>;
 }
 createRoot(document.getElementById('root')).render(<App/>);
