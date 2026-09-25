@@ -17,6 +17,18 @@ function readPanelScroll(role, tab){
   catch{return 0;}
 }
 
+function readPanelData(role){
+  try{
+    const raw=sessionStorage.getItem(panelStateKey(role,'data'));
+    if(!raw) return null;
+    const parsed=JSON.parse(raw);
+    return parsed&&typeof parsed==='object'?parsed:null;
+  }catch{return null;}
+}
+function writePanelData(role,data){
+  try{sessionStorage.setItem(panelStateKey(role,'data'),JSON.stringify(data));}catch{}
+}
+
 function Logo({ compact = false }) {
   return (
     <div className={'brand '+(compact?'compact':'')}>
@@ -146,8 +158,10 @@ function Panel({ user, csrf, onLogout }) {
   const [tab,setTab] = useState(initialTab);
   const [menuOpen,setMenuOpen] = useState(false);
   const [resellerPocketOpen,setResellerPocketOpen] = useState(()=>['reseller-create','reseller-manage'].includes(initialTab));
-  const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
-  const [dataReady,setDataReady] = useState(false);
+  const emptyData={ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] };
+  const cachedData=useMemo(()=>readPanelData(user.role),[user.role]);
+  const [data,setData] = useState(()=>cachedData||emptyData);
+  const [dataReady,setDataReady] = useState(()=>Boolean(cachedData));
   const [notice,setNotice] = useState('');
   const [busy,setBusy] = useState(false);
 
@@ -185,6 +199,7 @@ function Panel({ user, csrf, onLogout }) {
         next.codes = codes.codes||[];
       }
       setData(next);
+      writePanelData(user.role,next);
     } catch (e) {
       if (String(e.message).includes('UNAUTHORIZED')) onLogout(true);
       else setNotice('تعذر تحديث البيانات.');
@@ -282,6 +297,10 @@ function Panel({ user, csrf, onLogout }) {
 
   async function logout() {
     try { await call('/api/logout',{method:'POST',body:{}}); } catch {}
+    try{
+      sessionStorage.removeItem(panelStateKey(user.role,'data'));
+      sessionStorage.removeItem(panelStateKey(user.role,'tab'));
+    }catch{}
     onLogout();
   }
 
@@ -713,6 +732,7 @@ function CreateReseller({action,busy}) {
 
 function ManageResellers({data,action,busy}) {
   const [amounts,setAmounts]=useState({});
+  const [openId,setOpenId]=useState(null);
 
   function countryName(code){
     if(!code) return 'غير متاح';
@@ -721,10 +741,15 @@ function ManageResellers({data,action,busy}) {
     }catch{return code;}
   }
 
-  async function addCredit(reseller){
-    const amount=Math.trunc(Number(amounts[reseller.id]||0));
-    if(!Number.isSafeInteger(amount)||amount<=0) return;
-    await action('/api/admin/credit-adjust',{resellerId:reseller.id,amount,note:'إضافة رصيد من إدارة الموزعين'});
+  async function adjustCredit(reseller,direction){
+    const raw=Math.trunc(Math.abs(Number(amounts[reseller.id]||0)));
+    if(!Number.isSafeInteger(raw)||raw<=0) return;
+    const amount=direction==='minus'?-raw:raw;
+    await action('/api/admin/credit-adjust',{
+      resellerId:reseller.id,
+      amount,
+      note:direction==='minus'?'خصم رصيد من إدارة الموزعين':'إضافة رصيد من إدارة الموزعين'
+    });
     setAmounts(v=>({...v,[reseller.id]:''}));
   }
 
@@ -741,80 +766,83 @@ function ManageResellers({data,action,busy}) {
     </div>
 
     {data.resellers.length===0 ? <div className="emptyState compact">لا يوجد موزعون حتى الآن.</div> :
-      <div className="resellerManagementGrid">
+      <div className="resellerAccordion">
         {data.resellers.map(r=>{
+          const open=openId===r.id;
           const d=r.last_login_at?new Date(r.last_login_at):null;
           const lastLogin=d&&!Number.isNaN(d.getTime())
             ? d.toLocaleString('ar-EG',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
             : 'لم يسجل دخول بعد';
 
-          return <article className="resellerProfileCard" key={r.id}>
-            <div className="resellerProfileTop">
-              <div className="resellerIdentityBlock">
+          return <article className={'resellerAccordionCard '+(open?'open':'')} key={r.id}>
+            <button
+              type="button"
+              className="resellerAccordionSummary"
+              onClick={()=>setOpenId(open?null:r.id)}
+              aria-expanded={open}
+            >
+              <div className="resellerCompactIdentity">
                 <div className="resellerInitial">{(r.display_name||r.username||'R').slice(0,1).toUpperCase()}</div>
                 <div>
                   <b>{r.display_name||r.username}</b>
                   <span>@{r.username}</span>
                 </div>
               </div>
+
+              <div className="resellerCompactStats">
+                <div><strong>{num(r.credits)}</strong><span>Credit</span></div>
+                <div><strong>{num(r.issued_codes)}</strong><span>كود</span></div>
+              </div>
+
               <span className={'resellerStatus '+(r.status==='active'?'active':'blocked')}>
                 {r.status==='active'?'نشط':'متوقف'}
               </span>
-            </div>
 
-            <div className="resellerMetricGrid">
-              <div>
-                <span>الرصيد</span>
-                <strong>{num(r.credits)}</strong>
-                <small>CREDIT</small>
-              </div>
-              <div>
-                <span>عدد الأكواد</span>
-                <strong>{num(r.issued_codes)}</strong>
-                <small>CODE</small>
-              </div>
-            </div>
+              <span className="resellerAccordionToggle">{open?'−':'+'}</span>
+            </button>
 
-            <div className="resellerInfoGrid">
-              <div>
-                <span>الدولة</span>
-                <b>{countryName(r.last_country)}</b>
+            {open&&<div className="resellerAccordionDetails">
+              <div className="resellerDetailGrid">
+                <div><span>الدولة</span><b>{countryName(r.last_country)}</b></div>
+                <div><span>IP آخر دخول</span><b className="mono resellerIp">{r.last_login_ip||'—'}</b></div>
+                <div><span>آخر دخول</span><b>{lastLogin}</b></div>
+                <div><span>Email</span><b>{r.email||'—'}</b></div>
+                <div><span>الرصيد الحالي</span><b>{num(r.credits)} Credit</b></div>
+                <div><span>إجمالي الأكواد</span><b>{num(r.issued_codes)}</b></div>
               </div>
-              <div>
-                <span>IP آخر دخول</span>
-                <b className="mono resellerIp">{r.last_login_ip||'—'}</b>
-              </div>
-              <div className="resellerLastLogin">
-                <span>آخر دخول</span>
-                <b>{lastLogin}</b>
-              </div>
-              {r.email&&<div className="resellerEmailInfo">
-                <span>Email</span>
-                <b>{r.email}</b>
-              </div>}
-            </div>
 
-            <div className="inlineCreditControl">
-              <div>
-                <span>إضافة رصيد</span>
-                <div className="creditMiniInput">
-                  <input
-                    type="number"
-                    min="1"
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={amounts[r.id]??''}
-                    onChange={e=>setAmounts(v=>({...v,[r.id]:e.target.value}))}
-                  />
-                  <small>CREDIT</small>
+              <div className="resellerCreditPocket">
+                <div className="resellerCreditField">
+                  <span>تعديل الرصيد</span>
+                  <div className="creditMiniInput">
+                    <input
+                      type="number"
+                      min="1"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={amounts[r.id]??''}
+                      onChange={e=>setAmounts(v=>({...v,[r.id]:e.target.value}))}
+                    />
+                    <small>CREDIT</small>
+                  </div>
+                </div>
+
+                <div className="creditActionBtns">
+                  <button
+                    type="button"
+                    className="creditAddBtn"
+                    disabled={busy||Number(amounts[r.id]||0)<=0}
+                    onClick={()=>adjustCredit(r,'plus')}
+                  ><span>+</span> إضافة</button>
+                  <button
+                    type="button"
+                    className="creditMinusBtn"
+                    disabled={busy||Number(amounts[r.id]||0)<=0}
+                    onClick={()=>adjustCredit(r,'minus')}
+                  ><span>−</span> خصم</button>
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={busy||Number(amounts[r.id]||0)<=0}
-                onClick={()=>addCredit(r)}
-              >إضافة</button>
-            </div>
+            </div>}
           </article>;
         })}
       </div>
