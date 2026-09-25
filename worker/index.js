@@ -678,7 +678,7 @@ async function api(request,env){
   }
 
   if(path==='/api/apps' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT id,name,platform,version,description,image_url,download_url,visibility,created_at FROM apps WHERE active=1 AND (visibility='all' OR visibility=?) ORDER BY created_at DESC LIMIT 100").bind(user.role).all()).results||[];
+    const rows=(await env.DB.prepare("SELECT id,name,platform,version,description,image_url,download_url,visibility,created_at FROM apps WHERE active=1 AND (visibility='all' OR visibility=?) ORDER BY created_at DESC LIMIT 50").bind(user.role).all()).results||[];
     return json({apps:rows});
   }
 
