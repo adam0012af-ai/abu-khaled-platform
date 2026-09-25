@@ -1,12 +1,12 @@
 const SESSION_COOKIE = 'acm_session';
 const SESSION_HOURS = 12;
-const PASSWORD_ITERATIONS = 150000;
+const PASSWORD_ITERATIONS = 100000;
 let schemaReady = false;
 
 const BASE_SCHEMA = [
   "PRAGMA foreign_keys = ON",
   "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL)",
-  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 150000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 100000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, ip_hash TEXT, user_agent TEXT)",
   "CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_started_at TEXT NOT NULL, blocked_until TEXT)",
   "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, slug TEXT NOT NULL UNIQUE COLLATE NOCASE, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), low_stock_threshold INTEGER NOT NULL DEFAULT 10, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)",
@@ -135,7 +135,7 @@ function csrfOk(request,user){
 async function ensureBootstrapAdmin(env){
   const password=String(env.ADMIN_PASSWORD||'').trim();
   const existing=await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
-  const done=await env.DB.prepare("SELECT value FROM app_meta WHERE key='owner_bootstrap_v4'").first();
+  const done=await env.DB.prepare("SELECT value FROM app_meta WHERE key='owner_bootstrap_v5'").first();
 
   if(done?.value==='done') return existing;
   if(!password) return existing;
@@ -159,7 +159,7 @@ async function ensureBootstrapAdmin(env){
   }
 
   await env.DB.prepare("DELETE FROM login_attempts").run();
-  await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('owner_bootstrap_v4','done',?)").bind(at).run();
+  await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('owner_bootstrap_v5','done',?)").bind(at).run();
   return admin;
 }
 
@@ -261,7 +261,7 @@ async function api(request,env){
     return json({
       ok:true,
       service:'ACTIVE CODE MULTI',
-      version:'worker-db-auth-v4',
+      version:'worker-db-auth-v5',
       db:true,
       adminConfigured:true,
       adminExists:Boolean(admin),
