@@ -1,0 +1,27 @@
+name: ACTIVE CODE MULTI Check
+
+on:
+  push:
+    branches:
+      - feature/code-panel-cloudflare
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm install
+      - name: Check worker syntax
+        run: node --check worker/index.js
+      - name: Build frontend
+        run: npm run build
+      - name: Wrangler dry run
+        run: npx wrangler deploy --dry-run --outdir .wrangler-dry
