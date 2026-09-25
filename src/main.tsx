@@ -540,24 +540,118 @@ function ImportCodes({data,action,busy}) {
 }
 function CreateReseller({action,busy}) {
   const [form,setForm]=useState({username:'',email:'',displayName:'',password:'',credits:0});
-  return <section className="section focusedForm">
-    <div className="sectionHead"><div><h2>إنشاء موزع</h2></div></div>
-    <form className="formGrid" onSubmit={async e=>{
-      e.preventDefault();
-      await action('/api/admin/resellers',form);
-      setForm({username:'',email:'',displayName:'',password:'',credits:0});
-    }}>
-      <label>Username</label>
-      <input placeholder="اسم الدخول" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
-      <label>Email - اختياري</label>
-      <input type="email" placeholder="يمكن تركه فارغًا" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
-      <label>اسم الموزع - اختياري</label>
-      <input placeholder="اسم العرض" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})}/>
-      <label>Password</label>
-      <input type="password" placeholder="كلمة المرور" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} autoComplete="new-password" required/>
-      <label>رصيد البداية</label>
-      <input type="number" min="0" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
-      <button className="primary" disabled={busy}>إنشاء الموزع</button>
+  const [showPassword,setShowPassword]=useState(false);
+
+  async function submit(e){
+    e.preventDefault();
+    await action('/api/admin/resellers',form);
+    setForm({username:'',email:'',displayName:'',password:'',credits:0});
+    setShowPassword(false);
+  }
+
+  return <section className="section resellerCreatePage">
+    <div className="resellerCreateHeader">
+      <div className="resellerCreateIcon"><NavIcon name="userPlus"/></div>
+      <div>
+        <span>ACCOUNTS</span>
+        <h2>إنشاء موزع</h2>
+        <p>بيانات الحساب والرصيد في خطوة واحدة.</p>
+      </div>
+    </div>
+
+    <form className="resellerCreateForm" onSubmit={submit}>
+      <div className="resellerFormGroup">
+        <div className="resellerFormGroupHead">
+          <span className="groupStep">01</span>
+          <div><b>بيانات الدخول</b><small>Username وكلمة المرور</small></div>
+        </div>
+
+        <div className="resellerFieldsGrid">
+          <label className="resellerField">
+            <span>Username</span>
+            <input
+              placeholder="اسم الدخول"
+              value={form.username}
+              onChange={e=>setForm({...form,username:e.target.value})}
+              autoComplete="off"
+              required
+            />
+          </label>
+
+          <label className="resellerField">
+            <span>Password</span>
+            <div className="passwordFieldWrap">
+              <input
+                type={showPassword?'text':'password'}
+                placeholder="كلمة المرور"
+                value={form.password}
+                onChange={e=>setForm({...form,password:e.target.value})}
+                autoComplete="new-password"
+                required
+              />
+              <button
+                type="button"
+                className="passwordToggle"
+                onClick={()=>setShowPassword(v=>!v)}
+                aria-label={showPassword?'إخفاء كلمة المرور':'إظهار كلمة المرور'}
+              >{showPassword?'إخفاء':'إظهار'}</button>
+            </div>
+          </label>
+
+          <label className="resellerField resellerFieldWide">
+            <span>Email <em>اختياري</em></span>
+            <input
+              type="email"
+              placeholder="example@email.com"
+              value={form.email}
+              onChange={e=>setForm({...form,email:e.target.value})}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="resellerFormGroup">
+        <div className="resellerFormGroupHead">
+          <span className="groupStep">02</span>
+          <div><b>بيانات الحساب</b><small>اسم العرض والرصيد</small></div>
+        </div>
+
+        <div className="resellerFieldsGrid accountGrid">
+          <label className="resellerField">
+            <span>اسم الموزع <em>اختياري</em></span>
+            <input
+              placeholder="اسم العرض"
+              value={form.displayName}
+              onChange={e=>setForm({...form,displayName:e.target.value})}
+            />
+          </label>
+
+          <label className="resellerField creditStartField">
+            <span>رصيد البداية</span>
+            <div className="creditInputWrap">
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={form.credits}
+                onChange={e=>setForm({...form,credits:e.target.value})}
+              />
+              <b>CREDIT</b>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div className="resellerCreateFooter">
+        <div className="createAccountState">
+          <span className="createStateDot"/>
+          <div><b>الحساب سيُنشأ نشطًا</b><small>يمكن تعديل الرصيد لاحقًا من إدارة الموزعين.</small></div>
+        </div>
+        <button className="primary createResellerBtn" disabled={busy}>
+          <NavIcon name="userPlus"/>
+          <span>{busy?'جارٍ الإنشاء':'إنشاء الموزع'}</span>
+        </button>
+      </div>
     </form>
   </section>;
 }
