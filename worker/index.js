@@ -4,7 +4,7 @@ const PASSWORD_ITERATIONS = 150000;
 let schemaReady = false;
 
 const SCHEMA = [
-  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 150000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 150000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, ip_hash TEXT, user_agent TEXT)",
   "CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_started_at TEXT NOT NULL, blocked_until TEXT)",
   "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, slug TEXT NOT NULL UNIQUE COLLATE NOCASE, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), low_stock_threshold INTEGER NOT NULL DEFAULT 10, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)",
@@ -81,13 +81,39 @@ async function ensureSchema(env) {
   if (schemaReady) return;
   try {
     const found = await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").first();
-    if (!found) await env.DB.batch(SCHEMA.map((sql) => env.DB.prepare(sql)));
-    else await env.DB.prepare(SCHEMA[SCHEMA.length - 1]).run();
+    if (!found) {
+      await env.DB.batch(SCHEMA.map((sql) => env.DB.prepare(sql)));
+    } else {
+      const cols = (await env.DB.prepare("PRAGMA table_info(users)").all()).results || [];
+      if (!cols.some((c) => c.name === 'email')) {
+        await env.DB.prepare("ALTER TABLE users ADD COLUMN email TEXT").run();
+      }
+      await env.DB.batch([
+        env.DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email COLLATE NOCASE) WHERE email IS NOT NULL AND email <> ''"),
+        env.DB.prepare(SCHEMA[SCHEMA.length - 1])
+      ]);
+    }
     schemaReady = true;
   } catch (e) {
     schemaReady = false;
     throw e;
   }
+}
+
+async function ensureBootstrapOwner(env) {
+  const row = await env.DB.prepare("SELECT COUNT(*) count FROM users").first();
+  if (Number(row?.count || 0) > 0) return;
+  if (!env.SETUP_KEY) return;
+  const username = 'owner';
+  const salt = randomToken(18);
+  const at = now();
+  const ownerId = uid('usr');
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','Owner',0,'active',?,?)")
+      .bind(ownerId, username, await passwordHash(String(env.SETUP_KEY), salt), salt, PASSWORD_ITERATIONS, at, at),
+    env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+      .bind(uid('log'),ownerId,'admin','OWNER_BOOTSTRAPPED','user',ownerId,JSON.stringify({username}),'system','Cloudflare bootstrap',at)
+  ]);
 }
 async function audit(env, request, actor, action, entityType, entityId, details = {}) {
   await env.DB.prepare(
@@ -110,13 +136,13 @@ async function authUser(env, request) {
   if (!token) return null;
   const tokenHash = await sha256(token);
   const row = await env.DB.prepare(
-    "SELECT s.id session_id,s.csrf_token,s.expires_at,u.id,u.username,u.display_name,u.role,u.credits,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1"
+    "SELECT s.id session_id,s.csrf_token,s.expires_at,u.id,u.username,u.email,u.display_name,u.role,u.credits,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1"
   ).bind(tokenHash, now()).first();
   if (!row || row.status !== 'active') return null;
   return row;
 }
 function publicUser(u) {
-  return { id: u.id, username: u.username, displayName: u.display_name, role: u.role, credits: Number(u.credits || 0) };
+  return { id: u.id, username: u.username, email: u.email || '', displayName: u.display_name, role: u.role, credits: Number(u.credits || 0) };
 }
 function mutationAllowed(request, user) {
   if (!user) return false;
@@ -152,6 +178,7 @@ async function listServers(env) {
 }
 async function api(request, env) {
   await ensureSchema(env);
+  await ensureBootstrapOwner(env);
   const url = new URL(request.url);
   const path = url.pathname;
   const method = request.method.toUpperCase();
@@ -163,42 +190,16 @@ async function api(request, env) {
 
   if (path === '/api/health') return json({ ok: true, service: 'ACTIVE CODE MULTI' });
 
-  if (path === '/api/setup/status' && method === 'GET') {
-    const row = await env.DB.prepare('SELECT COUNT(*) count FROM users').first();
-    return json({ needsSetup: Number(row?.count || 0) === 0, setupKeyConfigured: Boolean(env.SETUP_KEY) });
-  }
-
-  if (path === '/api/setup' && method === 'POST') {
-    const count = await env.DB.prepare('SELECT COUNT(*) count FROM users').first();
-    if (Number(count?.count || 0) > 0) return json({ error: 'SETUP_ALREADY_COMPLETE' }, 409);
-    if (!env.SETUP_KEY) return json({ error: 'SETUP_KEY_NOT_CONFIGURED' }, 503);
-    const supplied = request.headers.get('x-setup-key') || '';
-    if (!secureEqual(supplied, String(env.SETUP_KEY))) return json({ error: 'INVALID_SETUP_KEY' }, 403);
-    const body = await bodyJson(request);
-    const username = cleanText(body.username, 40);
-    const displayName = cleanText(body.displayName || 'Owner', 80);
-    const password = String(body.password || '');
-    if (!validUsername(username) || password.length < 10) return json({ error: 'INVALID_OWNER_CREDENTIALS' }, 400);
-    const salt = randomToken(18);
-    const created = now();
-    const owner = { id: uid('usr'), role: 'admin' };
-    await env.DB.prepare(
-      "INSERT INTO users(id,username,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,'admin',?,0,'active',?,?)"
-    ).bind(owner.id, username, await passwordHash(password, salt), salt, PASSWORD_ITERATIONS, displayName, created, created).run();
-    await audit(env, request, owner, 'OWNER_CREATED', 'user', owner.id, { username });
-    const session = await createSession(env, request, owner.id);
-    const fresh = await env.DB.prepare('SELECT * FROM users WHERE id=?').bind(owner.id).first();
-    return json({ user: publicUser(fresh), csrf: session.csrf }, 201, { 'set-cookie': sessionCookie(session.token) });
-  }
-
   if (path === '/api/login' && method === 'POST') {
+    const count = await env.DB.prepare("SELECT COUNT(*) count FROM users").first();
+    if (Number(count?.count || 0) === 0) return json({ error: 'SYSTEM_NOT_INITIALIZED' }, 503);
     const body = await bodyJson(request);
-    const username = cleanText(body.username, 40);
+    const identifier = cleanText(body.identifier || body.username, 120);
     const password = String(body.password || '');
-    const key = await sha256(username.toLowerCase() + '|' + (request.headers.get('cf-connecting-ip') || 'unknown'));
+    const key = await sha256(identifier.toLowerCase() + '|' + (request.headers.get('cf-connecting-ip') || 'unknown'));
     const gate = await env.DB.prepare('SELECT * FROM login_attempts WHERE key=?').bind(key).first();
     if (gate?.blocked_until && gate.blocked_until > now()) return json({ error: 'TOO_MANY_ATTEMPTS' }, 429);
-    const user = await env.DB.prepare('SELECT * FROM users WHERE username=? COLLATE NOCASE LIMIT 1').bind(username).first();
+    const user = await env.DB.prepare('SELECT * FROM users WHERE username=? COLLATE NOCASE OR email=? COLLATE NOCASE LIMIT 1').bind(identifier, identifier).first();
     const calculated = user ? await passwordHash(password, user.password_salt, Number(user.password_iterations)) : await passwordHash(password, 'invalid-user-salt', PASSWORD_ITERATIONS);
     const ok = Boolean(user && user.status === 'active' && secureEqual(calculated, user.password_hash));
     if (!ok) {
@@ -344,7 +345,7 @@ async function api(request, env) {
 
   if (path === '/api/admin/resellers' && method === 'GET') {
     const rows = (await env.DB.prepare(
-      "SELECT id,username,display_name,credits,status,created_at,updated_at FROM users WHERE role='reseller' ORDER BY created_at DESC LIMIT 500"
+      "SELECT id,username,email,display_name,credits,status,created_at,updated_at FROM users WHERE role='reseller' ORDER BY created_at DESC LIMIT 500"
     ).all()).results || [];
     return json({ resellers: rows });
   }
@@ -352,20 +353,21 @@ async function api(request, env) {
   if (path === '/api/admin/resellers' && method === 'POST') {
     const body = await bodyJson(request);
     const username = cleanText(body.username, 40);
+    const email = cleanText(body.email, 120).toLowerCase();
     const displayName = cleanText(body.displayName, 80);
     const password = String(body.password || '');
     const credits = Math.max(0, Math.trunc(Number(body.credits || 0)));
-    if (!validUsername(username) || !displayName || password.length < 10 || credits > 1000000) return json({ error: 'INVALID_RESELLER' }, 400);
+    if (!validUsername(username) || (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) || !displayName || password.length < 10 || credits > 1000000) return json({ error: 'INVALID_RESELLER' }, 400);
     const salt = randomToken(18);
     const id = uid('usr');
     const at = now();
     try {
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO users(id,username,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,'reseller',?,?,'active',?,?)").bind(id,username,await passwordHash(password,salt),salt,PASSWORD_ITERATIONS,displayName,credits,at,at),
-        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'RESELLER_CREATED','user',id,JSON.stringify({username,displayName,initialCredits:credits}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
+        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'reseller',?,?,'active',?,?)").bind(id,username,email||null,await passwordHash(password,salt),salt,PASSWORD_ITERATIONS,displayName,credits,at,at),
+        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'RESELLER_CREATED','user',id,JSON.stringify({username,email:email||null,displayName,initialCredits:credits}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
       ]);
       return json({ ok: true, id }, 201);
-    } catch { return json({ error: 'USERNAME_EXISTS' }, 409); }
+    } catch { return json({ error: 'ACCOUNT_EXISTS' }, 409); }
   }
 
   if (path === '/api/admin/credit-adjust' && method === 'POST') {
