@@ -67,24 +67,21 @@ function Login({ onAuth }) {
     } finally { setBusy(false); }
   }
 
-  return <div className="authPage">
-    <header className="authTopbar">
-      <Logo compact/>
-      <span>CONTROL PANEL</span>
-    </header>
+  return <div className="acmAuthScreen">
+    <main className="acmAuthWrap">
+      <div className="acmAuthBrand"><Logo compact/></div>
 
-    <main className="authMain">
-      <section className="authCard">
-        <div className="authCardHead">
-          <span>ACTIVE CODE MULTI</span>
+      <section className="acmAuthCard">
+        <div className="acmAuthHeading">
           <h1>تسجيل الدخول</h1>
           <p>دخول الإدارة والموزعين</p>
         </div>
 
-        <form className="authForm" onSubmit={submit}>
-          <label>
+        <form className="acmAuthForm" onSubmit={submit}>
+          <label className="acmField">
             <span>اسم المستخدم أو البريد الإلكتروني</span>
             <input
+              dir="ltr"
               value={form.identifier}
               onChange={e=>setForm({...form,identifier:e.target.value})}
               placeholder="Username or Email"
@@ -94,10 +91,11 @@ function Login({ onAuth }) {
             />
           </label>
 
-          <label>
+          <label className="acmField">
             <span>كلمة المرور</span>
-            <div className="authPasswordWrap">
+            <div className="acmPasswordBox">
               <input
+                dir="ltr"
                 type={showPassword?'text':'password'}
                 value={form.password}
                 onChange={e=>setForm({...form,password:e.target.value})}
@@ -111,19 +109,16 @@ function Login({ onAuth }) {
             </div>
           </label>
 
-          {error&&<div className="authError">{error}</div>}
+          {error&&<div className="acmAuthError">{error}</div>}
 
-          <button className="primary authSubmit" disabled={busy}>
-            {busy?'جارٍ الدخول':'تسجيل الدخول'}
+          <button className="acmPrimaryBtn" disabled={busy}>
+            {busy?'جارٍ الدخول…':'تسجيل الدخول'}
           </button>
         </form>
 
-        <div className="authSecurity">
-          <span className="authSecurityDot"/>
-          <div>
-            <b>دخول محمي</b>
-            <small>سيبقى الحساب مسجلًا تلقائيًا على هذا المتصفح.</small>
-          </div>
+        <div className="acmSecureNote">
+          <i/>
+          <span>جلسة آمنة ومحمية</span>
         </div>
       </section>
     </main>
@@ -651,33 +646,35 @@ function CreateReseller({action,busy}) {
     setShowPassword(false);
   }
 
-  return <section className="section compactCreatePage">
-    <div className="compactPageHead">
-      <div className="compactPageIcon"><NavIcon name="userPlus"/></div>
+  return <section className="acmCreateCard">
+    <div className="acmCreateHead">
+      <div className="acmCreateIcon"><NavIcon name="userPlus"/></div>
       <div>
-        <span>ACCOUNTS</span>
         <h2>إنشاء موزع</h2>
+        <span>حساب موزع جديد</span>
       </div>
     </div>
 
-    <form className="compactCreateForm" onSubmit={submit}>
-      <div className="compactField">
-        <label>Username</label>
+    <form className="acmCreateGrid" onSubmit={submit}>
+      <label className="acmField">
+        <span>اسم المستخدم</span>
         <input
-          placeholder="اسم الدخول"
+          dir="ltr"
+          placeholder="Username"
           value={form.username}
           onChange={e=>setForm({...form,username:e.target.value})}
           autoComplete="off"
           required
         />
-      </div>
+      </label>
 
-      <div className="compactField">
-        <label>Password</label>
-        <div className="compactPassword">
+      <label className="acmField">
+        <span>كلمة المرور</span>
+        <div className="acmPasswordBox">
           <input
+            dir="ltr"
             type={showPassword?'text':'password'}
-            placeholder="كلمة المرور"
+            placeholder="Password"
             value={form.password}
             onChange={e=>setForm({...form,password:e.target.value})}
             autoComplete="new-password"
@@ -687,46 +684,48 @@ function CreateReseller({action,busy}) {
             {showPassword?'إخفاء':'إظهار'}
           </button>
         </div>
-      </div>
+      </label>
 
-      <div className="compactField">
-        <label>Email <em>اختياري</em></label>
-        <input
-          type="email"
-          placeholder="example@email.com"
-          value={form.email}
-          onChange={e=>setForm({...form,email:e.target.value})}
-        />
-      </div>
-
-      <div className="compactField">
-        <label>اسم الموزع <em>اختياري</em></label>
+      <label className="acmField">
+        <span>اسم الموزع <em>اختياري</em></span>
         <input
           placeholder="اسم العرض"
           value={form.displayName}
           onChange={e=>setForm({...form,displayName:e.target.value})}
         />
-      </div>
+      </label>
 
-      <div className="compactField compactCreditField">
-        <label>رصيد البداية</label>
-        <div className="compactCreditInput">
+      <label className="acmField">
+        <span>البريد الإلكتروني <em>اختياري</em></span>
+        <input
+          dir="ltr"
+          type="email"
+          placeholder="name@example.com"
+          value={form.email}
+          onChange={e=>setForm({...form,email:e.target.value})}
+        />
+      </label>
+
+      <label className="acmField acmStartCredit">
+        <span>رصيد البداية</span>
+        <div className="acmCreditInput">
           <input
+            dir="ltr"
             type="number"
             min="0"
             inputMode="numeric"
             value={form.credits}
             onChange={e=>setForm({...form,credits:e.target.value})}
           />
-          <span>CREDIT</span>
+          <b>Credit</b>
         </div>
-      </div>
+      </label>
 
-      <div className="compactCreateAction">
-        <span><i/> الحساب يُنشأ نشطًا</span>
-        <button className="primary" disabled={busy}>
+      <div className="acmCreateActions">
+        <span className="acmStatusNote"><i/> الحساب يُنشأ نشطًا</span>
+        <button className="acmPrimaryBtn acmCreateBtn" disabled={busy}>
           <NavIcon name="userPlus"/>
-          {busy?'جارٍ الإنشاء':'إنشاء الموزع'}
+          <span>{busy?'جارٍ الإنشاء…':'إنشاء الموزع'}</span>
         </button>
       </div>
     </form>
@@ -939,65 +938,72 @@ function Issue({data,action,busy}) {
     a.click(); URL.revokeObjectURL(a.href);
   }
 
-  return <section className="section issueCompact">
-    <div className="issueCompactHead">
+  return <section className="acmIssueCard">
+    <div className="acmIssueHead">
       <div>
-        <span>ISSUE CODE</span>
         <h2>تفعيل كود</h2>
+        <span>اشتراك سنوي</span>
       </div>
-      <div className="issueBalanceChip">
+      <div className="acmBalancePill">
         <span>الرصيد</span>
-        <strong>{num(balance)}</strong>
-        <small>CREDIT</small>
+        <div dir="ltr"><strong>{num(balance)}</strong><small>Credit</small></div>
       </div>
     </div>
 
-    <div className="issueModeTabs">
+    <div className="acmIssueTabs">
       <button type="button" className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button>
       <button type="button" className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button>
     </div>
 
-    <form className="issueCompactForm" onSubmit={submit}>
-      <div className="compactField">
-        <label>السيرفر</label>
+    <form className="acmIssueForm" onSubmit={submit}>
+      <label className="acmField">
+        <span>السيرفر</span>
         <select value={form.serverId} onChange={e=>{setForm({...form,serverId:e.target.value});setResult(null);}} required>
           <option value="">اختر السيرفر</option>
           {data.servers.filter(s=>Number(s.active)===1).map(s=>
             <option value={s.id} key={s.id}>{s.name} — {num(s.credit_cost)} Credit</option>
           )}
         </select>
-      </div>
+      </label>
 
-      <div className="compactField">
-        <label>اسم العميل أو رقم الهاتف</label>
+      <label className="acmField">
+        <span>اسم العميل أو رقم الهاتف</span>
         <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="اسم أو رقم"/>
+      </label>
+
+      {mode==='bulk'&&<label className="acmField">
+        <span>عدد الأكواد</span>
+        <input dir="ltr" type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/>
+      </label>}
+
+      <div className="acmIssueStats">
+        <div><span>العدد</span><b dir="ltr">{q}</b></div>
+        <div><span>التكلفة</span><b dir="ltr">{num(total)} Credit</b></div>
+        <div><span>بعد التفعيل</span><b dir="ltr">{num(Math.max(0,balance-total))} Credit</b></div>
       </div>
 
-      {mode==='bulk'&&<div className="compactField">
-        <label>عدد الأكواد</label>
-        <input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/>
-      </div>}
-
-      <div className="issueSummaryBar">
-        <div><span>العدد</span><b>{q}</b></div>
-        <div><span>التكلفة</span><b>{num(total)} Credit</b></div>
-        <div><span>بعد التفعيل</span><b>{num(Math.max(0,balance-total))} Credit</b></div>
-      </div>
-
-      <button className="primary issueActivateBtn" disabled={busy||!selected}>تفعيل</button>
+      <button className="acmPrimaryBtn acmActivateBtn" disabled={busy||!selected}>
+        {busy?'جارٍ التفعيل…':'تفعيل'}
+      </button>
     </form>
 
-    {result&&<div className="compactIssueResult">
-      <div className="compactIssueResultHead">
-        <div><b>{result.order.server}</b><span>تم التفعيل</span></div>
-        <div className="rowBtns">
-          <button className="secondary" type="button" onClick={copyAll}>نسخ</button>
-          <button className="secondary" type="button" onClick={download}>TXT</button>
+    {result&&<div className="acmIssueResult">
+      <div className="acmResultTop">
+        <div>
+          <b>{result.order.server}</b>
+          <span>تم التفعيل بنجاح</span>
+        </div>
+        <div className="acmResultBtns">
+          <button type="button" onClick={copyAll}>نسخ</button>
+          {result.codes.length>1&&<button type="button" onClick={download}>TXT</button>}
         </div>
       </div>
-      <div className="issuedList">{result.codes.map(x=>
-        <button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>
-      )}</div>
+
+      <div className="acmResultCodes">
+        {result.codes.map(x=>
+          <button dir="ltr" key={x.id} onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>
+        )}
+      </div>
     </div>}
   </section>;
 }
