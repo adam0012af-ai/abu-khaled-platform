@@ -1,333 +1,438 @@
-import React,{useEffect,useMemo,useState}from"react";
-import{createRoot}from"react-dom/client";
-import{supabase}from"./supabase";
-import"./style.css";
+import React, { useEffect, useMemo, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import './style.css';
 
-type Lang="ar"|"tr"|"en"|"fr"|"de";
+const fmt = (v) => v ? new Date(v).toLocaleString('ar-EG') : '—';
+const num = (v) => Number(v || 0).toLocaleString('en-US');
 
-type PartnerStore={
-  id:string;
-  name:string;
-  logo:string;
-};
-
-type Coupon={
-  id:string;
-  title:string;
-  store_id:string;
-  store_name:string;
-  store_logo:string;
-  country:string;
-  category:string;
-  discount_label:string;
-  coupon_code:string;
-  affiliate_link:string;
-  description:string;
-  verified:boolean;
-  featured?:boolean;
-  expires?:string;
-  original_price:string;
-  deal_price:string;
-  gallery:string[];
-  highlights:string[];
-};
-
-const L:{[k in Lang]:any}={
-  ar:{flag:"🇸🇦",name:"العربية",dir:"rtl",home:"الرئيسية",stores:"المتاجر",coupons:"الكوبونات",language:"اللغة",country:"الدولة",search:"ابحث عن متجر أو كوبون...",searchBtn:"بحث"},
-  tr:{flag:"🇹🇷",name:"Türkçe",dir:"ltr",home:"Ana Sayfa",stores:"Mağazalar",coupons:"Kuponlar",language:"Dil",country:"Ülke",search:"Mağaza veya kupon ara...",searchBtn:"Ara"},
-  en:{flag:"🇬🇧",name:"English",dir:"ltr",home:"Home",stores:"Stores",coupons:"Coupons",language:"Language",country:"Country",search:"Search store or coupon...",searchBtn:"Search"},
-  fr:{flag:"🇫🇷",name:"Français",dir:"ltr",home:"Accueil",stores:"Boutiques",coupons:"Coupons",language:"Langue",country:"Pays",search:"Rechercher une boutique ou un coupon...",searchBtn:"Rechercher"},
-  de:{flag:"🇩🇪",name:"Deutsch",dir:"ltr",home:"Startseite",stores:"Shops",coupons:"Gutscheine",language:"Sprache",country:"Land",search:"Shop oder Gutschein suchen...",searchBtn:"Suchen"}
-};
-
-const langs=(Object.keys(L) as Lang[]);
-const countries=["الكل","مصر","السعودية","الإمارات","تركيا"];
-const categories=["الكل","إلكترونيات","أزياء","عطور وجمال","منزل"];
-
-const partnerStores:PartnerStore[]=[
-  {id:"amazon",name:"Amazon",logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128"},
-  {id:"noon",name:"نون",logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128"},
-  {id:"shein",name:"SHEIN",logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128"},
-  {id:"aliexpress",name:"AliExpress",logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128"},
-  {id:"namshi",name:"نمشي",logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128"}
-];
-
-const coupons:Coupon[]=[
-  {id:"amazon-tech-25",title:"خصم على مختارات الإلكترونيات والأجهزة الذكية",store_id:"amazon",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128",country:"السعودية",category:"إلكترونيات",discount_label:"خصم 25%",coupon_code:"TECH25",affiliate_link:"https://www.amazon.sa/",description:"خصم على على منتجات مختارة من قسم الإلكترونيات.",verified:true,featured:true,expires:"لفترة محدودة",original_price:"399 ر.س",deal_price:"299 ر.س",gallery:["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=92"],highlights:["منتجات إلكترونية مختارة من المتجر الرسمي","خصم يصل إلى 25% على المنتجات المؤهلة","إمكانية استخدام الكود أثناء إتمام الطلب"]},
-  {id:"noon-save-20",title:"كوبون توفير على آلاف المنتجات المختارة",store_id:"noon",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",country:"مصر",category:"إلكترونيات",discount_label:"خصم 20%",coupon_code:"SAVE20",affiliate_link:"https://www.noon.com/egypt-en/",description:"استخدم الكود على المنتجات المؤهلة وفق شروط المتجر.",verified:true,featured:true,expires:"اليوم",original_price:"2,499 ج.م",deal_price:"1,999 ج.م",gallery:["https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1200&q=92"],highlights:["عرض على آلاف المنتجات المؤهلة","الشراء والدفع يتمان داخل نون","الكود متاح لفترة محدودة"]},
-  {id:"shein-style-15",title:"خصم إضافي على الأزياء والموضة",store_id:"shein",store_name:"SHEIN",store_logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128",country:"الإمارات",category:"أزياء",discount_label:"خصم 15%",coupon_code:"STYLE15",affiliate_link:"https://ar.shein.com/",description:"كوبون للموضة للموضة والإكسسوارات المختارة.",verified:true,featured:true,expires:"هذا الأسبوع",original_price:"320 د.إ",deal_price:"272 د.إ",gallery:["https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم إضافي على تشكيلات الموضة المؤهلة","يطبق الكود عند صفحة الدفع","إتمام الطلب مباشرة على متجر SHEIN"]},
-  {id:"ali-big-30",title:"تخفيضات موسمية على منتجات مختارة",store_id:"aliexpress",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128",country:"مصر",category:"إلكترونيات",discount_label:"حتى 30%",coupon_code:"ALI30",affiliate_link:"https://www.aliexpress.com/",description:"صفقات موسمية على فئات متعددة.",verified:true,featured:true,expires:"لفترة محدودة",original_price:"1,000 ج.م",deal_price:"700 ج.م",gallery:["https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1200&q=92"],highlights:["تخفيضات موسمية على فئات متعددة","العرض يختلف حسب المنتج المؤهل","الشراء يتم من AliExpress مباشرة"]},
-  {id:"namshi-fashion-20",title:"خصم على السنيكرز والملابس المختارة",store_id:"namshi",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128",country:"السعودية",category:"أزياء",discount_label:"خصم 20%",coupon_code:"NM20",affiliate_link:"https://www.namshi.com/saudi-en/",description:"كوبون للموضة على مختارات الموضة والأحذية.",verified:true,featured:true,expires:"قريباً",original_price:"450 ر.س",deal_price:"360 ر.س",gallery:["https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=92"],highlights:["عروض على السنيكرز والملابس المختارة","خصم يصل إلى 20% حسب المنتج","الدفع والشحن من خلال نمشي"]},
-  {id:"amazon-beauty-18",title:"عروض على العطور ومنتجات العناية",store_id:"amazon",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128",country:"الإمارات",category:"عطور وجمال",discount_label:"خصم 18%",coupon_code:"BEAUTY18",affiliate_link:"https://www.amazon.ae/?tag=abu-khaled-demo-21",description:"خصم على على منتجات الجمال والعطور المؤهلة.",verified:true,featured:true,expires:"هذا الأسبوع",original_price:"280 د.إ",deal_price:"230 د.إ",gallery:["https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&w=1200&q=92"],highlights:["عروض على العطور ومنتجات العناية","خصم على المنتجات المؤهلة فقط","إتمام الشراء من Amazon الإمارات"]},
-  {id:"noon-home-12",title:"خصم على المنزل والمطبخ",store_id:"noon",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",country:"السعودية",category:"منزل",discount_label:"خصم 12%",coupon_code:"HOME12",affiliate_link:"https://www.noon.com/saudi-en/?utm_source=abu_khaled_demo",description:"عروض مختارة على مستلزمات المنزل والأجهزة الصغيرة.",verified:true,expires:"لفترة محدودة",original_price:"699 ر.س",deal_price:"615 ر.س",gallery:["https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم على المنزل والمطبخ","يشمل منتجات مختارة وفق شروط المتجر","الطلب والشحن من خلال نون"]},
-  {id:"shein-new-10",title:"خصم للطلبات الجديدة على الموضة",store_id:"shein",store_name:"SHEIN",store_logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128",country:"السعودية",category:"أزياء",discount_label:"خصم 10%",coupon_code:"NEW10",affiliate_link:"https://ar.shein.com/",description:"كوبون للموضة للطلبات المؤهلة للمستخدمين الجدد.",verified:true,expires:"قريباً",original_price:"300 ر.س",deal_price:"270 ر.س",gallery:["https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم مخصص للطلبات المؤهلة","مناسب للمستخدمين الجدد حسب الشروط","الشراء يتم من SHEIN مباشرة"]},
-  {id:"ali-home-22",title:"خصم على الإكسسوارات المنزلية",store_id:"aliexpress",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128",country:"تركيا",category:"منزل",discount_label:"خصم 22%",coupon_code:"HOME22",affiliate_link:"https://www.aliexpress.com/",description:"عروض تجريبية على إكسسوارات الديكور والمنزل.",verified:true,expires:"هذا الشهر",original_price:"1,250 ₺",deal_price:"975 ₺",gallery:["https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم على إكسسوارات الديكور والمنزل","قد تختلف قيمة الخصم حسب المنتج","الدفع يتم على AliExpress"]},
-  {id:"namshi-extra-15",title:"خصم إضافي على تشكيلات مختارة",store_id:"namshi",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128",country:"الإمارات",category:"أزياء",discount_label:"خصم 15%",coupon_code:"EXTRA15",affiliate_link:"https://www.namshi.com/uae-en/?utm_source=abu_khaled_demo",description:"كود تجريبي لعروض إضافية على منتجات مختارة.",verified:true,expires:"هذا الأسبوع",original_price:"400 د.إ",deal_price:"340 د.إ",gallery:["https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم إضافي على تشكيلات مختارة","الكود يطبق على المنتجات المؤهلة","إتمام الطلب من متجر نمشي الرسمي"]}
-];
-
-const heroSlides=[
-  ["أقوى الكوبونات في مكان واحد","اكتشف الأكواد والعروض من أشهر المتاجر وانتقل مباشرة إلى المتجر لإتمام الشراء.","https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1800&q=92","استكشف الكوبونات"],
-  ["قارن العروض قبل أن تشتري","ابحث حسب المتجر أو الدولة أو القسم واعثر على أعلى نسبة خصم بسرعة.","https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=1800&q=92","قارن الآن"],
-  ["صفقات موثوقة وروابط مباشرة","نرتب لك أفضل العروض ونرسل لك إلى صفحات المتاجر الرسمية بروابط آمنة.","https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1800&q=92","شاهد المتاجر"]
-];
-
-function OAuthCallbackBridge(){
-  useEffect(()=>{
-    let finished=false;
-    let alive=true;
-
-    const goHome=(session:any)=>{
-      if(finished||!alive||!session?.user)return;
-      finished=true;
-      window.location.replace(window.location.origin+"/");
-    };
-
-    supabase.auth.getSession().then(({data})=>{
-      if(data.session)goHome(data.session);
-    });
-
-    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
-      if(session?.user)goHome(session);
-    });
-
-    const timeout=window.setTimeout(()=>{
-      if(!finished&&alive)window.location.replace(window.location.origin+"/");
-    },6000);
-
-    return()=>{
-      alive=false;
-      subscription.unsubscribe();
-      window.clearTimeout(timeout);
-    };
-  },[]);
-
-  return <div className="oauthCallbackBlank" aria-hidden="true"/>;
+function Logo({ compact = false }) {
+  return (
+    <div className={'brand '+(compact?'compact':'')}>
+      <div className="brandMark"><span>A</span><b>C</b><i>M</i></div>
+      <div><strong>ACTIVE CODE</strong><em>MULTI</em></div>
+    </div>
+  );
 }
 
-function isOAuthCallbackDocument(){
-  const url=new URL(window.location.href);
-  return url.searchParams.has("code")||
-    url.searchParams.has("error")||
-    window.location.hash.includes("access_token");
-}
+function Login({ setup, onAuth }) {
+  const [mode, setMode] = useState(setup.needsSetup ? 'setup' : 'login');
+  const [form, setForm] = useState({ username:'', password:'', displayName:'Owner', setupKey:'' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-function App(){
-  const[user,setUser]=useState<any>(null);
-  const[authOpen,setAuthOpen]=useState(false);
-  const[authMode,setAuthMode]=useState<"login"|"signup">("login");
-  const[authEmail,setAuthEmail]=useState("");
-  const[authPassword,setAuthPassword]=useState("");
-  const[authName,setAuthName]=useState("");
-  const[authMsg,setAuthMsg]=useState("");
-  const[authBusy,setAuthBusy]=useState(false);
-  const[menu,setMenu]=useState(false);
-  const[langOpen,setLangOpen]=useState(false);
-  const[lang,setLang]=useState<Lang>("ar");
-  const[country,setCountry]=useState("الكل");
-  const[storeFilter,setStoreFilter]=useState("الكل");
-  const[searchTerm,setSearchTerm]=useState("");
-  const[dealChip,setDealChip]=useState<"best"|"discount"|"tech"|"fashion"|"home">("best");
-  const[banner,setBanner]=useState(0);
-  const[touchX,setTouchX]=useState<number|null>(null);
-  const[copied,setCopied]=useState("");
-  const[quickView,setQuickView]=useState<Coupon|null>(null);
-  const[galleryIndex,setGalleryIndex]=useState(0);
-  const t=L[lang];
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setError('');
+    try {
+      const headers = { 'content-type':'application/json' };
+      if (mode === 'setup') headers['x-setup-key'] = form.setupKey;
+      const res = await fetch(mode === 'setup' ? '/api/setup' : '/api/login', {
+        method:'POST', credentials:'same-origin', headers,
+        body:JSON.stringify(mode === 'setup'
+          ? { username:form.username, password:form.password, displayName:form.displayName }
+          : { username:form.username, password:form.password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'LOGIN_FAILED');
+      onAuth(data.user, data.csrf);
+    } catch (e) {
+      const m = String(e.message || e);
+      setError(
+        m.includes('SETUP_KEY_NOT_CONFIGURED') ? 'يلزم إضافة SETUP_KEY في إعدادات Cloudflare أولاً.' :
+        m.includes('INVALID_SETUP_KEY') ? 'مفتاح الإعداد غير صحيح.' :
+        m.includes('TOO_MANY_ATTEMPTS') ? 'محاولات كثيرة. تم إيقاف المحاولة مؤقتاً.' :
+        m.includes('INVALID_LOGIN') ? 'اسم المستخدم أو كلمة المرور غير صحيحة.' :
+        m.includes('INVALID_OWNER_CREDENTIALS') ? 'اسم المستخدم 3 أحرف على الأقل وكلمة المرور 10 أحرف على الأقل.' :
+        'تعذر إتمام العملية.'
+      );
+    } finally { setBusy(false); }
+  }
 
-  useEffect(()=>{
-    let alive=true;
-
-    const applySession=(session:any)=>{
-      if(!alive)return;
-      if(session?.user){
-        setUser(session.user);
-        setAuthOpen(false);
-        setAuthBusy(false);
-        setAuthMsg("");
-      }else{
-        setUser(null);
-      }
-    };
-
-    supabase.auth.getSession().then(({data,error})=>{
-      if(!alive)return;
-      if(error){
-        setAuthMsg(error.message);
-        setAuthBusy(false);
-        return;
-      }
-      applySession(data.session);
-    });
-
-    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
-      applySession(session);
-    });
-
-    return()=>{
-      alive=false;
-      subscription.unsubscribe();
-    };
-  },[]);
-  useEffect(()=>{const id=window.setInterval(()=>setBanner(v=>(v+1)%heroSlides.length),5000);return()=>window.clearInterval(id)},[]);
-
-  const submitAuth=async()=>{setAuthBusy(true);setAuthMsg("");if(!authEmail||authPassword.length<6){setAuthMsg("أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.");setAuthBusy(false);return}const result=authMode==="signup"?await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{full_name:authName}}}):await supabase.auth.signInWithPassword({email:authEmail,password:authPassword});if(result.error)setAuthMsg(result.error.message);else{setAuthMsg(authMode==="signup"&&!result.data.session?"تم إنشاء الحساب. راجع بريدك لتأكيد الحساب.":"تم تسجيل الدخول بنجاح.");if(result.data.session)setTimeout(()=>setAuthOpen(false),500)}setAuthBusy(false)};
-  const resetPassword=async()=>{if(!authEmail){setAuthMsg("اكتب بريدك الإلكتروني أولًا.");return}const{error}=await supabase.auth.resetPasswordForEmail(authEmail,{redirectTo:window.location.origin});setAuthMsg(error?error.message:"تم إرسال رابط استعادة كلمة المرور إلى بريدك.")};
-  const logout=async()=>{await supabase.auth.signOut();setMenu(false)};
-  const googleLogin=async()=>{
-    setAuthBusy(true);
-    setAuthMsg("");
-
-    const redirectTo=`${window.location.origin}/`;
-    const{error}=await supabase.auth.signInWithOAuth({
-      provider:"google",
-      options:{redirectTo,queryParams:{prompt:"select_account"}}
-    });
-
-    if(error){
-      setAuthMsg(error.message);
-      setAuthBusy(false);
-    }
-  };
-  const chooseLang=(x:Lang)=>{setLang(x);setLangOpen(false)};
-
-  const visibleCoupons=useMemo(()=>{
-    const q=searchTerm.trim().toLowerCase();
-    let list=coupons.filter(c=>
-      (country==="الكل"||c.country===country)&&
-      (storeFilter==="الكل"||c.store_id===storeFilter)&&
-      (!q||c.title.toLowerCase().includes(q)||c.store_name.toLowerCase().includes(q)||c.coupon_code.toLowerCase().includes(q))
-    );
-
-    if(dealChip==="tech")list=list.filter(c=>c.category==="إلكترونيات");
-    if(dealChip==="fashion")list=list.filter(c=>c.category==="أزياء");
-    if(dealChip==="home")list=list.filter(c=>c.category==="منزل");
-
-    if(dealChip==="discount"){
-      list=[...list].sort((a,b)=>Number(b.discount_label.replace(/\D/g,""))-Number(a.discount_label.replace(/\D/g,"")));
-    }else{
-      list=[...list].sort((a,b)=>Number(Boolean(b.featured))-Number(Boolean(a.featured)));
-    }
-
-    return list;
-  },[country,storeFilter,searchTerm,dealChip]);
-
-  const copyCode=(code:string)=>{
-    const fallback=()=>{const ta=document.createElement("textarea");ta.value=code;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()};
-    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(code).catch(fallback);else fallback();
-  };
-
-  const copyCouponOnly=(coupon:Coupon)=>{
-    copyCode(coupon.coupon_code);
-    setCopied(coupon.id);
-    window.setTimeout(()=>setCopied(v=>v===coupon.id?"":v),1800);
-  };
-  const openQuickView=(coupon:Coupon)=>{setQuickView(coupon);setGalleryIndex(0)};
-  const recordAffiliateClick=(coupon:Coupon)=>{
-    let destinationDomain="unknown";
-    try{destinationDomain=new URL(coupon.affiliate_link).hostname}catch{}
-    void supabase.functions.invoke("affiliate-click",{
-      body:{
-        coupon_id:coupon.id,
-        store_id:coupon.store_id,
-        destination_domain:destinationDomain,
-        source:"web"
-      }
-    });
-  };
-
-  const selectStore=(storeId:string)=>{
-    setStoreFilter(storeId);
-    document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"});
-  };
-
-  const finishSwipe=(endX:number)=>{if(touchX===null)return;const dx=endX-touchX;if(Math.abs(dx)>42)setBanner(v=>(v+(dx<0?1:heroSlides.length-1))%heroSlides.length);setTouchX(null)};
-
-  return <div dir={t.dir}>
-    <div className="topbar"><b>عروض موثوقة</b><span>منصة لاكتشاف الكوبونات والصفقات من المتاجر المعروفة</span><small>تحديثات يومية</small></div>
-
-    <header>
-      <a className="brand">أبو خالد</a>
-      <nav><a>{t.home}</a><a href="#stores">{t.stores}</a><a href="#coupons">{t.coupons}</a></nav>
-      <div className="actions">
-        <div className="langWrap"><button className="lang" onClick={()=>setLangOpen(!langOpen)}>{t.flag}<span>{t.name}</span>⌄</button>{langOpen&&<div className="langMenu">{langs.map(x=><button key={x} onClick={()=>chooseLang(x)}>{L[x].flag} {L[x].name}</button>)}</div>}</div>
-        {user?<button className="authHeader iconButton" aria-label="الحساب" onClick={()=>setMenu(true)}>{(user.user_metadata?.avatar_url||user.user_metadata?.picture)?<img className="headerAvatar" src={user.user_metadata.avatar_url||user.user_metadata.picture} alt="" referrerPolicy="no-referrer"/>:<svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>}<span>حسابي</span></button>:<button className="authHeader iconButton" aria-label="تسجيل الدخول" onClick={()=>setAuthOpen(true)}><svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg><span>دخول</span></button>}
-        <button className="hamb iconButton" aria-label="القائمة" onClick={()=>setMenu(true)}><svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-      </div>
-    </header>
-
-    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small>COUPONS & DEALS</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#stores" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◎</span><span>{t.stores}</span><i>›</i></a><a href="#coupons" onClick={()=>setMenu(false)}><span className="drawerNavIcon">%</span><span>{t.coupons}</span><i>›</i></a></div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.country}</label><small>{country}</small></div><div className="countryChoices">{countries.map(x=><button key={x} className={country===x?"active":""} onClick={()=>setCountry(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>chooseLang(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
-
-    <main>
-      <section className="promoBanner couponHero" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>finishSwipe(e.changedTouches[0].clientX)}>
-        <img key={heroSlides[banner][2]} src={heroSlides[banner][2]} alt={heroSlides[banner][0]}/>
-        <div className="promoShade"/>
-        <div className="promoText"><small>ABU KHALED · COUPONS & DEALS</small><h2>{heroSlides[banner][0]}</h2><p>{heroSlides[banner][1]}</p><button onClick={()=>document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}>{heroSlides[banner][3]}</button></div>
-        <button className="promoPrev" aria-label="السابق" onClick={()=>setBanner((banner+heroSlides.length-1)%heroSlides.length)}>‹</button>
-        <button className="promoNext" aria-label="التالي" onClick={()=>setBanner((banner+1)%heroSlides.length)}>›</button>
-        <div className="promoDots">{heroSlides.map((_,i)=><button key={i} className={banner===i?"active":""} onClick={()=>setBanner(i)}><span/></button>)}</div>
-      </section>
-
-      <section className="couponIntro">
-        <span className="pill">منصة عروض وكوبونات ذكية</span>
-        <h1>اكتشف أفضل العروض والكوبونات</h1>
-        <p>نرتب لك العروض المميزة من المتاجر المعروفة لتصل إلى الكود المناسب بسرعة ووضوح.</p>
-        <form className="couponSearch" onSubmit={e=>{e.preventDefault();document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}}><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder={t.search}/><button>{t.searchBtn}</button></form>
-      </section>
-
-      <section id="stores" className="couponSection storesSection modernStores">
-        <div className="couponSectionHead"><div><span>STORES</span><h2>المتاجر</h2></div><small>اختر متجراً لعرض كوبوناته</small></div>
-        <div className="storeGrid modernStoreSlider">
-          <button className={storeFilter==="الكل"?"active storeAllCard":"storeAllCard"} onClick={()=>setStoreFilter("الكل")}><span className="storeLogoWrap storeAllLogo">✦</span><b>الكل</b></button>
-          {partnerStores.map(store=><button key={store.id} className={storeFilter===store.id?"active":""} onClick={()=>selectStore(store.id)}><span className="storeLogoWrap"><img src={store.logo} alt={store.name}/></span><b>{store.name}</b></button>)}
+  return (
+    <div className="loginPage">
+      <div className="loginGlow glow1"/><div className="loginGlow glow2"/>
+      <section className="loginVisual">
+        <Logo/>
+        <div className="visualCopy">
+          <span className="eyebrow">SECURE DISTRIBUTION PLATFORM</span>
+          <h1>إدارة الأكواد.<br/>بدون خلط.<br/><mark>بدون تكرار.</mark></h1>
+          <p>مخزون منفصل لكل سيرفر وباكدج، توزيع فردي وجماعي، رصيد موحد، وسجل كامل لكل حركة.</p>
+        </div>
+        <div className="securityStrip">
+          <div>01 <b>Server Isolation</b></div>
+          <div>02 <b>Atomic Issue</b></div>
+          <div>03 <b>Full Audit</b></div>
         </div>
       </section>
-
-      <section className="dealChipsWrap" aria-label="تصنيفات سريعة">
-        <div className="dealChips">
-          <button className={dealChip==="best"?"active":""} onClick={()=>setDealChip("best")}>الأفضل</button>
-          <button className={dealChip==="discount"?"active":""} onClick={()=>setDealChip("discount")}>أقوى خصم</button>
-          <button className={dealChip==="tech"?"active":""} onClick={()=>setDealChip("tech")}>تقنية</button>
-          <button className={dealChip==="fashion"?"active":""} onClick={()=>setDealChip("fashion")}>أزياء</button>
-          <button className={dealChip==="home"?"active":""} onClick={()=>setDealChip("home")}>المنزل</button>
-        </div>
-        {(storeFilter!=="الكل"||country!=="الكل"||searchTerm)&&<button className="clearDealFilters" onClick={()=>{setStoreFilter("الكل");setCountry("الكل");setSearchTerm("");setDealChip("best")}}>مسح التحديد</button>}
+      <section className="loginCardWrap">
+        <form className="loginCard" onSubmit={submit}>
+          <div className="mobileBrand"><Logo compact/></div>
+          <span className="panelTag">{mode === 'setup' ? 'FIRST OWNER SETUP' : 'CONTROL PANEL'}</span>
+          <h2>{mode === 'setup' ? 'إنشاء حساب المالك' : 'تسجيل الدخول'}</h2>
+          <p>{mode === 'setup' ? 'يتم تنفيذ هذه الخطوة مرة واحدة فقط.' : 'استخدم بيانات الحساب المخصصة لك.'}</p>
+          {mode === 'setup' && <>
+            <label>الاسم الظاهر</label>
+            <input value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} placeholder="Owner"/>
+            <label>Setup Key</label>
+            <input value={form.setupKey} onChange={e=>setForm({...form,setupKey:e.target.value})} placeholder="Cloudflare SETUP_KEY" autoComplete="off"/>
+          </>}
+          <label>Username</label>
+          <input value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="username" autoCapitalize="none" required/>
+          <label>Password</label>
+          <input type="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••••" required/>
+          {error && <div className="errorBox">{error}</div>}
+          <button className="primary wide" disabled={busy}>{busy ? 'جاري التنفيذ…' : mode === 'setup' ? 'إنشاء المالك' : 'دخول آمن'}</button>
+          {setup.needsSetup && <button type="button" className="linkBtn" onClick={()=>setMode(mode==='setup'?'login':'setup')}>{mode==='setup'?'لدي حساب بالفعل':'إعداد المالك لأول مرة'}</button>}
+          <small className="secureNote">Session Protected • CSRF Guard • Login Rate Limit</small>
+        </form>
       </section>
-
-      <section id="coupons" className="couponSection modernDealsSection">
-        <div className="couponSectionHead"><div><span>CURATED DEALS</span><h2>صفقات وكوبونات مختارة</h2></div><small>{visibleCoupons.length} عرض متاح</small></div>
-        {visibleCoupons.length?<div className="couponGrid modernVoucherGrid">{visibleCoupons.map(coupon=><article className="couponCard modernVoucherCard" key={coupon.id} onClick={()=>openQuickView(coupon)}>
-          <div className="couponCardTop">
-            <div className="couponStore">
-              <span><img src={coupon.store_logo} alt={coupon.store_name}/></span>
-              <div><b>{coupon.store_name}</b><small>{coupon.country}</small></div>
-            </div>
-          </div>
-          <div className="couponDiscount modernDiscount">{coupon.discount_label}</div>
-          <h3>{coupon.title}</h3>
-          <p className="voucherDescription">{coupon.description}</p>
-          <div className="voucherCodeBox" onClick={e=>e.stopPropagation()}>
-            <div><small>كود الخصم</small><strong>{coupon.coupon_code}</strong></div>
-            <button className={copied===coupon.id?"copied":""} onClick={()=>copyCouponOnly(coupon)}>{copied===coupon.id?"تم النسخ ✓":"نسخ الكود"}</button>
-          </div>
-          <button className="voucherPreviewBtn" onClick={e=>{e.stopPropagation();openQuickView(coupon)}}>عرض التفاصيل <span>↗</span></button>
-        </article>)}</div>:<div className="emptyDeals">لا توجد عروض مطابقة لهذا الاختيار الآن.</div>}
-      </section>
-
-      <section className="couponTrust">
-        <div><i>✓</i><span><b>كوبونات موثقة</b><small>نرتب العروض ونوضح مصدرها ومتجرها</small></span></div>
-        <div><i>↗</i><span><b>تحويل مباشر للمتجر</b><small>لا نقوم بتحصيل المدفوعات داخل المنصة</small></span></div>
-        <div><i>◎</i><span><b>مقارنة أسهل</b><small>فلترة حسب المتجر والدولة والقسم</small></span></div>
-      </section>
-    </main>
-
-    {quickView&&<div className="quickViewBack" onClick={()=>setQuickView(null)}><section className="quickViewModal" role="dialog" aria-modal="true" aria-label={quickView.title} onClick={e=>e.stopPropagation()}><button className="quickViewClose" aria-label="إغلاق المعاينة" onClick={()=>setQuickView(null)}>×</button><div className="quickGallery"><div className="quickMainImage"><img src={quickView.gallery[galleryIndex]} alt={quickView.title}/><span className="quickSaveBadge">وفر {quickView.discount_label.replace("خصم ","")}</span></div><div className="quickThumbs">{quickView.gallery.map((img,i)=><button key={img} className={galleryIndex===i?"active":""} onClick={()=>setGalleryIndex(i)}><img src={img} alt=""/></button>)}</div></div><div className="quickContent"><div className="quickStore"><span><img src={quickView.store_logo} alt={quickView.store_name}/></span><div><b>{quickView.store_name}</b><small>متجر موثوق ✓</small></div></div><h2>{quickView.title}</h2><div className="quickPrice"><strong>{quickView.deal_price}</strong><del>{quickView.original_price}</del><span>{quickView.discount_label}</span></div><div className="quickHighlights"><b>مميزات الصفقة</b><ul>{quickView.highlights.map(x=><li key={x}>{x}</li>)}</ul></div>{quickView.coupon_code&&<div className="smartCouponBox"><div><span>كود الخصم</span><strong>{quickView.coupon_code}</strong></div><button className={copied===quickView.id?"copied":""} onClick={()=>copyCouponOnly(quickView)}>{copied===quickView.id?"تم النسخ ✓":"نسخ الكود"}</button><small>سيتم تطبيق الخصم تلقائياً عند لصقه في صفحة الدفع بالمتجر.</small></div>}<a className="quickPrimaryCta" href={quickView.affiliate_link} target="_blank" rel="sponsored noopener noreferrer" onClick={()=>recordAffiliateClick(quickView)}>متابعة الشراء من {quickView.store_name} <span>↗</span></a><small className="quickDisclosure">سيتم فتح المتجر في نافذة جديدة. قد يكون الرابط رابط تسويق بالعمولة وقد نحصل على عمولة من عملية شراء مؤهلة دون تكلفة إضافية عليك.</small></div></section></div>}
-
-    {copied&&<div className="copyToast" role="status">✓ تم نسخ الكود!</div>}
-
-    {authOpen&&<div className="modalBack authBack" onClick={()=>setAuthOpen(false)}><section className="authExperience" onClick={e=>e.stopPropagation()}><button className="authClose" onClick={()=>setAuthOpen(false)}>×</button><aside className="authStory"><div className="authBrand"><i>%</i><b>ABU <em>KHALED</em></b><small>منصة كوبونات وعروض</small></div><div className="authStoryCopy"><h2>اكتشف العروض<br/><em>بشكل أذكى</em></h2><div className="benefit"><i>%</i><div><b>كوبونات حصرية</b><small>أكواد خصم مرتبة حسب المتجر</small></div></div><div className="benefit"><i>◎</i><div><b>متاجر متعددة</b><small>قارن بين العروض في مكان واحد</small></div></div><div className="benefit"><i>↗</i><div><b>انتقال مباشر</b><small>إتمام الشراء داخل المتجر الرسمي</small></div></div></div><small className="authStoryFoot">منصة واحدة للمقارنة والتوفير</small></aside><div className="authPanel"><small>ABU KHALED · SECURE ACCOUNT</small><h2>{authMode==="login"?"مرحبًا بعودتك":"أنشئ حسابك"}</h2><p>{authMode==="login"?"سجل الدخول إلى حسابك":"ابدأ تجربة عروض مخصصة وآمنة"}</p><div className="authTabs"><button className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setAuthMsg("")}}>تسجيل الدخول</button><button className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setAuthMsg("")}}>حساب جديد</button></div>{authMode==="signup"&&<label className="authField"><span>👤</span><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="الاسم الكامل"/></label>}<label className="authField"><span>✉</span><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="البريد الإلكتروني"/></label><label className="authField"><span>▣</span><input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="كلمة المرور"/></label>{authMode==="login"&&<div className="authHelpers"><span>تسجيل دخول آمن</span><button onClick={resetPassword}>نسيت كلمة المرور؟</button></div>}{authMsg&&<div className="authMsg">{authMsg}</div>}<button className="authSubmit" disabled={authBusy} onClick={submitAuth}>{authBusy?"جاري التنفيذ...":authMode==="login"?"تسجيل الدخول  ←":"إنشاء الحساب  ←"}</button><div className="authDivider"><span>أو</span></div><div className="socialDemo"><button className="googleLogin" disabled={authBusy} onClick={googleLogin}>G&nbsp;&nbsp; المتابعة باستخدام Google</button><button disabled>●&nbsp;&nbsp; Apple</button></div><div className="authSwitch"><span>{authMode==="login"?"ليس لديك حساب؟":"لديك حساب بالفعل؟"}</span><button onClick={()=>{setAuthMode(authMode==="login"?"signup":"login");setAuthMsg("")}}>{authMode==="login"?"إنشاء حساب جديد":"تسجيل الدخول"}</button></div><div className="authSecure">🔒 الحساب مؤمّن عبر Supabase Auth.</div></div></section></div>}
-
-    <footer className="siteFooter couponFooter"><div className="footerTop"><div className="footerIdentity"><b>أبو خالد</b><p>منصة ذكية لتجميع الكوبونات والعروض ومقارنة الصفقات من المتاجر.</p><small>DEMO · TTV4K — Abo Adam</small></div><div className="footerLinks"><b>روابط سريعة</b><a href="#stores">المتاجر</a><a href="#coupons">الكوبونات</a><a href="#privacy">سياسة الخصوصية</a><a href="#terms">الشروط والأحكام</a></div><div className="footerPayments"><b>الشفافية</b><p className="transparencyText">نوفر لك أفضل العروض الموثوقة بروابط تسوق آمنة ومباشرة من المتاجر الرسمية.</p><small>قد تحتوي بعض الروابط على روابط تسويق بالعمولة. عند إتمام شراء مؤهل قد نحصل على عمولة دون أي تكلفة إضافية عليك.</small></div></div><div className="footerBottom"><span>© 2026 أبو خالد. جميع الحقوق محفوظة.</span><span>كوبونات • عروض • روابط مباشرة</span></div></footer>
-  </div>
+    </div>
+  );
 }
 
-createRoot(document.getElementById("root")!).render(isOAuthCallbackDocument()?<OAuthCallbackBridge/>:<App/>);
+function Stat({ label, value, sub }) {
+  return <div className="stat"><span>{label}</span><strong>{num(value)}</strong>{sub && <small>{sub}</small>}</div>;
+}
+
+function Table({ children }) {
+  return <div className="tableWrap"><table>{children}</table></div>;
+}
+
+function Panel({ user, csrf, onLogout }) {
+  const isAdmin = user.role === 'admin';
+  const adminTabs = [
+    ['overview','الرئيسية'],['servers','السيرفرات والباقات'],['import','رفع الأكواد'],
+    ['resellers','الموزعون'],['issued','الأكواد المفعلة'],['credit','طلبات الكريدت'],
+    ['apps','التطبيقات والسوفت وير'],['logs','السجل الكامل']
+  ];
+  const resellerTabs = [
+    ['issue','إنشاء كود'],['mycodes','أكوادي'],['credit','طلب كريدت'],
+    ['apps','التطبيقات والسوفت وير'],['logs','السجل']
+  ];
+  const tabs = isAdmin ? adminTabs : resellerTabs;
+  const [tab,setTab] = useState(tabs[0][0]);
+  const [data,setData] = useState({ dashboard:null, servers:[], packages:[], resellers:[], codes:[], requests:[], apps:[], logs:[] });
+  const [notice,setNotice] = useState('');
+  const [busy,setBusy] = useState(false);
+
+  async function call(path, options={}) {
+    const method = options.method || 'GET';
+    const headers = { ...(options.headers||{}) };
+    if (method !== 'GET') headers['x-csrf-token'] = csrf;
+    if (options.body !== undefined) headers['content-type'] = 'application/json';
+    const res = await fetch(path,{...options,method,headers,credentials:'same-origin',body:options.body===undefined?undefined:JSON.stringify(options.body)});
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || 'REQUEST_FAILED');
+    return out;
+  }
+
+  async function refresh() {
+    try {
+      const [dash, servers, apps, logs, requests] = await Promise.all([
+        call('/api/dashboard'), call('/api/servers'), call('/api/apps'), call('/api/logs'), call('/api/credit-requests')
+      ]);
+      const next = { ...data, dashboard:dash, servers:servers.servers||[], packages:servers.packages||[], apps:apps.apps||[], logs:logs.logs||[], requests:requests.requests||[] };
+      if (isAdmin) {
+        const [resellers,codes] = await Promise.all([call('/api/admin/resellers'),call('/api/admin/codes')]);
+        next.resellers = resellers.resellers||[];
+        next.codes = codes.codes||[];
+      } else {
+        const codes = await call('/api/my-codes');
+        next.codes = codes.codes||[];
+      }
+      setData(next);
+    } catch (e) {
+      if (String(e.message).includes('UNAUTHORIZED')) onLogout(true);
+      else setNotice('تعذر تحديث بعض البيانات.');
+    }
+  }
+
+  useEffect(()=>{ refresh(); },[]);
+  useEffect(()=>{ const id=setInterval(refresh,30000); return()=>clearInterval(id); },[]);
+
+  async function action(path, body) {
+    setBusy(true); setNotice('');
+    try {
+      const out = await call(path,{method:'POST',body});
+      setNotice('تمت العملية بنجاح.');
+      await refresh();
+      return out;
+    } catch (e) {
+      const map = {
+        INSUFFICIENT_CREDIT:'الرصيد غير كافٍ.',
+        INSUFFICIENT_STOCK:'المخزون غير كافٍ.',
+        SERVER_PACKAGE_MISMATCH:'الباكدج لا تتبع السيرفر المحدد.',
+        ISSUE_CONFLICT_RETRY:'حدث تعارض لحظي أثناء الصرف. أعد المحاولة.',
+        USERNAME_EXISTS:'اسم المستخدم مستخدم من قبل.',
+        IMPORT_LIMIT_1000:'الحد الحالي 1000 كود في كل عملية رفع.',
+        NEGATIVE_BALANCE_NOT_ALLOWED:'لا يمكن أن يصبح الرصيد بالسالب.'
+      };
+      setNotice(map[e.message] || 'لم تتم العملية: '+e.message);
+      throw e;
+    } finally { setBusy(false); }
+  }
+
+  async function logout() {
+    try { await call('/api/logout',{method:'POST',body:{}}); } catch {}
+    onLogout();
+  }
+
+  return (
+    <div className="appShell">
+      <aside>
+        <Logo compact/>
+        <div className="userMini"><span>{user.displayName}</span><b>{isAdmin?'ADMIN':'RESELLER'}</b>{!isAdmin && <em>{num(data.dashboard?.user?.credits ?? user.credits)} CREDIT</em>}</div>
+        <nav>{tabs.map(([id,label])=><button key={id} onClick={()=>setTab(id)} className={tab===id?'active':''}>{label}</button>)}</nav>
+        <button className="logout" onClick={logout}>تسجيل الخروج</button>
+      </aside>
+      <main className="panelMain">
+        <header className="panelHeader">
+          <div><span>ACTIVE CODE MULTI</span><h1>{tabs.find(x=>x[0]===tab)?.[1]}</h1></div>
+          <div className="live"><i/> LIVE SYNC</div>
+        </header>
+        {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
+        {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
+        {tab==='servers' && isAdmin && <Servers data={data} action={action} busy={busy}/>}
+        {tab==='import' && isAdmin && <ImportCodes data={data} action={action} busy={busy}/>}
+        {tab==='resellers' && isAdmin && <Resellers data={data} action={action} busy={busy}/>}
+        {tab==='issued' && isAdmin && <Codes codes={data.codes} admin/>}
+        {tab==='credit' && isAdmin && <AdminCredit data={data} action={action} busy={busy}/>}
+        {tab==='issue' && !isAdmin && <Issue data={data} action={action} busy={busy}/>}
+        {tab==='mycodes' && !isAdmin && <Codes codes={data.codes}/>}
+        {tab==='credit' && !isAdmin && <RequestCredit data={data} action={action} busy={busy}/>}
+        {tab==='apps' && <Apps data={data} action={action} busy={busy} admin={isAdmin}/>}
+        {tab==='logs' && <Logs logs={data.logs} admin={isAdmin}/>}
+      </main>
+    </div>
+  );
+}
+
+function AdminOverview({data}) {
+  const c=data.dashboard?.counts||{};
+  return <>
+    <div className="statsGrid">
+      <Stat label="الموزعون" value={c.resellers}/><Stat label="المتاح" value={c.available}/>
+      <Stat label="المفعّل" value={c.issued}/><Stat label="طلبات الكريدت" value={c.pending_requests}/>
+    </div>
+    <section className="section">
+      <div className="sectionHead"><div><span>LIVE INVENTORY</span><h2>حالة السيرفرات</h2></div><small>تحديث تلقائي كل 30 ثانية</small></div>
+      <div className="serverGrid">{data.servers.map(s=>{
+        const low=Number(s.available_codes)<=Number(s.low_stock_threshold);
+        return <div className={'serverCard '+(low?'low':'')} key={s.id}>
+          <div className="serverTop"><b>{s.name}</b><span>{s.active?'ACTIVE':'OFF'}</span></div>
+          <strong>{num(s.available_codes)}</strong><small>كود متاح</small>
+          <div className="meter"><i style={{width:Math.min(100,(Number(s.available_codes)/(Math.max(1,Number(s.total_codes))))*100)+'%'}}/></div>
+          <div className="serverFoot"><span>الإجمالي {num(s.total_codes)}</span><span>المفعّل {num(s.issued_codes)}</span></div>
+          {low && <em>مخزون منخفض</em>}
+        </div>
+      })}</div>
+    </section>
+  </>;
+}
+
+function Servers({data,action,busy}) {
+  const [server,setServer]=useState({name:'',lowStockThreshold:10});
+  const [pack,setPack]=useState({serverId:'',name:'',durationLabel:'',creditCost:1});
+  return <div className="twoCol">
+    <section className="section">
+      <div className="sectionHead"><div><span>SERVER POCKETS</span><h2>السيرفرات</h2></div></div>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/servers',server);setServer({name:'',lowStockThreshold:10});}}>
+        <input placeholder="اسم السيرفر" value={server.name} onChange={e=>setServer({...server,name:e.target.value})} required/>
+        <input type="number" min="0" placeholder="تنبيه المخزون" value={server.lowStockThreshold} onChange={e=>setServer({...server,lowStockThreshold:e.target.value})}/>
+        <button className="primary" disabled={busy}>إضافة سيرفر</button>
+      </form>
+      <div className="list">{data.servers.map(s=><div className="listRow" key={s.id}><b>{s.name}</b><span>{num(s.available_codes)} متاح</span><small>{num(s.issued_codes)} مفعّل</small></div>)}</div>
+    </section>
+    <section className="section">
+      <div className="sectionHead"><div><span>PACKAGES</span><h2>الباقات ونقاط الخصم</h2></div></div>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/packages',pack);setPack({...pack,name:'',durationLabel:''});}}>
+        <select value={pack.serverId} onChange={e=>setPack({...pack,serverId:e.target.value})} required><option value="">اختر السيرفر</option>{data.servers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <input placeholder="اسم الباقة - سنة" value={pack.name} onChange={e=>setPack({...pack,name:e.target.value})} required/>
+        <input placeholder="المدة - 12 Month" value={pack.durationLabel} onChange={e=>setPack({...pack,durationLabel:e.target.value})}/>
+        <input type="number" min="0" placeholder="تكلفة النقاط" value={pack.creditCost} onChange={e=>setPack({...pack,creditCost:e.target.value})} required/>
+        <button className="primary" disabled={busy}>إضافة باكدج</button>
+      </form>
+      <div className="list">{data.packages.map(p=><div className="listRow" key={p.id}><b>{data.servers.find(s=>s.id===p.server_id)?.name} / {p.name}</b><span>{num(p.credit_cost)} نقطة</span><small>{num(p.available_codes)} متاح</small></div>)}</div>
+    </section>
+  </div>;
+}
+
+function ImportCodes({data,action,busy}) {
+  const [form,setForm]=useState({serverId:'',packageId:'',filename:'codes.txt',text:''});
+  const packages=data.packages.filter(p=>p.server_id===form.serverId);
+  const lines=form.text.replace(/\r/g,'').split('\n');
+  const nonBlank=lines.map(x=>x.trim()).filter(Boolean);
+  const unique=new Set(nonBlank);
+  async function pickFile(e){const f=e.target.files?.[0];if(!f)return;setForm({...form,filename:f.name,text:await f.text()});}
+  return <section className="section">
+    <div className="sectionHead"><div><span>TXT STOCK IMPORT</span><h2>رفع مخزون الأكواد</h2></div><small>الكود لن ينتقل أبداً بين السيرفرات</small></div>
+    <div className="importGrid">
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/import-codes',form);setForm({...form,text:''});}}>
+        <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value,packageId:''})} required><option value="">اختر السيرفر</option>{data.servers.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select>
+        <select value={form.packageId} onChange={e=>setForm({...form,packageId:e.target.value})} required><option value="">اختر الباكدج</option>{packages.map(p=><option value={p.id} key={p.id}>{p.name} — {p.credit_cost} نقطة</option>)}</select>
+        <label className="filePick">اختيار ملف TXT<input type="file" accept=".txt,text/plain" onChange={pickFile}/></label>
+        <textarea rows="14" placeholder="أو الصق الأكواد هنا — كود واحد في كل سطر" value={form.text} onChange={e=>setForm({...form,text:e.target.value})}/>
+        <button className="primary" disabled={busy||unique.size===0}>استيراد المخزون</button>
+      </form>
+      <div className="previewBox"><span>معاينة قبل الرفع</span><strong>{num(unique.size)}</strong><b>كود فريد</b><div><em>{num(lines.length)} سطر</em><em>{num(lines.length-nonBlank.length)} فارغ</em><em>{num(nonBlank.length-unique.size)} مكرر داخل الملف</em></div><p>المكرر الموجود مسبقاً في نفس السيرفر والباكدج يتم تجاهله تلقائياً وتسجيله في الدفعة.</p></div>
+    </div>
+  </section>;
+}
+
+function Resellers({data,action,busy}) {
+  const [form,setForm]=useState({username:'',displayName:'',password:'',credits:0});
+  const [credit,setCredit]=useState({resellerId:'',amount:1,note:''});
+  return <div className="twoCol">
+    <section className="section">
+      <div className="sectionHead"><div><span>ACCOUNTS</span><h2>إضافة موزع</h2></div></div>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/resellers',form);setForm({username:'',displayName:'',password:'',credits:0});}}>
+        <input placeholder="Username" value={form.username} onChange={e=>setForm({...form,username:e.target.value})} required/>
+        <input placeholder="اسم الموزع" value={form.displayName} onChange={e=>setForm({...form,displayName:e.target.value})} required/>
+        <input type="password" minLength="10" placeholder="Password - 10+ chars" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} required/>
+        <input type="number" min="0" placeholder="رصيد البداية" value={form.credits} onChange={e=>setForm({...form,credits:e.target.value})}/>
+        <button className="primary" disabled={busy}>إنشاء الموزع</button>
+      </form>
+      <hr/>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/credit-adjust',credit);}}>
+        <select value={credit.resellerId} onChange={e=>setCredit({...credit,resellerId:e.target.value})} required><option value="">اختر موزع</option>{data.resellers.map(r=><option value={r.id} key={r.id}>{r.display_name} — {r.credits}</option>)}</select>
+        <input type="number" placeholder="+10 أو -5" value={credit.amount} onChange={e=>setCredit({...credit,amount:e.target.value})} required/>
+        <input placeholder="ملاحظة" value={credit.note} onChange={e=>setCredit({...credit,note:e.target.value})}/>
+        <button className="secondary" disabled={busy}>تعديل الرصيد</button>
+      </form>
+    </section>
+    <section className="section">
+      <div className="sectionHead"><div><span>RESELLERS</span><h2>الحسابات</h2></div></div>
+      <Table><thead><tr><th>الموزع</th><th>Username</th><th>الرصيد</th><th>الحالة</th></tr></thead><tbody>{data.resellers.map(r=><tr key={r.id}><td>{r.display_name}</td><td>{r.username}</td><td className="mono">{r.credits}</td><td><span className="badge">{r.status}</span></td></tr>)}</tbody></Table>
+    </section>
+  </div>;
+}
+
+function Codes({codes,admin=false}) {
+  async function copy(v){await navigator.clipboard.writeText(v);}
+  function download(){
+    const text=codes.map(x=>x.code).join('\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download='active-code-multi.txt';a.click();URL.revokeObjectURL(a.href);
+  }
+  return <section className="section">
+    <div className="sectionHead"><div><span>ISSUED CODES</span><h2>{admin?'كل الأكواد المفعلة':'أكوادي'}</h2></div><button className="secondary" onClick={download}>تنزيل TXT</button></div>
+    <Table><thead><tr><th>الكود</th><th>السيرفر</th><th>الباكدج</th>{admin&&<th>الموزع</th>}<th>العميل</th><th>التاريخ</th><th>عملية</th></tr></thead>
+    <tbody>{codes.map(c=><tr key={c.id}><td><button className="codeBtn mono" onClick={()=>copy(c.code)}>{c.code}</button></td><td>{c.server_name}</td><td>{c.package_name}</td>{admin&&<td>{c.reseller_name||c.reseller_username}</td>}<td>{c.customer_ref||'—'}</td><td>{fmt(c.issued_at)}</td><td className="mono tiny">{c.order_id}</td></tr>)}</tbody></Table>
+  </section>;
+}
+
+function Issue({data,action,busy}) {
+  const [form,setForm]=useState({serverId:'',packageId:'',customerRef:'',quantity:1});
+  const [mode,setMode]=useState('single');
+  const [result,setResult]=useState(null);
+  const packs=data.packages.filter(p=>p.server_id===form.serverId&&Number(p.active)===1);
+  const selected=packs.find(p=>p.id===form.packageId);
+  const q=mode==='single'?1:Math.max(1,Math.min(100,Number(form.quantity)||1));
+  const total=selected?Number(selected.credit_cost)*q:0;
+  async function submit(e){e.preventDefault();const out=await action('/api/issue',{...form,quantity:q});setResult(out);}
+  async function copyAll(){await navigator.clipboard.writeText((result?.codes||[]).map(x=>x.code).join('\n'));}
+  function download(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([(result?.codes||[]).map(x=>x.code).join('\n')],{type:'text/plain'}));a.download=(result?.order?.server||'codes')+'-'+Date.now()+'.txt';a.click();URL.revokeObjectURL(a.href);}
+  return <div className="issueLayout">
+    <section className="section issueCard">
+      <div className="sectionHead"><div><span>ONE PLACE TO ISSUE</span><h2>إنشاء كود</h2></div></div>
+      <div className="modeSwitch"><button className={mode==='single'?'active':''} onClick={()=>setMode('single')}>كود واحد</button><button className={mode==='bulk'?'active':''} onClick={()=>setMode('bulk')}>مجموعة أكواد</button></div>
+      <form className="formGrid" onSubmit={submit}>
+        <label>السيرفر</label>
+        <select value={form.serverId} onChange={e=>setForm({...form,serverId:e.target.value,packageId:''})} required><option value="">اختر السيرفر</option>{data.servers.filter(s=>Number(s.active)===1).map(s=><option value={s.id} key={s.id}>{s.name} — {s.available_codes} متاح</option>)}</select>
+        <label>الباكدج</label>
+        <select value={form.packageId} onChange={e=>setForm({...form,packageId:e.target.value})} required><option value="">اختر الباكدج</option>{packs.map(p=><option value={p.id} key={p.id}>{p.name} — {p.credit_cost} نقطة — {p.available_codes} متاح</option>)}</select>
+        <label>اسم العميل أو رقم الهاتف</label>
+        <input value={form.customerRef} onChange={e=>setForm({...form,customerRef:e.target.value})} placeholder="مثال: 010... أو Ahmed"/>
+        {mode==='bulk'&&<><label>عدد الأكواد</label><input type="number" min="1" max="100" value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})}/></>}
+        <div className="costBox"><div><span>العدد</span><b>{q}</b></div><div><span>تكلفة الكود</span><b>{selected?.credit_cost||0}</b></div><div><span>الإجمالي</span><b>{total} نقطة</b></div><div><span>رصيدك</span><b>{data.dashboard?.user?.credits||0}</b></div></div>
+        <button className="primary wide" disabled={busy||!selected}>{busy?'جاري الصرف…':'تفعيل واستخراج'}</button>
+      </form>
+    </section>
+    <section className="section resultCard">
+      <div className="sectionHead"><div><span>RESULT</span><h2>الكود الناتج</h2></div></div>
+      {!result?<div className="emptyState">لم يتم إنشاء كود في هذه الجلسة بعد.</div>:<>
+        <div className="resultMeta"><b>{result.order.server}</b><span>{result.order.package}</span><em>{result.order.creditsBefore} → {result.order.creditsAfter} نقطة</em></div>
+        <div className="issuedList">{result.codes.map(x=><button key={x.id} className="issuedCode mono" onClick={()=>navigator.clipboard.writeText(x.code)}>{x.code}</button>)}</div>
+        <div className="rowBtns"><button className="secondary" onClick={copyAll}>نسخ الكل</button><button className="secondary" onClick={download}>تنزيل TXT</button></div>
+      </>}
+    </section>
+  </div>;
+}
+
+function AdminCredit({data,action,busy}) {
+  return <section className="section">
+    <div className="sectionHead"><div><span>CREDIT REQUESTS</span><h2>طلبات الكريدت</h2></div></div>
+    <Table><thead><tr><th>الموزع</th><th>الكمية</th><th>الملاحظة</th><th>الحالة</th><th>التاريخ</th><th>قرار</th></tr></thead>
+    <tbody>{data.requests.map(r=><tr key={r.id}><td>{r.display_name||r.username}</td><td>{r.amount}</td><td>{r.note||'—'}</td><td><span className={'badge '+r.status}>{r.status}</span></td><td>{fmt(r.created_at)}</td><td>{r.status==='pending'?<div className="inlineBtns"><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'approved'})}>قبول</button><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'rejected'})}>رفض</button></div>:'—'}</td></tr>)}</tbody></Table>
+  </section>;
+}
+
+function RequestCredit({data,action,busy}) {
+  const [form,setForm]=useState({amount:10,note:''});
+  return <div className="twoCol">
+    <section className="section">
+      <div className="sectionHead"><div><span>REQUEST CREDIT</span><h2>طلب رصيد</h2></div></div>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/credit-requests',form);setForm({amount:10,note:''});}}>
+        <input type="number" min="1" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} required/>
+        <textarea rows="5" placeholder="ملاحظة للـ Admin" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/>
+        <button className="primary" disabled={busy}>إرسال الطلب</button>
+      </form>
+    </section>
+    <section className="section">
+      <div className="sectionHead"><div><span>HISTORY</span><h2>طلباتي</h2></div></div>
+      <div className="list">{data.requests.map(r=><div className="listRow" key={r.id}><b>{r.amount} نقطة</b><span className={'badge '+r.status}>{r.status}</span><small>{fmt(r.created_at)}</small></div>)}</div>
+    </section>
+  </div>;
+}
+
+function Apps({data,action,busy,admin}) {
+  const [form,setForm]=useState({name:'',platform:'android',version:'',description:'',downloadUrl:'',visibility:'all'});
+  return <div className={admin?'twoCol':''}>
+    {admin&&<section className="section">
+      <div className="sectionHead"><div><span>SOFTWARE CENTER</span><h2>إضافة تطبيق أو سوفت وير</h2></div></div>
+      <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/admin/apps',form);setForm({...form,name:'',version:'',description:'',downloadUrl:''});}}>
+        <input placeholder="الاسم" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/>
+        <select value={form.platform} onChange={e=>setForm({...form,platform:e.target.value})}><option value="android">Android</option><option value="windows">Windows</option><option value="receiver">Receiver Software</option><option value="other">Other</option></select>
+        <input placeholder="Version" value={form.version} onChange={e=>setForm({...form,version:e.target.value})}/>
+        <input placeholder="https:// download link" value={form.downloadUrl} onChange={e=>setForm({...form,downloadUrl:e.target.value})} required/>
+        <textarea rows="4" placeholder="الوصف" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
+        <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}><option value="all">للجميع</option><option value="reseller">للموزعين</option><option value="admin">للإدارة</option></select>
+        <button className="primary" disabled={busy}>إضافة</button>
+      </form>
+    </section>}
+    <section className="section">
+      <div className="sectionHead"><div><span>DOWNLOADS</span><h2>التطبيقات والسوفت وير</h2></div></div>
+      <div className="appGrid">{data.apps.map(a=><a className="downloadCard" href={a.download_url} target="_blank" rel="noreferrer" key={a.id}><span>{a.platform.toUpperCase()}</span><h3>{a.name}</h3><p>{a.description||'بدون وصف'}</p><div><b>{a.version||'Latest'}</b><em>تحميل ↗</em></div></a>)}</div>
+    </section>
+  </div>;
+}
+
+function Logs({logs,admin}) {
+  return <section className="section">
+    <div className="sectionHead"><div><span>AUDIT TRAIL</span><h2>{admin?'السجل المتكامل':'سجل حسابي'}</h2></div></div>
+    <Table><thead><tr>{admin&&<th>المستخدم</th>}<th>الحدث</th><th>النوع</th><th>التفاصيل</th><th>الوقت</th></tr></thead>
+    <tbody>{logs.map(l=><tr key={l.id||l.created_at+l.action}>{admin&&<td>{l.actor_name||l.actor_username||'SYSTEM'}</td>}<td><span className="event">{l.action}</span></td><td>{l.entity_type||'—'}</td><td className="logDetails">{l.details_json||'{}'}</td><td>{fmt(l.created_at)}</td></tr>)}</tbody></Table>
+  </section>;
+}
+
+function App() {
+  const [loading,setLoading]=useState(true);
+  const [setup,setSetup]=useState({needsSetup:false,setupKeyConfigured:false});
+  const [user,setUser]=useState(null);
+  const [csrf,setCsrf]=useState('');
+
+  async function boot() {
+    try {
+      const s=await fetch('/api/setup/status',{credentials:'same-origin'}); const sd=await s.json(); setSetup(sd);
+      if (!sd.needsSetup) {
+        const r=await fetch('/api/me',{credentials:'same-origin'});
+        if (r.ok) { const d=await r.json(); setUser(d.user); setCsrf(d.csrf); }
+      }
+    } finally { setLoading(false); }
+  }
+  useEffect(()=>{boot();},[]);
+  if (loading) return <div className="splash"><Logo/><span>SECURE STARTUP</span></div>;
+  if (!user) return <Login setup={setup} onAuth={(u,c)=>{setUser(u);setCsrf(c);setSetup({...setup,needsSetup:false});}}/>;
+  return <Panel user={user} csrf={csrf} onLogout={()=>{setUser(null);setCsrf('');}}/>;
+}
+
+createRoot(document.getElementById('root')).render(<React.StrictMode><App/></React.StrictMode>);
