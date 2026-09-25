@@ -4752,3 +4752,185 @@ html[dir="ltr"] .sidebarProfileAction.active{
     grid-column:auto
   }
 }
+
+
+/* Unified account management: reseller / agent / admin */
+.acmCreateLead{
+  margin:4px 0 0;
+  color:#7C8898;
+  font-size:7.5px;
+  line-height:1.6
+}
+.acmAccountTypeField{
+  grid-column:1/-1
+}
+.acmAdminAccountNotice{
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:58px;
+  padding:10px 11px;
+  border:1px solid #BFDBFE;
+  border-radius:11px;
+  background:#EFF6FF
+}
+.acmAdminAccountNotice>svg{
+  width:20px;
+  height:20px;
+  flex:0 0 auto;
+  color:#2563EB
+}
+.acmAdminAccountNotice>div{
+  display:grid;
+  gap:2px
+}
+.acmAdminAccountNotice b{
+  color:#1E3A8A;
+  font-size:9px
+}
+.acmAdminAccountNotice span{
+  color:#64748B;
+  font-size:7px;
+  line-height:1.5
+}
+.accountNameLine{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0
+}
+.accountNameLine>b{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.accountTypeBadge{
+  flex:0 0 auto;
+  padding:3px 6px;
+  border-radius:999px;
+  font:900 5.8px/1 "Inter",sans-serif;
+  font-style:normal;
+  letter-spacing:.35px
+}
+.accountTypeBadge.reseller{
+  background:#F1F5F9;
+  color:#475569
+}
+.accountTypeBadge.agent{
+  background:#FFF7ED;
+  color:#C2410C
+}
+.accountTypeBadge.admin{
+  background:#EFF6FF;
+  color:#1D4ED8
+}
+.resellerAccordionCard.accountType-admin{
+  border-color:#DBEAFE
+}
+.resellerAccordionCard.accountType-admin .resellerInitial{
+  background:#0F172A;
+  color:#fff
+}
+.resellerAccordionCard.accountType-agent{
+  border-color:#FED7AA
+}
+.accountEditLauncher{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:10px
+}
+.accountEditLauncher>button{
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:7px 10px;
+  border:1px solid #CBD5E1;
+  border-radius:9px;
+  background:#F8FAFC;
+  color:#334155;
+  font-size:7.5px;
+  font-weight:850
+}
+.accountEditLauncher>button.active{
+  border-color:#93C5FD;
+  background:#EFF6FF;
+  color:#1D4ED8
+}
+.accountEditLauncher svg{
+  width:14px;
+  height:14px
+}
+.accountFullEdit{
+  display:grid;
+  gap:11px;
+  margin-top:10px;
+  padding:12px;
+  border:1px solid #DCE4EC;
+  border-radius:12px;
+  background:linear-gradient(180deg,#FFFFFF,#F8FAFC)
+}
+.accountFullEditHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding-bottom:9px;
+  border-bottom:1px solid #EEF2F6
+}
+.accountFullEditHead>div{
+  display:grid;
+  gap:3px
+}
+.accountFullEditHead b{
+  color:#0F172A;
+  font-size:10px
+}
+.accountFullEditHead small{
+  color:#7C8898;
+  font-size:7px;
+  line-height:1.5
+}
+.accountFullEditHead>em{
+  flex:0 0 auto;
+  padding:4px 7px;
+  border-radius:999px;
+  background:#EEF2FF;
+  color:#4338CA;
+  font:900 6.5px/1 "Inter",sans-serif;
+  font-style:normal
+}
+.accountFullEditGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px
+}
+.accountFullEditActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:7px
+}
+.accountFullEditActions button{
+  min-height:38px;
+  min-width:110px
+}
+
+@media(max-width:650px){
+  .accountFullEditGrid{
+    grid-template-columns:1fr
+  }
+  .accountFullEditActions{
+    display:grid;
+    grid-template-columns:1fr 1fr
+  }
+  .accountFullEditActions button{
+    width:100%;
+    min-width:0
+  }
+  .accountEditLauncher>button{
+    width:100%
+  }
+}
