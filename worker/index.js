@@ -6,7 +6,7 @@ let schemaReady = false;
 const BASE_SCHEMA = [
   "PRAGMA foreign_keys = ON",
   "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT NOT NULL)",
-  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 100000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, last_login_ip TEXT, last_country TEXT, last_login_at TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE COLLATE NOCASE, email TEXT UNIQUE COLLATE NOCASE, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, password_iterations INTEGER NOT NULL DEFAULT 100000, role TEXT NOT NULL CHECK(role IN ('admin','reseller')), account_type TEXT NOT NULL DEFAULT 'reseller' CHECK(account_type IN ('owner','admin','agent','reseller')), parent_user_id TEXT, display_name TEXT NOT NULL, credits INTEGER NOT NULL DEFAULT 0 CHECK(credits >= 0), last_credit_tx_id TEXT, last_login_ip TEXT, last_country TEXT, last_login_at TEXT, must_change_password INTEGER NOT NULL DEFAULT 0 CHECK(must_change_password IN (0,1)), status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','blocked')), created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT NOT NULL UNIQUE, csrf_token TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, ip_hash TEXT, user_agent TEXT)",
   "CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, window_started_at TEXT NOT NULL, blocked_until TEXT)",
   "CREATE TABLE IF NOT EXISTS servers (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, slug TEXT NOT NULL UNIQUE COLLATE NOCASE, active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)), low_stock_threshold INTEGER NOT NULL DEFAULT 10, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)",
@@ -164,6 +164,15 @@ async function ensureSchema(env){
   if(!cols.some(c=>c.name==='last_login_at')){
     await env.DB.prepare("ALTER TABLE users ADD COLUMN last_login_at TEXT").run();
   }
+  if(!cols.some(c=>c.name==='account_type')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN account_type TEXT NOT NULL DEFAULT 'reseller'").run();
+  }
+  if(!cols.some(c=>c.name==='parent_user_id')){
+    await env.DB.prepare("ALTER TABLE users ADD COLUMN parent_user_id TEXT").run();
+  }
+  await env.DB.prepare("UPDATE users SET account_type='owner' WHERE role='admin' AND lower(username)='owner'").run();
+  await env.DB.prepare("UPDATE users SET account_type='admin' WHERE role='admin' AND lower(username)<>'owner' AND (account_type IS NULL OR account_type='' OR account_type='reseller')").run();
+  await env.DB.prepare("INSERT OR IGNORE INTO app_meta(key,value,updated_at) VALUES('balance_mode','currency',datetime('now')),('balance_currency','EGP',datetime('now'))").run();
 
   const appCols=(await env.DB.prepare("PRAGMA table_info(apps)").all()).results||[];
   if(!appCols.some(c=>c.name==='image_url')){
@@ -194,7 +203,7 @@ async function createSession(env,request,userId){
 async function authUser(env,request){
   const token=cookieValue(request,SESSION_COOKIE);
   if(!token) return null;
-  const row=await env.DB.prepare("SELECT s.id session_id,s.csrf_token,s.expires_at,s.user_agent,s.last_seen_at,u.id,u.username,u.email,u.display_name,u.role,u.credits,u.must_change_password,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1")
+  const row=await env.DB.prepare("SELECT s.id session_id,s.csrf_token,s.expires_at,s.user_agent,s.last_seen_at,u.id,u.username,u.email,u.display_name,u.role,u.account_type,u.parent_user_id,u.credits,u.must_change_password,u.status FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1")
     .bind(await sha256(token),now()).first();
   if(!row || row.status!=='active') return null;
 
@@ -211,8 +220,33 @@ async function authUser(env,request){
   return row;
 }
 
+function accountType(u){
+  const stored=String(u?.account_type||'').toLowerCase();
+  if(['owner','admin','agent','reseller'].includes(stored)) return stored;
+  if(u?.role==='admin') return String(u?.username||'').toLowerCase()==='owner'?'owner':'admin';
+  return 'reseller';
+}
+
 function publicUser(u){
-  return {id:u.id,username:u.username,email:u.email||'',displayName:u.display_name,role:u.role,credits:Number(u.credits||0),mustChangePassword:Number(u.must_change_password||0)===1};
+  return {
+    id:u.id,
+    username:u.username,
+    email:u.email||'',
+    displayName:u.display_name,
+    role:u.role,
+    accountType:accountType(u),
+    parentUserId:u.parent_user_id||null,
+    credits:Number(u.credits||0),
+    mustChangePassword:Number(u.must_change_password||0)===1
+  };
+}
+
+async function getBalanceConfig(env){
+  const rows=(await env.DB.prepare("SELECT key,value FROM app_meta WHERE key IN ('balance_mode','balance_currency')").all()).results||[];
+  const map=Object.fromEntries(rows.map(r=>[r.key,r.value]));
+  const mode=map.balance_mode==='credit'?'credit':'currency';
+  const currency=['EGP','USD'].includes(String(map.balance_currency||'').toUpperCase())?String(map.balance_currency).toUpperCase():'EGP';
+  return {mode,currency,unit:mode==='credit'?'CREDIT':currency};
 }
 
 function csrfOk(request,user){
@@ -235,7 +269,7 @@ async function ensureBootstrapAdmin(env){
 
   if(!admin){
     const id=uid('usr');
-    await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','Owner',0,1,'active',?,?)")
+    await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,account_type,parent_user_id,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','owner',NULL,'Owner',0,1,'active',?,?)")
       .bind(id,username,hash,salt,PASSWORD_ITERATIONS,at,at).run();
     admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(id).first();
   }else{
@@ -410,19 +444,34 @@ async function api(request,env){
   if(!user) return json({error:'UNAUTHORIZED'},401);
   if(method!=='GET' && method!=='HEAD' && !csrfOk(request,user)) return json({error:'CSRF'},403);
 
-  if(path==='/api/admin/change-password' && method==='POST'){
-  
+  if(path==='/api/balance-config' && method==='GET'){
+    return json({balanceConfig:await getBalanceConfig(env)});
+  }
+
+  if(path==='/api/admin/balance-config' && method==='POST'){
+    if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
+    const body=await bodyJson(request);
+    const mode=body.mode==='credit'?'credit':body.mode==='currency'?'currency':'';
+    const currency=['EGP','USD'].includes(String(body.currency||'').toUpperCase())?String(body.currency).toUpperCase():'EGP';
+    if(!mode) return json({error:'INVALID_BALANCE_MODE'},400);
+    const at=now();
+    await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('balance_mode',?,?)").bind(mode,at).run();
+    await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('balance_currency',?,?)").bind(currency,at).run();
+    await audit(env,request,user,'BALANCE_MODE_CHANGED','settings','balance',{mode,currency});
+    return json({ok:true,balanceConfig:{mode,currency,unit:mode==='credit'?'CREDIT':currency}});
+  }
+
   if(path==='/api/sharing' && method==='GET'){
     if(user.role==='admin'){
       const services=(await env.DB.prepare("SELECT s.id,s.name_ar,s.name_en,s.slug,s.credit_cost,s.active,s.sort_order,COUNT(c.id) total_codes,COALESCE(SUM(CASE WHEN c.status='available' THEN 1 ELSE 0 END),0) available_codes,COALESCE(SUM(CASE WHEN c.status='issued' THEN 1 ELSE 0 END),0) issued_codes FROM sharing_services s LEFT JOIN sharing_codes c ON c.service_id=s.id GROUP BY s.id ORDER BY s.sort_order,s.name_en").all()).results||[];
       const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,u.username reseller_username,u.display_name reseller_name,o.quantity,o.unit_cost,o.total_cost,o.credits_before,o.credits_after,b.filename batch_filename FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id JOIN users u ON u.id=c.reseller_id JOIN sharing_orders o ON o.id=c.order_id JOIN sharing_batches b ON b.id=c.batch_id WHERE c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").all()).results||[];
-      return json({services,codes});
+      return json({services,codes,balanceConfig:await getBalanceConfig(env)});
     }
 
     const services=(await env.DB.prepare("SELECT id,name_ar,name_en,slug,credit_cost,active,sort_order FROM sharing_services WHERE active=1 ORDER BY sort_order,name_en").all()).results||[];
     const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,o.quantity,o.unit_cost,o.total_cost FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id LEFT JOIN sharing_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").bind(user.id).all()).results||[];
     const wallet=await env.DB.prepare("SELECT credits FROM users WHERE id=? LIMIT 1").bind(user.id).first();
-    return json({services,codes,balance:Number(wallet?.credits||0)});
+    return json({services,codes,balance:Number(wallet?.credits||0),balanceConfig:await getBalanceConfig(env)});
   }
 
   if(path==='/api/sharing/issue' && method==='POST'){
@@ -522,7 +571,9 @@ async function api(request,env){
     }
   }
 
-  if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
+
+  if(path==='/api/admin/change-password' && method==='POST'){
+    if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
     const body=await bodyJson(request);
     const currentPassword=String(body.currentPassword||'');
     const newPassword=String(body.newPassword||'');
@@ -557,7 +608,7 @@ async function api(request,env){
   }
 
   if(path==='/api/profile' && method==='GET'){
-    const row=await env.DB.prepare("SELECT id,username,email,display_name,role,credits,status,last_login_ip,last_country,last_login_at,created_at,updated_at FROM users WHERE id=? LIMIT 1").bind(user.id).first();
+    const row=await env.DB.prepare("SELECT id,username,email,display_name,role,account_type,parent_user_id,credits,status,last_login_ip,last_country,last_login_at,created_at,updated_at FROM users WHERE id=? LIMIT 1").bind(user.id).first();
     if(!row) return json({error:'USER_NOT_FOUND'},404);
     return json({profile:{
       id:row.id,
@@ -565,6 +616,8 @@ async function api(request,env){
       email:row.email||'',
       displayName:row.display_name||row.username,
       role:row.role,
+      accountType:accountType(row),
+      parentUserId:row.parent_user_id||null,
       credits:Number(row.credits||0),
       status:row.status,
       lastLoginIp:row.last_login_ip||'',
@@ -612,10 +665,10 @@ async function api(request,env){
       await seedDemo(env,admin);
       const s=await stock(env);
       const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM users WHERE role='reseller') resellers,(SELECT COUNT(*) FROM codes) total_codes,(SELECT COUNT(*) FROM codes WHERE status='available') available,(SELECT COUNT(*) FROM codes WHERE status='issued') issued,(SELECT COUNT(*) FROM packages WHERE active=1) active_packages,(SELECT COALESCE(SUM(credits),0) FROM users WHERE role='reseller') reseller_credits,(SELECT COUNT(*) FROM credit_requests WHERE status='pending') pending_requests").first();
-      return json({...s,counts});
+      return json({...s,counts,balanceConfig:await getBalanceConfig(env)});
     }
     const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued') main_issued,(SELECT COUNT(*) FROM sharing_codes WHERE reseller_id=? AND status='issued') sharing_issued,((SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued')+(SELECT COUNT(*) FROM sharing_codes WHERE reseller_id=? AND status='issued')) issued,(SELECT COUNT(*) FROM credit_requests WHERE reseller_id=? AND status='pending') pending_requests").bind(user.id,user.id,user.id,user.id,user.id).first();
-    return json({user:publicUser(user),counts});
+    return json({user:publicUser(user),counts,balanceConfig:await getBalanceConfig(env)});
   }
 
   if(path==='/api/my-codes' && method==='GET'){
@@ -728,6 +781,38 @@ async function api(request,env){
     }
   }
 
+  if(path==='/api/team/resellers' && method==='GET'){
+    if(accountType(user)!=='agent') return json({error:'AGENT_ONLY'},403);
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u WHERE u.role='reseller' AND u.parent_user_id=? ORDER BY u.created_at DESC LIMIT 500").bind(user.id).all()).results||[];
+    return json({resellers:rows});
+  }
+
+  if(path==='/api/team/resellers' && method==='POST'){
+    if(accountType(user)!=='agent') return json({error:'AGENT_ONLY'},403);
+    const body=await bodyJson(request);
+    const username=clean(body.username,80), email=clean(body.email,120).toLowerCase(), password=String(body.password||'');
+    const displayName=clean(body.displayName,80)||username;
+    const credits=Math.max(0,Math.trunc(Number(body.credits||0)));
+    if(!validUsername(username)||(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))||password.length<1||password.length>256||!Number.isSafeInteger(credits)) return json({error:'INVALID_RESELLER'},400);
+
+    const freshAgent=await env.DB.prepare("SELECT id,credits,status FROM users WHERE id=? AND role='reseller' AND account_type='agent'").bind(user.id).first();
+    if(!freshAgent||freshAgent.status!=='active'||Number(freshAgent.credits)<credits) return json({error:'INSUFFICIENT_CREDIT'},409);
+
+    const salt=randomToken(18), id=uid('usr'), at=now(), before=Number(freshAgent.credits), after=before-credits;
+    try{
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,account_type,parent_user_id,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'reseller','reseller',?,?,?,'active',?,?)")
+          .bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,user.id,displayName,credits,at,at),
+        env.DB.prepare("UPDATE users SET credits=?,updated_at=? WHERE id=? AND credits=? AND account_type='agent'").bind(after,at,user.id,before),
+        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .bind(uid('log'),user.id,user.role,'RESELLER_CREATED_BY_AGENT','user',id,JSON.stringify({username,displayName,initialBalance:credits,parentUserId:user.id}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
+      ]);
+      return json({ok:true,id,balanceAfter:after},201);
+    }catch{
+      return json({error:'ACCOUNT_EXISTS'},409);
+    }
+  }
+
   if(user.role!=='admin') return json({error:'ADMIN_ONLY'},403);
 
   if(path==='/api/admin/partners' && method==='GET'){
@@ -749,7 +834,7 @@ async function api(request,env){
     const salt=randomToken(18), id=uid('usr'), at=now();
     try{
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'admin',?,0,0,'active',?,?)")
+        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,account_type,parent_user_id,display_name,credits,must_change_password,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'admin','admin',NULL,?,0,0,'active',?,?)")
           .bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,displayName,at,at),
         env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
           .bind(uid('log'),user.id,user.role,'ADMIN_PARTNER_CREATED','user',id,JSON.stringify({username,email:email||null,displayName,fullAccess:true}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
@@ -761,7 +846,7 @@ async function api(request,env){
   }
 
   if(path==='/api/admin/resellers' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u WHERE u.role='reseller' ORDER BY u.created_at DESC LIMIT 500").all()).results||[];
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,p.username parent_username,p.display_name parent_name,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u LEFT JOIN users p ON p.id=u.parent_user_id WHERE u.role='reseller' ORDER BY CASE u.account_type WHEN 'agent' THEN 0 ELSE 1 END,u.created_at DESC LIMIT 500").all()).results||[];
     return json({resellers:rows});
   }
 
@@ -774,11 +859,32 @@ async function api(request,env){
     const salt=randomToken(18), id=uid('usr'), at=now();
     try{
       await env.DB.batch([
-        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'reseller',?,?,'active',?,?)").bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,displayName,credits,at,at),
+        env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,account_type,parent_user_id,display_name,credits,status,created_at,updated_at) VALUES(?,?,?,?,?,?,'reseller','reseller',?,?,?,'active',?,?)").bind(id,username,email||null,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,user.id,displayName,credits,at,at),
         env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'RESELLER_CREATED','user',id,JSON.stringify({username,email:email||null,displayName,initialCredits:credits}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
       ]);
       return json({ok:true,id},201);
     }catch{return json({error:'ACCOUNT_EXISTS'},409);}
+  }
+
+  if(path==='/api/admin/user-role' && method==='POST'){
+    const body=await bodyJson(request);
+    const targetId=clean(body.userId,80);
+    const nextType=['admin','agent','reseller'].includes(body.accountType)?body.accountType:'';
+    if(!targetId||!nextType) return json({error:'INVALID_ROLE'},400);
+
+    const target=await env.DB.prepare("SELECT id,username,role,account_type,parent_user_id FROM users WHERE id=? LIMIT 1").bind(targetId).first();
+    if(!target) return json({error:'USER_NOT_FOUND'},404);
+    if(String(target.username||'').toLowerCase()==='owner'||accountType(target)==='owner') return json({error:'OWNER_ROLE_LOCKED'},409);
+
+    const dbRole=nextType==='admin'?'admin':'reseller';
+    const parentId=nextType==='admin'?null:(target.parent_user_id||user.id);
+    const at=now();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET role=?,account_type=?,parent_user_id=?,updated_at=? WHERE id=?").bind(dbRole,nextType,parentId,at,targetId),
+      env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(targetId)
+    ]);
+    await audit(env,request,user,'USER_ROLE_CHANGED','user',targetId,{from:accountType(target),to:nextType,parentUserId:parentId});
+    return json({ok:true,userId:targetId,accountType:nextType});
   }
 
   if(path==='/api/admin/credit-adjust' && method==='POST'){
