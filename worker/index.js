@@ -361,7 +361,7 @@ async function api(request,env){
   }
 
   if(path==='/api/my-codes' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name server_name,p.name package_name,p.duration_label,o.quantity,o.total_cost FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id LEFT JOIN issue_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").bind(user.id).all()).results||[];
+    const rows=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name server_name,p.name package_name,p.duration_label,o.quantity,o.unit_cost,o.total_cost FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id LEFT JOIN issue_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").bind(user.id).all()).results||[];
     return json({codes:rows});
   }
 
