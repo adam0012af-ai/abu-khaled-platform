@@ -434,6 +434,48 @@ async function api(request,env){
     await env.DB.prepare("UPDATE sessions SET last_seen_at=?,expires_at=? WHERE id=?").bind(at,expires,user.session_id).run();
     return json({user:publicUser(user),csrf:user.csrf_token},200,{'set-cookie':sessionCookie(token)});
   }
+
+  if(path==='/api/profile' && method==='GET'){
+    const row=await env.DB.prepare("SELECT id,username,email,display_name,role,credits,status,last_login_ip,last_country,last_login_at,created_at,updated_at FROM users WHERE id=? LIMIT 1").bind(user.id).first();
+    if(!row) return json({error:'USER_NOT_FOUND'},404);
+    return json({profile:{
+      id:row.id,
+      username:row.username,
+      email:row.email||'',
+      displayName:row.display_name||row.username,
+      role:row.role,
+      credits:Number(row.credits||0),
+      status:row.status,
+      lastLoginIp:row.last_login_ip||'',
+      lastCountry:row.last_country||'',
+      lastLoginAt:row.last_login_at||null,
+      createdAt:row.created_at||null,
+      updatedAt:row.updated_at||null
+    }});
+  }
+
+  if(path==='/api/change-password' && method==='POST'){
+    const body=await bodyJson(request);
+    const currentPassword=String(body.currentPassword||'');
+    const newPassword=String(body.newPassword||'');
+    if(!currentPassword || !newPassword || newPassword.length>256) return json({error:'INVALID_PASSWORD'},400);
+
+    const dbUser=await env.DB.prepare("SELECT * FROM users WHERE id=? LIMIT 1").bind(user.id).first();
+    if(!dbUser) return json({error:'USER_NOT_FOUND'},404);
+    const currentHash=await hashPassword(currentPassword,dbUser.password_salt,Number(dbUser.password_iterations));
+    if(!equal(currentHash,dbUser.password_hash)) return json({error:'CURRENT_PASSWORD_WRONG'},403);
+
+    const salt=randomToken(18);
+    const at=now();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,must_change_password=0,updated_at=? WHERE id=?")
+        .bind(await hashPassword(newPassword,salt),salt,PASSWORD_ITERATIONS,at,user.id),
+      env.DB.prepare("DELETE FROM sessions WHERE user_id=? AND id<>?").bind(user.id,user.session_id),
+      env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+        .bind(uid('log'),user.id,user.role,'PASSWORD_CHANGED','user',user.id,JSON.stringify({selfService:true}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at)
+    ]);
+    return json({ok:true});
+  }
   if(path==='/api/servers' && method==='GET'){
     return json(user.role==='admin' ? await stock(env) : await resellerCatalog(env));
   }
