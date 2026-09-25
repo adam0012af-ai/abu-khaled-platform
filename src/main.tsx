@@ -70,6 +70,42 @@ function Logo({ compact = false }) {
   );
 }
 
+function PremiumLoginLogo() {
+  return <div className="acmPremiumLogo" aria-label="ACTIVE CODE MULTI">
+    <div className="acmPremiumLogoEmblem" aria-hidden="true">
+      <svg viewBox="0 0 96 96" role="img">
+        <defs>
+          <linearGradient id="acmLogoGradient" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#38BDF8"/>
+            <stop offset=".48" stopColor="#6366F1"/>
+            <stop offset="1" stopColor="#10B981"/>
+          </linearGradient>
+          <linearGradient id="acmLogoInner" x1="24" y1="18" x2="72" y2="80" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#1E293B"/>
+            <stop offset="1" stopColor="#0F172A"/>
+          </linearGradient>
+          <filter id="acmLogoGlow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 .35 0"/>
+            <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect x="9" y="9" width="78" height="78" rx="25" fill="url(#acmLogoInner)" stroke="url(#acmLogoGradient)" strokeWidth="2"/>
+        <path d="M27 62 39.5 34h5L57 62h-8l-2.6-6H37.6L35 62h-8Zm13.2-12h3.6L42 44.7 40.2 50Z" fill="#F8FAFC"/>
+        <circle cx="64" cy="39" r="6" fill="#38BDF8"/>
+        <circle cx="69" cy="56" r="6" fill="#10B981"/>
+        <path d="M64 45v5.5c0 3 2 5.5 5 5.5" stroke="#A5F3FC" strokeWidth="2.5" strokeLinecap="round" filter="url(#acmLogoGlow)"/>
+      </svg>
+      <span className="acmPremiumLogoMini">ACM</span>
+    </div>
+    <div className="acmPremiumLogoCopy">
+      <strong>ACTIVE CODE</strong>
+      <span>MULTI</span>
+      <small>SECURE CONTROL PLATFORM</small>
+    </div>
+  </div>;
+}
+
 function Login({ onAuth }) {
   const [form, setForm] = useState({ identifier:'', password:'' });
   const [error, setError] = useState('');
@@ -100,60 +136,78 @@ function Login({ onAuth }) {
   }
 
   return <div className="acmAuthScreen">
-    <main className="acmAuthWrap">
-      <div className="acmAuthBrand"><Logo compact/></div>
+    <div className="acmAuthGlow acmAuthGlowOne" aria-hidden="true"/>
+    <div className="acmAuthGlow acmAuthGlowTwo" aria-hidden="true"/>
 
-      <section className="acmAuthCard">
-        <div className="acmAuthHeading">
-          <h1>تسجيل الدخول</h1>
-          <p>دخول الإدارة والموزعين</p>
-        </div>
+    <main className="acmAuthStage">
+      <div className="acmAuthCenter">
+        <PremiumLoginLogo/>
 
-        <form className="acmAuthForm" onSubmit={submit}>
-          <label className="acmField">
-            <span>اسم المستخدم أو البريد الإلكتروني</span>
-            <input
-              dir="ltr"
-              value={form.identifier}
-              onChange={e=>setForm({...form,identifier:e.target.value})}
-              placeholder="Username or Email"
-              autoCapitalize="none"
-              autoComplete="username"
-              required
-            />
-          </label>
+        <section className="acmAuthCard">
+          <div className="acmAuthHeading">
+            <span>SECURE ACCESS</span>
+            <h1>تسجيل الدخول</h1>
+            <p>دخول الإدارة والموزعين إلى لوحة التحكم</p>
+          </div>
 
-          <label className="acmField">
-            <span>كلمة المرور</span>
-            <div className="acmPasswordBox">
+          <form className="acmAuthForm" onSubmit={submit}>
+            <label className="acmField">
+              <span>اسم المستخدم أو البريد الإلكتروني</span>
               <input
                 dir="ltr"
-                type={showPassword?'text':'password'}
-                value={form.password}
-                onChange={e=>setForm({...form,password:e.target.value})}
-                placeholder="Password"
-                autoComplete="current-password"
+                value={form.identifier}
+                onChange={e=>setForm({...form,identifier:e.target.value})}
+                placeholder="Username or Email"
+                autoCapitalize="none"
+                autoComplete="username"
                 required
               />
-              <button type="button" onClick={()=>setShowPassword(v=>!v)}>
-                {showPassword?'إخفاء':'إظهار'}
-              </button>
-            </div>
-          </label>
+            </label>
 
-          {error&&<div className="acmAuthError">{error}</div>}
+            <label className="acmField">
+              <span>كلمة المرور</span>
+              <div className="acmPasswordBox">
+                <input
+                  dir="ltr"
+                  type={showPassword?'text':'password'}
+                  value={form.password}
+                  onChange={e=>setForm({...form,password:e.target.value})}
+                  placeholder="Password"
+                  autoComplete="current-password"
+                  required
+                />
+                <button type="button" onClick={()=>setShowPassword(v=>!v)}>
+                  {showPassword?'إخفاء':'إظهار'}
+                </button>
+              </div>
+            </label>
 
-          <button className="acmPrimaryBtn" disabled={busy}>
-            {busy?'جارٍ الدخول…':'تسجيل الدخول'}
-          </button>
-        </form>
+            {error&&<div className="acmAuthError">{error}</div>}
 
-        <div className="acmSecureNote">
-          <i/>
-          <span>جلسة آمنة ومحمية</span>
-        </div>
-      </section>
+            <button className="acmPrimaryBtn acmAuthSubmit" disabled={busy}>
+              {busy?'جارٍ الدخول…':'تسجيل الدخول'}
+            </button>
+          </form>
+
+          <div className="acmSecureNote">
+            <span className="acmSecureDot"/>
+            <span>جلسة آمنة ومحمية</span>
+          </div>
+        </section>
+      </div>
     </main>
+
+    <footer className="acmAuthFooter">
+      <div className="acmAuthFooterCopyright">جميع الحقوق محفوظة © ACTIVE CODE MULTI</div>
+      <div className="acmAuthFooterSecurity" dir="ltr">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 10V8a5 5 0 0 1 10 0v2"/>
+          <rect x="5" y="10" width="14" height="10" rx="3"/>
+          <path d="M12 14v2"/>
+        </svg>
+        <span>256-bit SSL Encryption</span>
+      </div>
+    </footer>
   </div>;
 }
 
