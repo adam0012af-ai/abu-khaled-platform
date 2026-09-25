@@ -165,14 +165,16 @@ function PremiumLoginLogo() {
 
 function Login({ onAuth }) {
   const {lang,l}=useLanguage();
-  const [form, setForm] = useState({ identifier:'', password:'' });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [form,setForm]=useState({identifier:'',password:''});
+  const [error,setError]=useState('');
+  const [busy,setBusy]=useState(false);
   const [showPassword,setShowPassword]=useState(false);
+
   const [turnstile,setTurnstile]=useState({enabled:false,siteKey:''});
   const [turnstileToken,setTurnstileToken]=useState('');
   const [turnstileStarted,setTurnstileStarted]=useState(false);
   const [turnstileError,setTurnstileError]=useState('');
+
   const turnstileNode=useRef(null);
   const turnstileWidget=useRef(null);
 
@@ -181,12 +183,11 @@ function Login({ onAuth }) {
     fetch('/api/public-config',{credentials:'same-origin'})
       .then(r=>r.ok?r.json():null)
       .then(cfg=>{
-        if(!cancelled&&cfg?.turnstile){
-          setTurnstile({
-            enabled:Boolean(cfg.turnstile.enabled),
-            siteKey:String(cfg.turnstile.siteKey||'')
-          });
-        }
+        if(cancelled||!cfg?.turnstile) return;
+        setTurnstile({
+          enabled:Boolean(cfg.turnstile.enabled),
+          siteKey:String(cfg.turnstile.siteKey||'')
+        });
       })
       .catch(()=>{});
     return()=>{cancelled=true;};
@@ -194,64 +195,81 @@ function Login({ onAuth }) {
 
   useEffect(()=>{
     if(!turnstile.enabled||!turnstile.siteKey||!turnstileNode.current) return;
-    let stopped=false, timer=0;
-    const render=()=>{
+
+    let stopped=false;
+    let timer=0;
+
+    const mountWidget=()=>{
       if(stopped) return;
-      if(window.turnstile?.render){
-        try{
-          if(turnstileWidget.current!==null){
-            window.turnstile.remove(turnstileWidget.current);
-            turnstileWidget.current=null;
+      if(!window.turnstile?.render){
+        timer=window.setTimeout(mountWidget,120);
+        return;
+      }
+
+      try{
+        if(turnstileWidget.current!==null){
+          window.turnstile.remove(turnstileWidget.current);
+          turnstileWidget.current=null;
+        }
+
+        turnstileWidget.current=window.turnstile.render(turnstileNode.current,{
+          sitekey:turnstile.siteKey,
+          theme:'light',
+          size:'normal',
+          language:lang==='en'?'en':'ar',
+          action:'login',
+          execution:'execute',
+          appearance:'execute',
+          retry:'never',
+          'refresh-expired':'manual',
+          'refresh-timeout':'manual',
+          callback:(token)=>{
+            setTurnstileToken(token||'');
+            setTurnstileStarted(false);
+            setTurnstileError('');
+          },
+          'expired-callback':()=>{
+            setTurnstileToken('');
+            setTurnstileStarted(false);
+            setTurnstileError(l('انتهت صلاحية التحقق. أعد التحقق.','Verification expired. Verify again.'));
+          },
+          'error-callback':()=>{
+            setTurnstileToken('');
+            setTurnstileStarted(false);
+            setTurnstileError(l('تعذر التحقق. حاول مرة أخرى.','Verification failed. Try again.'));
           }
-          turnstileWidget.current=window.turnstile.render(turnstileNode.current,{
-            sitekey:turnstile.siteKey,
-            theme:'light',
-            size:'normal',
-            language:lang==='en'?'en':'ar',
-            action:'login',
-            execution:'execute',
-            appearance:'execute',
-            retry:'never',
-            'refresh-expired':'manual',
-            'refresh-timeout':'manual',
-            callback:(token)=>{
-              setTurnstileToken(token||'');
-              setTurnstileStarted(false);
-              setTurnstileError('');
-            },
-            'expired-callback':()=>{
-              setTurnstileToken('');
-              setTurnstileStarted(false);
-              setTurnstileError(l('انتهى التحقق. اضغط للتحقق مرة أخرى.','Verification expired. Verify again.'));
-            },
-            'error-callback':()=>{
-              setTurnstileToken('');
-              setTurnstileStarted(false);
-              setTurnstileError(l('تعذر التحقق. حاول مرة أخرى.','Verification failed. Try again.'));
-            }
-          });
-        }catch{}
-      }else timer=window.setTimeout(render,120);
+        });
+      }catch{
+        setTurnstileError(l('تعذر تحميل التحقق.','Unable to load verification.'));
+      }
     };
-    render();
+
+    mountWidget();
+
     return()=>{
       stopped=true;
       clearTimeout(timer);
       try{
-        if(turnstileWidget.current!==null&&window.turnstile?.remove) window.turnstile.remove(turnstileWidget.current);
+        if(turnstileWidget.current!==null&&window.turnstile?.remove){
+          window.turnstile.remove(turnstileWidget.current);
+        }
       }catch{}
       turnstileWidget.current=null;
       setTurnstileToken('');
+      setTurnstileStarted(false);
     };
   },[turnstile.enabled,turnstile.siteKey,lang]);
 
   function startTurnstile(){
+    setError('');
     setTurnstileError('');
     setTurnstileToken('');
+
     if(turnstileWidget.current===null||!window.turnstile?.execute){
       setTurnstileError(l('التحقق غير جاهز بعد.','Verification is not ready yet.'));
       return;
     }
+
     try{
       setTurnstileStarted(true);
       window.turnstile.execute(turnstileWidget.current);
@@ -265,82 +283,93 @@ function Login({ onAuth }) {
     setTurnstileToken('');
     setTurnstileStarted(false);
     try{
-      if(turnstileWidget.current!==null&&window.turnstile?.reset) window.turnstile.reset(turnstileWidget.current);
+      if(turnstileWidget.current!==null&&window.turnstile?.reset){
+        window.turnstile.reset(turnstileWidget.current);
+      }
     }catch{}
   }
 
-  async function submit() {
+  async function submit(){
     if(!String(form.identifier||'').trim()||!String(form.password||'')){
-      setError(l('أدخل بيانات الدخول.','Enter your login details.'));
+      setError(l('أدخل اسم المستخدم وكلمة المرور.','Enter your username and password.'));
       return;
     }
 
     if(turnstile.enabled&&!turnstileToken){
-      setError(l('أكمل التحقق أولاً.','Complete verification first.'));
+      setError(l('أكمل التحقق الأمني أولاً.','Complete security verification first.'));
       return;
     }
 
-    setBusy(true); setError('');
-    try {
-      const res = await fetch('/api/login', {
+    setBusy(true);
+    setError('');
+
+    try{
+      const res=await fetch('/api/login',{
         method:'POST',
         credentials:'same-origin',
-        headers:{ 'content-type':'application/json' },
+        headers:{'content-type':'application/json'},
         body:JSON.stringify({
           identifier:form.identifier,
           password:form.password,
           turnstileToken
         })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'LOGIN_FAILED');
-      onAuth(data.user, data.csrf);
-    } catch (e) {
-      const code = String(e.message || e);
+
+      const data=await res.json();
+      if(!res.ok) throw new Error(data.error||'LOGIN_FAILED');
+
+      onAuth(data.user,data.csrf);
+    }catch(e){
+      const code=String(e.message||e);
       setError(
-        code.includes('TURNSTILE') ? l('فشل التحقق. حاول مرة أخرى.','Verification failed. Try again.') :
-        code.includes('TOO_MANY_ATTEMPTS') ? l('محاولات كثيرة. حاول لاحقًا.','Too many attempts. Try again later.') :
-        code.includes('INVALID_LOGIN') ? l('بيانات الدخول غير صحيحة.','Invalid login details.') :
-        l('تعذر تسجيل الدخول.','Unable to sign in.')
+        code.includes('TURNSTILE')
+          ? l('فشل التحقق الأمني. أعد المحاولة.','Security verification failed. Try again.')
+          : code.includes('TOO_MANY_ATTEMPTS')
+          ? l('محاولات كثيرة. حاول لاحقًا.','Too many attempts. Try again later.')
+          : code.includes('INVALID_LOGIN')
+          ? l('بيانات الدخول غير صحيحة.','Invalid login details.')
+          : l('تعذر تسجيل الدخول.','Unable to sign in.')
       );
       resetTurnstile();
-    } finally { setBusy(false); }
+    }finally{
+      setBusy(false);
+    }
   }
 
-  return <div className="acmAuthScreen">
-    <div className="acmAuthGlow acmAuthGlowOne" aria-hidden="true"/>
-    <div className="acmAuthGlow acmAuthGlowTwo" aria-hidden="true"/>
+  return <div className="loginPage">
+    <div className="loginBackdrop" aria-hidden="true"/>
 
-    <div className="acmAuthTopActions">
-      <LanguageSwitcher compact/>
-    </div>
+    <main className="loginViewport">
+      <section className="loginPanel" aria-labelledby="login-title">
+        <header className="loginPanelHeader">
+          <PremiumLoginLogo/>
+          <LanguageSwitcher compact/>
+        </header>
 
-    <main className="acmAuthStage">
-      <div className="acmAuthCenter">
-        <PremiumLoginLogo/>
-
-        <section className="acmAuthCard">
-          <div className="acmAuthHeading">
-            <h1>{l('تسجيل الدخول','Sign in')}</h1>
+        <div className="loginPanelBody">
+          <div className="loginHeading">
+            <h1 id="login-title">{l('تسجيل الدخول','Sign in')}</h1>
+            <p>{l('أدخل بيانات حسابك للوصول إلى لوحة التحكم.','Use your account credentials to access the dashboard.')}</p>
           </div>
 
-          <form className="acmAuthForm" onSubmit={e=>e.preventDefault()} autoComplete="on">
-            <label className="acmField">
+          <form className="loginForm" onSubmit={e=>e.preventDefault()} autoComplete="on">
+            <label className="loginField">
               <span>{l('اسم المستخدم أو البريد الإلكتروني','Username or email')}</span>
               <input
                 dir="ltr"
+                type="text"
                 value={form.identifier}
                 onChange={e=>setForm({...form,identifier:e.target.value})}
-                placeholder={l('اسم المستخدم أو البريد','Username or Email')}
+                placeholder={l('اسم المستخدم أو البريد الإلكتروني','Username or email')}
                 autoCapitalize="none"
                 autoComplete="username"
                 required
               />
             </label>
 
-            <label className="acmField">
+            <label className="loginField">
               <span>{l('كلمة المرور','Password')}</span>
-              <div className="acmPasswordBox">
+              <div className="loginPassword">
                 <input
                   dir="ltr"
                   type={showPassword?'text':'password'}
@@ -350,60 +379,72 @@ function Login({ onAuth }) {
                   autoComplete="current-password"
                   required
                 />
-                <button type="button" onClick={()=>setShowPassword(v=>!v)}>
-                  {showPassword?l('إخفاء','Hide'):l('إظهار','Show')}
+                <button
+                  type="button"
+                  className="passwordToggle"
+                  onClick={()=>setShowPassword(v=>!v)}
+                  aria-label={showPassword?l('إخفاء كلمة المرور','Hide password'):l('إظهار كلمة المرور','Show password')}
+                  title={showPassword?l('إخفاء','Hide'):l('إظهار','Show')}
+                >
+                  {showPassword
+                    ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.7a2 2 0 0 0 2.7 2.7"/><path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c5.3 0 9 5 9 8a10.7 10.7 0 0 1-2.2 3.7"/><path d="M6.6 6.6C4.3 8.1 3 10.3 3 12c0 3 3.7 8 9 8 1 0 2-.2 2.9-.5"/></svg>
+                    : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.7-8 9-8 9 8 9 8-3.7 8-9 8-9-8-9-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+                  }
                 </button>
               </div>
             </label>
 
-            {turnstile.enabled&&<div className="turnstileManualBlock">
+            {turnstile.enabled&&<div className="loginVerify">
               {!turnstileToken&&
                 <button
                   type="button"
-                  className="turnstileStartBtn"
+                  className="verifyButton"
                   onClick={startTurnstile}
                   disabled={turnstileStarted}
                 >
-                  <span className="turnstileShield">✓</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3 5 6v5c0 4.6 2.8 8.1 7 10 4.2-1.9 7-5.4 7-10V6l-7-3Z"/>
+                    <path d="m9.5 12 1.7 1.7 3.5-3.8"/>
+                  </svg>
                   <span>{turnstileStarted?l('جارٍ التحقق…','Verifying…'):l('تحقق من الأمان','Verify security')}</span>
                 </button>
               }
-              <div className={'turnstileSlot '+(turnstileStarted?'active':'')+(turnstileToken?' verified':'')} ref={turnstileNode}/>
-              {turnstileToken&&<div className="turnstileVerified">
+
+              <div
+                className={'turnstileHost '+(turnstileStarted?'is-active ':'')+(turnstileToken?'is-verified':'')}
+                ref={turnstileNode}
+              />
+
+              {turnstileToken&&<div className="verifySuccess" role="status">
                 <span>✓</span>
                 <b>{l('تم التحقق','Verified')}</b>
               </div>}
-              {turnstileError&&<div className="turnstileInlineError">{turnstileError}</div>}
+
+              {turnstileError&&<div className="verifyError">{turnstileError}</div>}
             </div>}
 
-            {error&&<div className="acmAuthError">{error}</div>}
+            {error&&<div className="loginError" role="alert">{error}</div>}
 
             <button
-              className="acmPrimaryBtn acmAuthSubmit"
+              className="loginSubmit"
               type="button"
               onClick={submit}
               disabled={busy||(turnstile.enabled&&!turnstileToken)}
             >
-              {busy?l('جارٍ الدخول…','Signing in…'):l('تسجيل الدخول','Sign in')}
+              {busy?l('جارٍ تسجيل الدخول…','Signing in…'):l('تسجيل الدخول','Sign in')}
             </button>
           </form>
-        </section>
-      </div>
-    </main>
+        </div>
 
-    <footer className="acmAuthFooter">
-      <div className="acmAuthFooterCopyright">
-        © ACTIVE CODE MULTI · <b>TTV4K</b>
-      </div>
-      <div className="acmAuthFooterSecurity" dir="ltr">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 10V8a5 5 0 0 1 10 0v2"/>
-          <rect x="5" y="10" width="14" height="10" rx="3"/>
-          <path d="M12 14v2"/>
-        </svg>
-        <span>256-bit SSL</span>
-      </div>
-    </footer>
+        <footer className="loginPanelFooter">
+          <span>© ACTIVE CODE MULTI · TTV4K</span>
+          <span className="loginSecurity">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="3"/><path d="M8 10V8a4 4 0 0 1 8 0v2"/></svg>
+            256-bit SSL
+          </span>
+        </footer>
+      </section>
+    </main>
   </div>;
 }
 
