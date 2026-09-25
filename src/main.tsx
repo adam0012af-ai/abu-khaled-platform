@@ -341,15 +341,17 @@ function Login({ onAuth }) {
 
     <main className="loginViewport">
       <section className="loginPanel" aria-labelledby="login-title">
+        <div className="loginLanguage">
+          <LanguageSwitcher compact/>
+        </div>
+
         <header className="loginPanelHeader">
           <PremiumLoginLogo/>
-          <LanguageSwitcher compact/>
         </header>
 
         <div className="loginPanelBody">
           <div className="loginHeading">
             <h1 id="login-title">{l('تسجيل الدخول','Sign in')}</h1>
-            <p>{l('أدخل بيانات حسابك للوصول إلى لوحة التحكم.','Use your account credentials to access the dashboard.')}</p>
           </div>
 
           <form className="loginForm" onSubmit={e=>e.preventDefault()} autoComplete="on">
