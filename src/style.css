@@ -320,34 +320,59 @@ tr:last-child td{border-bottom:0}
 .desktopCodes{display:block}
 .mobileCodes{display:none}
 .myCodeCard{
-  padding:13px;
-  border:1px solid #e3e7ec;
-  border-radius:12px;
+  padding:16px;
+  border:1px solid #dfe5eb;
+  border-radius:15px;
   background:#fff;
-  box-shadow:0 5px 14px rgba(34,43,58,.04)
+  box-shadow:0 6px 16px rgba(34,43,58,.05)
 }
-.myCodeTop{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.myCodeTop>div{display:grid;gap:3px}
-.myCodeTop span,.myCodeMeta span{font-size:9px;color:#8a94a0}
-.myCodeTop b{font-size:13px;color:#2d3540}
-.myCodeTop small{font-size:9px;color:#8b95a0}
+.myCodeHeader{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding-bottom:12px;border-bottom:1px solid #edf0f3
+}
+.serverIdentity{display:grid;gap:3px}
+.serverIdentity span,.codeLabel,.myCodeDetails span{font-size:10px;color:#8a94a0}
+.serverIdentity b{font-size:18px;color:#28303a}
+.activeCodeStatus{
+  padding:6px 10px;border-radius:999px;
+  background:#eefaf4;color:#16865c;
+  font-size:10px;font-weight:800
+}
+.codeLabel{margin-top:14px}
 .myCodeValue{
   width:100%;
-  margin:11px 0 10px;
-  padding:12px;
-  border:1px solid #d5e4f3;
-  border-radius:9px;
-  background:#f5f9ff;
+  margin:7px 0 14px;
+  padding:15px 12px;
+  border:1px solid #cfe0ef;
+  border-radius:11px;
+  background:#f4f9ff;
   color:#176bb7;
-  font-weight:800;
+  font-size:20px;
+  font-weight:900;
   text-align:center;
+  letter-spacing:.4px;
   overflow-wrap:anywhere;
   white-space:normal
 }
-.myCodeMeta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
-.myCodeMeta>div{display:grid;gap:3px}
-.myCodeMeta b{font-size:11px;color:#39414b}
-.copyCodeBtn{width:100%;padding:10px;border-radius:8px;background:#eef6ff;color:#246aa6;font-weight:700}
+.myCodeDetails{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;margin-bottom:12px
+}
+.myCodeDetails>div{
+  display:grid;gap:4px;
+  padding:10px 11px;
+  border:1px solid #edf0f3;
+  border-radius:10px;
+  background:#fafbfc
+}
+.myCodeDetails b{
+  font-size:12px;color:#313842;
+  overflow-wrap:anywhere
+}
+.copyCodeBtn{
+  width:100%;padding:11px;border-radius:9px;
+  background:#eaf5ff;color:#176ca8;font-weight:800
+}
 
 .appGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .downloadCard{display:block;text-decoration:none;color:inherit;padding:15px;border:1px solid #e3e7ec;border-radius:12px;background:#fff}
