@@ -2,6 +2,9 @@ const SESSION_COOKIE = 'acm_session';
 const SESSION_HOURS = 24 * 30;
 const PASSWORD_ITERATIONS = 100000;
 let schemaReady = false;
+let runtimeBootstrapReady = false;
+let balanceConfigCache = null;
+let balanceConfigCacheAt = 0;
 
 const BASE_SCHEMA = [
   "PRAGMA foreign_keys = ON",
@@ -38,6 +41,18 @@ const BASE_SCHEMA = [
   "CREATE TRIGGER IF NOT EXISTS trg_orders_server_package_insert BEFORE INSERT ON issue_orders BEGIN SELECT CASE WHEN NOT EXISTS(SELECT 1 FROM packages p WHERE p.id=NEW.package_id AND p.server_id=NEW.server_id) THEN RAISE(ABORT,'ORDER_SERVER_PACKAGE_MISMATCH') END; END",
   "CREATE TRIGGER IF NOT EXISTS trg_packages_server_lock BEFORE UPDATE OF server_id ON packages WHEN NEW.server_id<>OLD.server_id BEGIN SELECT RAISE(ABORT,'PACKAGE_SERVER_IDENTITY_LOCKED'); END",
   "CREATE INDEX IF NOT EXISTS idx_sessions_hash ON sessions(token_hash)",
+  "CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)",
+  "CREATE INDEX IF NOT EXISTS idx_users_parent_type_created ON users(parent_user_id,account_type,created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_codes_status ON codes(status)",
+  "CREATE INDEX IF NOT EXISTS idx_codes_server_status_created ON codes(server_id,status,created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_codes_package_status ON codes(package_id,status)",
+  "CREATE INDEX IF NOT EXISTS idx_codes_reseller_status_issued ON codes(reseller_id,status,issued_at)",
+  "CREATE INDEX IF NOT EXISTS idx_sharing_codes_service_status_created ON sharing_codes(service_id,status,created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_sharing_codes_reseller_status_issued ON sharing_codes(reseller_id,status,issued_at)",
+  "CREATE INDEX IF NOT EXISTS idx_sharing_orders_service ON sharing_orders(service_id)",
+  "CREATE INDEX IF NOT EXISTS idx_requests_reseller_status_created ON credit_requests(reseller_id,status,created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_logs_created ON audit_logs(created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_apps_active_visibility_created ON apps(active,visibility,created_at)",
   "INSERT OR IGNORE INTO servers(id,name,slug,active,low_stock_threshold,sort_order,created_at) VALUES ('srv_marvel','Marvel','marvel',1,10,10,datetime('now')),('srv_nova','Nova','nova',1,10,20,datetime('now')),('srv_x','X','x',1,10,30,datetime('now')),('srv_spider','Spider','spider',1,10,40,datetime('now')),('srv_mh','MH','mh',1,10,50,datetime('now'))",
   "INSERT OR IGNORE INTO sharing_services(id,name_ar,name_en,slug,credit_cost,active,sort_order,created_at) VALUES ('shr_gosat_plus','جو سات بلس','GoSat Plus','gosat-plus',1,1,10,datetime('now')),('shr_nasher','ناشر عادي','Nasher','nasher',1,1,20,datetime('now')),('shr_nasher_pro_osn','ناشر برو OSN','Nasher Pro OSN','nasher-pro-osn',1,1,30,datetime('now')),('shr_nasher_pro_bein','ناشر برو beIN Sports','Nasher Pro beIN Sports','nasher-pro-bein',1,1,40,datetime('now'))"
 ];
@@ -242,11 +257,14 @@ function publicUser(u){
 }
 
 async function getBalanceConfig(env){
+  if(balanceConfigCache && Date.now()-balanceConfigCacheAt<60000) return balanceConfigCache;
   const rows=(await env.DB.prepare("SELECT key,value FROM app_meta WHERE key IN ('balance_mode','balance_currency')").all()).results||[];
   const map=Object.fromEntries(rows.map(r=>[r.key,r.value]));
   const mode=map.balance_mode==='credit'?'credit':'currency';
   const currency=['EGP','USD'].includes(String(map.balance_currency||'').toUpperCase())?String(map.balance_currency).toUpperCase():'EGP';
-  return {mode,currency,unit:mode==='credit'?'CREDIT':currency};
+  balanceConfigCache={mode,currency,unit:mode==='credit'?'CREDIT':currency};
+  balanceConfigCacheAt=Date.now();
+  return balanceConfigCache;
 }
 
 function csrfOk(request,user){
@@ -401,8 +419,11 @@ async function login(request,env){
 
 async function api(request,env){
   await ensureSchema(env);
-  const bootAdmin=await ensureBootstrapAdmin(env);
-  if(bootAdmin) await seedDemo(env,bootAdmin);
+  if(!runtimeBootstrapReady){
+    const bootAdmin=await ensureBootstrapAdmin(env);
+    if(bootAdmin) await seedDemo(env,bootAdmin);
+    runtimeBootstrapReady=true;
+  }
   const url=new URL(request.url), path=url.pathname, method=request.method.toUpperCase();
 
   if(method!=='GET' && method!=='HEAD'){
@@ -458,18 +479,20 @@ async function api(request,env){
     await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('balance_mode',?,?)").bind(mode,at).run();
     await env.DB.prepare("INSERT OR REPLACE INTO app_meta(key,value,updated_at) VALUES('balance_currency',?,?)").bind(currency,at).run();
     await audit(env,request,user,'BALANCE_MODE_CHANGED','settings','balance',{mode,currency});
-    return json({ok:true,balanceConfig:{mode,currency,unit:mode==='credit'?'CREDIT':currency}});
+    balanceConfigCache={mode,currency,unit:mode==='credit'?'CREDIT':currency};
+    balanceConfigCacheAt=Date.now();
+    return json({ok:true,balanceConfig:balanceConfigCache});
   }
 
   if(path==='/api/sharing' && method==='GET'){
     if(user.role==='admin'){
       const services=(await env.DB.prepare("SELECT s.id,s.name_ar,s.name_en,s.slug,s.credit_cost,s.active,s.sort_order,COUNT(c.id) total_codes,COALESCE(SUM(CASE WHEN c.status='available' THEN 1 ELSE 0 END),0) available_codes,COALESCE(SUM(CASE WHEN c.status='issued' THEN 1 ELSE 0 END),0) issued_codes FROM sharing_services s LEFT JOIN sharing_codes c ON c.service_id=s.id GROUP BY s.id ORDER BY s.sort_order,s.name_en").all()).results||[];
-      const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,u.username reseller_username,u.display_name reseller_name,o.quantity,o.unit_cost,o.total_cost,o.credits_before,o.credits_after,b.filename batch_filename FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id JOIN users u ON u.id=c.reseller_id JOIN sharing_orders o ON o.id=c.order_id JOIN sharing_batches b ON b.id=c.batch_id WHERE c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").all()).results||[];
+      const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,u.username reseller_username,u.display_name reseller_name,o.quantity,o.unit_cost,o.total_cost,o.credits_before,o.credits_after,b.filename batch_filename FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id JOIN users u ON u.id=c.reseller_id JOIN sharing_orders o ON o.id=c.order_id JOIN sharing_batches b ON b.id=c.batch_id WHERE c.status='issued' ORDER BY c.issued_at DESC LIMIT 100").all()).results||[];
       return json({services,codes,balanceConfig:await getBalanceConfig(env)});
     }
 
     const services=(await env.DB.prepare("SELECT id,name_ar,name_en,slug,credit_cost,active,sort_order FROM sharing_services WHERE active=1 ORDER BY sort_order,name_en").all()).results||[];
-    const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,o.quantity,o.unit_cost,o.total_cost FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id LEFT JOIN sharing_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").bind(user.id).all()).results||[];
+    const codes=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name_ar service_name_ar,s.name_en service_name_en,o.quantity,o.unit_cost,o.total_cost FROM sharing_codes c JOIN sharing_services s ON s.id=c.service_id LEFT JOIN sharing_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 100").bind(user.id).all()).results||[];
     const wallet=await env.DB.prepare("SELECT credits FROM users WHERE id=? LIMIT 1").bind(user.id).first();
     return json({services,codes,balance:Number(wallet?.credits||0),balanceConfig:await getBalanceConfig(env)});
   }
@@ -661,31 +684,28 @@ async function api(request,env){
 
   if(path==='/api/dashboard' && method==='GET'){
     if(user.role==='admin'){
-      const admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(user.id).first();
-      await seedDemo(env,admin);
-      const s=await stock(env);
       const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM users WHERE role='reseller') resellers,(SELECT COUNT(*) FROM codes) total_codes,(SELECT COUNT(*) FROM codes WHERE status='available') available,(SELECT COUNT(*) FROM codes WHERE status='issued') issued,(SELECT COUNT(*) FROM packages WHERE active=1) active_packages,(SELECT COALESCE(SUM(credits),0) FROM users WHERE role='reseller') reseller_credits,(SELECT COUNT(*) FROM credit_requests WHERE status='pending') pending_requests").first();
-      return json({...s,counts,balanceConfig:await getBalanceConfig(env)});
+      return json({counts,balanceConfig:await getBalanceConfig(env)});
     }
     const counts=await env.DB.prepare("SELECT (SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued') main_issued,(SELECT COUNT(*) FROM sharing_codes WHERE reseller_id=? AND status='issued') sharing_issued,((SELECT COUNT(*) FROM codes WHERE reseller_id=? AND status='issued')+(SELECT COUNT(*) FROM sharing_codes WHERE reseller_id=? AND status='issued')) issued,(SELECT COUNT(*) FROM credit_requests WHERE reseller_id=? AND status='pending') pending_requests").bind(user.id,user.id,user.id,user.id,user.id).first();
     return json({user:publicUser(user),counts,balanceConfig:await getBalanceConfig(env)});
   }
 
   if(path==='/api/my-codes' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name server_name,p.name package_name,p.duration_label,o.quantity,o.unit_cost,o.total_cost FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id LEFT JOIN issue_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").bind(user.id).all()).results||[];
+    const rows=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name server_name,p.name package_name,p.duration_label,o.quantity,o.unit_cost,o.total_cost FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id LEFT JOIN issue_orders o ON o.id=c.order_id WHERE c.reseller_id=? AND c.status='issued' ORDER BY c.issued_at DESC LIMIT 100").bind(user.id).all()).results||[];
     return json({codes:rows});
   }
 
   if(path==='/api/logs' && method==='GET'){
     const rows=user.role==='admin'
-      ? (await env.DB.prepare("SELECT l.*,u.username actor_username,u.display_name actor_name FROM audit_logs l LEFT JOIN users u ON u.id=l.actor_id ORDER BY l.created_at DESC LIMIT 250").all()).results||[]
+      ? (await env.DB.prepare("SELECT l.*,u.username actor_username,u.display_name actor_name FROM audit_logs l LEFT JOIN users u ON u.id=l.actor_id ORDER BY l.created_at DESC LIMIT 80").all()).results||[]
       : (await env.DB.prepare("SELECT action,entity_type,entity_id,details_json,created_at FROM audit_logs WHERE actor_id=? ORDER BY created_at DESC LIMIT 200").bind(user.id).all()).results||[];
     return json({logs:rows});
   }
 
   if(path==='/api/credit-requests' && method==='GET'){
     const rows=user.role==='admin'
-      ? (await env.DB.prepare("SELECT r.*,u.username,u.display_name FROM credit_requests r JOIN users u ON u.id=r.reseller_id ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END,r.created_at DESC LIMIT 300").all()).results||[]
+      ? (await env.DB.prepare("SELECT r.*,u.username,u.display_name FROM credit_requests r JOIN users u ON u.id=r.reseller_id ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END,r.created_at DESC LIMIT 100").all()).results||[]
       : (await env.DB.prepare("SELECT * FROM credit_requests WHERE reseller_id=? ORDER BY created_at DESC LIMIT 100").bind(user.id).all()).results||[];
     return json({requests:rows});
   }
@@ -783,7 +803,7 @@ async function api(request,env){
 
   if(path==='/api/team/resellers' && method==='GET'){
     if(accountType(user)!=='agent') return json({error:'AGENT_ONLY'},403);
-    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u WHERE u.role='reseller' AND u.parent_user_id=? ORDER BY u.created_at DESC LIMIT 500").bind(user.id).all()).results||[];
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u WHERE u.role='reseller' AND u.parent_user_id=? ORDER BY u.created_at DESC LIMIT 200").bind(user.id).all()).results||[];
     return json({resellers:rows});
   }
 
@@ -880,7 +900,7 @@ async function api(request,env){
     const sourceId=clean(url.searchParams.get('sourceId'),80);
     const status=['available','issued','disabled'].includes(url.searchParams.get('status'))?url.searchParams.get('status'):'all';
     const q=clean(url.searchParams.get('q'),160);
-    const limit=Math.max(50,Math.min(1000,Math.trunc(Number(url.searchParams.get('limit')||500))));
+    const limit=Math.max(25,Math.min(250,Math.trunc(Number(url.searchParams.get('limit')||100))));
 
     if(kind==='sharing'){
       const where=[], args=[];
@@ -1062,7 +1082,7 @@ async function api(request,env){
   }
 
   if(path==='/api/admin/resellers' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.role,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,p.username parent_username,p.display_name parent_name,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u LEFT JOIN users p ON p.id=u.parent_user_id WHERE COALESCE(u.account_type,'reseller')<>'owner' AND LOWER(u.username)<>'owner' ORDER BY CASE COALESCE(u.account_type,'reseller') WHEN 'admin' THEN 0 WHEN 'agent' THEN 1 ELSE 2 END,u.created_at DESC LIMIT 500").all()).results||[];
+    const rows=(await env.DB.prepare("SELECT u.id,u.username,u.email,u.display_name,u.role,u.credits,u.status,u.account_type,u.parent_user_id,u.last_login_ip,u.last_country,u.last_login_at,u.created_at,u.updated_at,p.username parent_username,p.display_name parent_name,((SELECT COUNT(*) FROM codes c WHERE c.reseller_id=u.id AND c.status='issued')+(SELECT COUNT(*) FROM sharing_codes sc WHERE sc.reseller_id=u.id AND sc.status='issued')) issued_codes FROM users u LEFT JOIN users p ON p.id=u.parent_user_id WHERE COALESCE(u.account_type,'reseller')<>'owner' AND LOWER(u.username)<>'owner' ORDER BY CASE COALESCE(u.account_type,'reseller') WHEN 'admin' THEN 0 WHEN 'agent' THEN 1 ELSE 2 END,u.created_at DESC LIMIT 200").all()).results||[];
     return json({resellers:rows});
   }
 
@@ -1309,7 +1329,7 @@ async function api(request,env){
   }
 
   if(path==='/api/admin/codes' && method==='GET'){
-    const rows=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name server_name,p.name package_name,p.duration_label,u.username reseller_username,u.display_name reseller_name,o.quantity,o.unit_cost,o.total_cost,o.credits_before,o.credits_after,b.filename batch_filename FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id JOIN users u ON u.id=c.reseller_id JOIN issue_orders o ON o.id=c.order_id JOIN code_batches b ON b.id=c.batch_id WHERE c.status='issued' ORDER BY c.issued_at DESC LIMIT 500").all()).results||[];
+    const rows=(await env.DB.prepare("SELECT c.id,c.code,c.customer_ref,c.issued_at,c.order_id,s.name server_name,p.name package_name,p.duration_label,u.username reseller_username,u.display_name reseller_name,o.quantity,o.unit_cost,o.total_cost,o.credits_before,o.credits_after,b.filename batch_filename FROM codes c JOIN servers s ON s.id=c.server_id JOIN packages p ON p.id=c.package_id JOIN users u ON u.id=c.reseller_id JOIN issue_orders o ON o.id=c.order_id JOIN code_batches b ON b.id=c.batch_id WHERE c.status='issued' ORDER BY c.issued_at DESC LIMIT 100").all()).results||[];
     return json({codes:rows});
   }
 
