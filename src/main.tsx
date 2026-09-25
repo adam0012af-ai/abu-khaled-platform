@@ -1224,46 +1224,49 @@ function Issue({data,action,busy}) {
 }
 
 function AdminCredit({data,action,busy}) {
+  const {lang,l}=useLanguage();
   return <section className="section">
-    <div className="sectionHead"><div><span>CREDIT REQUESTS</span><h2>طلبات الكريدت</h2></div></div>
-    <Table><thead><tr><th>الموزع</th><th>الكمية</th><th>الملاحظة</th><th>الحالة</th><th>التاريخ</th><th>قرار</th></tr></thead>
-    <tbody>{data.requests.map(r=><tr key={r.id}><td>{r.display_name||r.username}</td><td>{r.amount}</td><td>{r.note||'—'}</td><td><span className={'badge '+r.status}>{r.status}</span></td><td>{fmt(r.created_at)}</td><td>{r.status==='pending'?<div className="inlineBtns"><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'approved'})}>قبول</button><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'rejected'})}>رفض</button></div>:'—'}</td></tr>)}</tbody></Table>
+    <div className="sectionHead"><div><h2>{l('طلبات الكريدت','Credit requests')}</h2></div></div>
+    <Table><thead><tr><th>{l('الموزع','Reseller')}</th><th>{l('الكمية','Amount')}</th><th>{l('الملاحظة','Note')}</th><th>{l('الحالة','Status')}</th><th>{l('التاريخ','Date')}</th><th>{l('قرار','Action')}</th></tr></thead>
+    <tbody>{data.requests.map(r=><tr key={r.id}><td>{r.display_name||r.username}</td><td>{r.amount}</td><td>{r.note||'—'}</td><td><span className={'badge '+r.status}>{r.status}</span></td><td>{fmt(r.created_at,lang)}</td><td>{r.status==='pending'?<div className="inlineBtns"><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'approved'})}>{l('قبول','Approve')}</button><button disabled={busy} onClick={()=>action('/api/admin/credit-requests/resolve',{requestId:r.id,decision:'rejected'})}>{l('رفض','Reject')}</button></div>:'—'}</td></tr>)}</tbody></Table>
   </section>;
 }
 
 function RequestCredit({data,action,busy}) {
+  const {lang,l}=useLanguage();
   const [form,setForm]=useState({amount:10,note:''});
   return <div className="twoCol">
     <section className="section">
-      <div className="sectionHead"><div><span>REQUEST CREDIT</span><h2>طلب رصيد</h2></div></div>
+      <div className="sectionHead"><div><h2>{l('طلب رصيد','Request credit')}</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{e.preventDefault();await action('/api/credit-requests',form);setForm({amount:10,note:''});}}>
         <input type="number" min="1" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} required/>
-        <textarea rows="5" placeholder="ملاحظة للـ Admin" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/>
-        <button className="primary" disabled={busy}>إرسال الطلب</button>
+        <textarea rows="5" placeholder={l('ملاحظة','Note')} value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/>
+        <button className="primary" disabled={busy}>{l('إرسال الطلب','Send request')}</button>
       </form>
     </section>
     <section className="section">
-      <div className="sectionHead"><div><span>HISTORY</span><h2>طلباتي</h2></div></div>
-      <div className="list">{data.requests.map(r=><div className="listRow" key={r.id}><b>{r.amount} نقطة</b><span className={'badge '+r.status}>{r.status}</span><small>{fmt(r.created_at)}</small></div>)}</div>
+      <div className="sectionHead"><div><h2>{l('طلباتي','My requests')}</h2></div></div>
+      <div className="list">{data.requests.map(r=><div className="listRow" key={r.id}><b>{r.amount} Credit</b><span className={'badge '+r.status}>{r.status}</span><small>{fmt(r.created_at,lang)}</small></div>)}</div>
     </section>
   </div>;
 }
 
 function Apps({data,action,busy,admin}) {
+  const {l}=useLanguage();
   const [form,setForm]=useState({name:'',platform:'android',version:'',description:'',imageUrl:'',downloadUrl:'',visibility:'all'});
 
   return <div className={admin?'twoCol appsLayout':'appsSingle'}>
     {admin&&<section className="section">
-      <div className="sectionHead"><div><h2>إضافة تطبيق أو سوفت وير</h2></div></div>
+      <div className="sectionHead"><div><h2>{l('إضافة تطبيق أو سوفت وير','Add app or software')}</h2></div></div>
       <form className="formGrid" onSubmit={async e=>{
         e.preventDefault();
         await action('/api/admin/apps',form);
         setForm({...form,name:'',version:'',description:'',imageUrl:'',downloadUrl:''});
       }}>
-        <label>الاسم</label>
+        <label>{l('الاسم','Name')}</label>
         <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required/>
 
-        <label>النوع</label>
+        <label>{l('النوع','Type')}</label>
         <select value={form.platform} onChange={e=>setForm({...form,platform:e.target.value})}>
           <option value="android">Android</option>
           <option value="windows">Windows</option>
@@ -1274,30 +1277,30 @@ function Apps({data,action,busy,admin}) {
         <label>Version</label>
         <input value={form.version} onChange={e=>setForm({...form,version:e.target.value})}/>
 
-        <label>رابط الصورة / البوستر</label>
+        <label>{l('رابط الصورة','Image URL')}</label>
         <input type="url" placeholder="https://..." value={form.imageUrl} onChange={e=>setForm({...form,imageUrl:e.target.value})}/>
         {form.imageUrl&&<div className="appPosterPreview"><img src={form.imageUrl} alt="" onError={e=>{e.currentTarget.style.display='none';}}/></div>}
 
-        <label>رابط التحميل</label>
+        <label>{l('رابط التحميل','Download URL')}</label>
         <input type="url" placeholder="https://..." value={form.downloadUrl} onChange={e=>setForm({...form,downloadUrl:e.target.value})} required/>
 
-        <label>الوصف</label>
+        <label>{l('الوصف','Description')}</label>
         <textarea rows="4" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/>
 
-        <label>الظهور</label>
+        <label>{l('الظهور','Visibility')}</label>
         <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}>
-          <option value="all">للجميع</option>
-          <option value="reseller">للموزعين</option>
-          <option value="admin">للإدارة</option>
+          <option value="all">{l('للجميع','Everyone')}</option>
+          <option value="reseller">{l('للموزعين','Resellers')}</option>
+          <option value="admin">{l('للإدارة','Admin')}</option>
         </select>
 
-        <button className="primary" disabled={busy}>إضافة</button>
+        <button className="primary" disabled={busy}>{l('إضافة','Add')}</button>
       </form>
     </section>}
 
     <section className="section">
-      <div className="sectionHead"><div><h2>التطبيقات والسوفت وير</h2></div></div>
-      {data.apps.length===0 ? <div className="emptyState compact">لا توجد عناصر مضافة.</div> :
+      <div className="sectionHead"><div><h2>{l('التطبيقات والسوفت وير','Apps & software')}</h2></div></div>
+      {data.apps.length===0 ? <div className="emptyState compact">{l('لا توجد عناصر.','No items.')}</div> :
         <div className="softwareFeed">
           {data.apps.map(a=><article className="softwarePost" key={a.id}>
             <div className="softwarePoster">
@@ -1310,7 +1313,7 @@ function Apps({data,action,busy,admin}) {
               </div>
               <h3>{a.name}</h3>
               {a.description&&<p>{a.description}</p>}
-              <a className="downloadAction" href={a.download_url} target="_blank" rel="noreferrer">تحميل</a>
+              <a className="downloadAction" href={a.download_url} target="_blank" rel="noreferrer">{l('تحميل','Download')}</a>
             </div>
           </article>)}
         </div>}
@@ -1434,6 +1437,7 @@ function Logs({logs,admin}) {
 
 
 function ForcePasswordChange({ csrf, onDone }) {
+  const {l}=useLanguage();
   const [currentPassword,setCurrentPassword]=useState('');
   const [newPassword,setNewPassword]=useState('');
   const [confirm,setConfirm]=useState('');
@@ -1443,8 +1447,8 @@ function ForcePasswordChange({ csrf, onDone }) {
   async function submit(e){
     e.preventDefault();
     setError('');
-    if(newPassword.length<12){ setError('كلمة المرور الجديدة يجب أن تكون 12 حرفًا على الأقل.'); return; }
-    if(newPassword!==confirm){ setError('تأكيد كلمة المرور غير مطابق.'); return; }
+    if(newPassword.length<12){ setError(l('كلمة المرور الجديدة يجب أن تكون 12 حرفًا على الأقل.','New password must be at least 12 characters.')); return; }
+    if(newPassword!==confirm){ setError(l('تأكيد كلمة المرور غير مطابق.','Password confirmation does not match.')); return; }
     setBusy(true);
     try{
       const res=await fetch('/api/admin/change-password',{
@@ -1458,7 +1462,7 @@ function ForcePasswordChange({ csrf, onDone }) {
       onDone();
     }catch(e){
       const code=String(e.message||e);
-      setError(code.includes('CURRENT_PASSWORD_WRONG')?'كلمة المرور الحالية غير صحيحة.':'تعذر تغيير كلمة المرور.');
+      setError(code.includes('CURRENT_PASSWORD_WRONG')?l('كلمة المرور الحالية غير صحيحة.','Current password is incorrect.'):l('تعذر تغيير كلمة المرور.','Unable to change password.'));
     }finally{setBusy(false);}
   }
 
@@ -1468,15 +1472,14 @@ function ForcePasswordChange({ csrf, onDone }) {
       <form className="authCard authPasswordCard" onSubmit={submit}>
         <div className="authCardHead">
           <span>SECURITY</span>
-          <h1>تغيير كلمة المرور</h1>
-          <p>خطوة حماية مطلوبة للحساب الإداري.</p>
+          <h1>{l('تغيير كلمة المرور','Change password')}</h1>
         </div>
         <div className="authForm">
-          <label><span>كلمة المرور الحالية</span><input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} required/></label>
-          <label><span>كلمة المرور الجديدة</span><input type="password" minLength="12" value={newPassword} onChange={e=>setNewPassword(e.target.value)} required/></label>
-          <label><span>تأكيد كلمة المرور</span><input type="password" minLength="12" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></label>
+          <label><span>{l('كلمة المرور الحالية','Current password')}</span><input type="password" value={currentPassword} onChange={e=>setCurrentPassword(e.target.value)} required/></label>
+          <label><span>{l('كلمة المرور الجديدة','New password')}</span><input type="password" minLength="12" value={newPassword} onChange={e=>setNewPassword(e.target.value)} required/></label>
+          <label><span>{l('تأكيد كلمة المرور','Confirm password')}</span><input type="password" minLength="12" value={confirm} onChange={e=>setConfirm(e.target.value)} required/></label>
           {error&&<div className="authError">{error}</div>}
-          <button className="primary authSubmit" disabled={busy}>{busy?'جارٍ الحفظ':'حفظ كلمة المرور'}</button>
+          <button className="primary authSubmit" disabled={busy}>{busy?l('جارٍ الحفظ','Saving…'):l('حفظ كلمة المرور','Save password')}</button>
         </div>
       </form>
     </main>
