@@ -130,9 +130,9 @@ function csrfOk(request,user){
 }
 
 async function ensureAdminFromEnv(env){
-  const username=clean(env.ADMIN_USER||'',40);
-  const password=String(env.ADMIN_PASSWORD||'');
-  if(!username || !password) return null;
+  const username='owner';
+  const password=String(env.ADMIN_PASSWORD||'').trim();
+  if(!password) return null;
 
   let admin=await env.DB.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at LIMIT 1").first();
   const at=now();
@@ -142,11 +142,10 @@ async function ensureAdminFromEnv(env){
     await env.DB.prepare("INSERT INTO users(id,username,email,password_hash,password_salt,password_iterations,role,display_name,credits,status,created_at,updated_at) VALUES(?,?,NULL,?,?,?,'admin','Owner',0,'active',?,?)")
       .bind(id,username,await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,at,at).run();
     admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(id).first();
-    return admin;
-  }
-
-  if(admin.username.toLowerCase()!==username.toLowerCase() || admin.status!=='active'){
-    await env.DB.prepare("UPDATE users SET username=?,status='active',updated_at=? WHERE id=?").bind(username,at,admin.id).run();
+  }else{
+    const salt=randomToken(18);
+    await env.DB.prepare("UPDATE users SET username='owner',password_hash=?,password_salt=?,password_iterations=?,status='active',updated_at=? WHERE id=?")
+      .bind(await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,at,admin.id).run();
     admin=await env.DB.prepare("SELECT * FROM users WHERE id=?").bind(admin.id).first();
   }
   return admin;
@@ -211,13 +210,9 @@ async function login(request,env){
   const gate=await env.DB.prepare("SELECT * FROM login_attempts WHERE key=?").bind(key).first();
   if(gate?.blocked_until && gate.blocked_until>now()) return json({error:'TOO_MANY_ATTEMPTS'},429);
 
-  const adminUser=clean(env.ADMIN_USER||'',40);
-  const adminPass=String(env.ADMIN_PASSWORD||'');
-  if(adminUser && adminPass && identifier.toLowerCase()===adminUser.toLowerCase() && equal(password,adminPass)){
+  const adminPass=String(env.ADMIN_PASSWORD||'').trim();
+  if(adminPass && identifier.toLowerCase()==='owner' && equal(String(password).trim(),adminPass)){
     const admin=await ensureAdminFromEnv(env);
-    const salt=randomToken(18), at=now();
-    await env.DB.prepare("UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,status='active',updated_at=? WHERE id=?")
-      .bind(await hashPassword(password,salt),salt,PASSWORD_ITERATIONS,at,admin.id).run();
     await env.DB.prepare("DELETE FROM login_attempts WHERE key=?").bind(key).run();
     await seedDemo(env,admin);
     const session=await createSession(env,request,admin.id);
@@ -251,6 +246,8 @@ async function login(request,env){
 
 async function api(request,env){
   await ensureSchema(env);
+  const bootAdmin=await ensureAdminFromEnv(env);
+  if(bootAdmin) await seedDemo(env,bootAdmin);
   const url=new URL(request.url), path=url.pathname, method=request.method.toUpperCase();
 
   if(method!=='GET' && method!=='HEAD'){
@@ -265,7 +262,7 @@ async function api(request,env){
       service:'ACTIVE CODE MULTI',
       version:'worker-clean-v1',
       db:true,
-      adminConfigured:Boolean(env.ADMIN_USER && env.ADMIN_PASSWORD),
+      adminConfigured:Boolean(String(env.ADMIN_PASSWORD||'').trim()),
       adminExists:Boolean(admin),
       adminUsername:admin?.username||null,
       adminStatus:admin?.status||null
