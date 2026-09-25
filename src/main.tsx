@@ -397,9 +397,8 @@ function Panel({ user, csrf, onLogout }) {
         {notice && <div className="notice">{notice}<button onClick={()=>setNotice('')}>×</button></div>}
 
         <div className="pageContent">
-          {!dataReady ? <div className="panelPageSkeleton" aria-hidden="true">
-            <div className="panelSkeletonTitle"/>
-            <div className="panelSkeletonCards"><span/><span/><span/><span/></div>
+          {!dataReady ? <div className="panelLoadingState" aria-hidden="true">
+            <span className="panelLoadingLine"/>
           </div> : <>
           {tab==='overview' && isAdmin && <AdminOverview data={data}/>}
           {tab==='overview' && !isAdmin && <ResellerOverview data={data}/>}
@@ -1297,13 +1296,11 @@ function App() {
 
   useEffect(()=>{boot();},[]);
   if (loading) return <div className="bootShell" aria-label="تحميل اللوحة">
-    <header className="bootHeader"><div className="bootBrandLine"/><div className="bootMenuBox">☰</div></header>
-    <main className="bootContent">
-      <div className="bootTitleLine"/>
-      <div className="bootCardGrid">
-        <div/><div/><div/><div/>
-      </div>
-    </main>
+    <header className="bootHeader">
+      <div className="bootBrandText">ACTIVE CODE MULTI</div>
+      <div className="bootMenuBox">☰</div>
+    </header>
+    <div className="bootProgress"><span/></div>
   </div>;
   if (!user) return <Login onAuth={(u,c)=>{setUser(u);setCsrf(c);}}/>;
   if (user.mustChangePassword) return <ForcePasswordChange csrf={csrf} onDone={()=>setUser({...user,mustChangePassword:false})}/>;
