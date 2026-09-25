@@ -401,26 +401,49 @@ async function api(request,env){
     const total=Number(pack.credit_cost)*quantity;
     if(!fresh||fresh.status!=='active'||Number(fresh.credits)<total) return json({error:'INSUFFICIENT_CREDIT'},409);
 
-    const available=await env.DB.prepare("SELECT COUNT(*) count FROM codes WHERE server_id=? AND package_id=? AND status='available'").bind(serverId,packageId).first();
-    if(Number(available?.count||0)<quantity) return json({error:'INSUFFICIENT_STOCK'},409);
+    const candidates=(await env.DB.prepare("SELECT id,code FROM codes WHERE server_id=? AND package_id=? AND status='available' ORDER BY created_at,id LIMIT ?")
+      .bind(serverId,packageId,quantity).all()).results||[];
+    if(candidates.length<quantity) return json({error:'INSUFFICIENT_STOCK'},409);
 
     const orderId=uid('ord'), txId=uid('ctx'), guardCredit=uid('grd'), guardStock=uid('grd'), at=now();
     const before=Number(fresh.credits), after=before-total;
+    const codeIds=candidates.map(c=>c.id);
+    const idSlots=codeIds.map(()=>'?').join(',');
+
     try{
-      const batch=await env.DB.batch([
-        env.DB.prepare("INSERT INTO issue_orders(id,reseller_id,server_id,package_id,customer_ref,quantity,unit_cost,total_cost,credits_before,credits_after,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,'completed',?)").bind(orderId,user.id,serverId,packageId,customerRef,quantity,Number(pack.credit_cost),total,before,after,at),
-        env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=?,updated_at=? WHERE id=? AND credits=? AND status='active'").bind(after,txId,at,user.id,before),
-        env.DB.prepare("INSERT INTO tx_guards(id,ok) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM users WHERE id=? AND credits=? AND last_credit_tx_id=?) THEN 1 ELSE 0 END").bind(guardCredit,user.id,after,txId),
-        env.DB.prepare("UPDATE codes SET status='issued',reseller_id=?,order_id=?,customer_ref=?,issued_at=? WHERE id IN (SELECT id FROM codes WHERE server_id=? AND package_id=? AND status='available' ORDER BY created_at,id LIMIT ?) AND status='available' RETURNING id,code").bind(user.id,orderId,customerRef,at,serverId,packageId,quantity),
-        env.DB.prepare("INSERT INTO tx_guards(id,ok) SELECT ?,CASE WHEN (SELECT COUNT(*) FROM codes WHERE order_id=? AND server_id=? AND package_id=? AND reseller_id=? AND status='issued')=? THEN 1 ELSE 0 END").bind(guardStock,orderId,serverId,packageId,user.id,quantity),
-        env.DB.prepare("INSERT INTO credit_transactions(id,reseller_id,amount,type,reference_id,note,balance_before,balance_after,created_at) VALUES(?,?,?,'issue',?,?,?,?,?,?)").bind(txId,user.id,-total,orderId,'Code issue: '+pack.server_name+' / '+pack.name,before,after,at),
-        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)").bind(uid('log'),user.id,user.role,'CODES_ISSUED','issue_order',orderId,JSON.stringify({serverId,packageId,quantity,totalCost:total,customerRef}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at),
+      await env.DB.batch([
+        env.DB.prepare("INSERT INTO issue_orders(id,reseller_id,server_id,package_id,customer_ref,quantity,unit_cost,total_cost,credits_before,credits_after,status,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,'completed',?)")
+          .bind(orderId,user.id,serverId,packageId,customerRef,quantity,Number(pack.credit_cost),total,before,after,at),
+
+        env.DB.prepare("UPDATE users SET credits=?,last_credit_tx_id=?,updated_at=? WHERE id=? AND credits=? AND status='active'")
+          .bind(after,txId,at,user.id,before),
+
+        env.DB.prepare("INSERT INTO tx_guards(id,ok) SELECT ?,CASE WHEN EXISTS(SELECT 1 FROM users WHERE id=? AND credits=? AND last_credit_tx_id=?) THEN 1 ELSE 0 END")
+          .bind(guardCredit,user.id,after,txId),
+
+        env.DB.prepare("UPDATE codes SET status='issued',reseller_id=?,order_id=?,customer_ref=?,issued_at=? WHERE id IN ("+idSlots+") AND status='available'")
+          .bind(user.id,orderId,customerRef,at,...codeIds),
+
+        env.DB.prepare("INSERT INTO tx_guards(id,ok) SELECT ?,CASE WHEN (SELECT COUNT(*) FROM codes WHERE order_id=? AND reseller_id=? AND status='issued')=? THEN 1 ELSE 0 END")
+          .bind(guardStock,orderId,user.id,quantity),
+
+        env.DB.prepare("INSERT INTO credit_transactions(id,reseller_id,amount,type,reference_id,note,balance_before,balance_after,created_at) VALUES(?,?,?,'issue',?,?,?,?,?,?)")
+          .bind(txId,user.id,-total,orderId,'Code issue: '+pack.server_name+' / '+pack.name,before,after,at),
+
+        env.DB.prepare("INSERT INTO audit_logs(id,actor_id,actor_role,action,entity_type,entity_id,details_json,ip_hash,user_agent,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+          .bind(uid('log'),user.id,user.role,'CODES_ISSUED','issue_order',orderId,JSON.stringify({serverId,packageId,quantity,totalCost:total,customerRef}),await ipHash(request),(request.headers.get('user-agent')||'').slice(0,300),at),
+
         env.DB.prepare("DELETE FROM tx_guards WHERE id=?").bind(guardCredit),
         env.DB.prepare("DELETE FROM tx_guards WHERE id=?").bind(guardStock)
       ]);
-      const issued=batch[3]?.results||[];
-      return json({ok:true,order:{id:orderId,server:pack.server_name,package:pack.name,quantity,unitCost:Number(pack.credit_cost),totalCost:total,creditsBefore:before,creditsAfter:after,customerRef,createdAt:at},codes:issued});
-    }catch{
+
+      return json({
+        ok:true,
+        order:{id:orderId,server:pack.server_name,package:pack.name,quantity,unitCost:Number(pack.credit_cost),totalCost:total,creditsBefore:before,creditsAfter:after,customerRef,createdAt:at},
+        codes:candidates.map(c=>({id:c.id,code:c.code}))
+      });
+    }catch(error){
+      console.error('ISSUE_TRANSACTION_FAILED',String(error?.message||error));
       return json({error:'ISSUE_CONFLICT_RETRY'},409);
     }
   }
