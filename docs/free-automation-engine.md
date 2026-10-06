@@ -43,13 +43,8 @@ Files under `automation/n8n`:
 
 These templates intentionally contain no credentials. They expect environment values such as `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `AUTOMATION_WEBHOOK_KEY`, `TELEGRAM_BOT_TOKEN`, and `TELEGRAM_CHAT_ID`.
 
-## Next reusable projects
+## Reusable automation pack
 
-After the affiliate engine is activated, the same repository can add:
-- customer-support triage;
-- lead intake and follow-up;
-- content approval/publishing queue;
-- Shopify order notifications;
-- daily KPI digest.
+The repository now includes ten starter workflows. In addition to the five Abu Khaled/catalog workflows, it contains customer-support triage, lead intake scoring, content approval, Shopify order notifications and a daily KPI digest. These reuse the same `automation_events` table instead of creating disconnected systems.
 
-Those can reuse the existing `automation_events` table so we do not build ten disconnected systems.
+Two small trusted Edge Function sources support the reusable pack: `automation-event` for authenticated event logging and `automation-stats` for a 24-hour operational summary.
