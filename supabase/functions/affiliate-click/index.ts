@@ -54,24 +54,10 @@ Deno.serve(async (req: Request) => {
     });
     if (insertError) throw insertError;
 
-    const metricColumn =
-      eventType === "copy" ? "copy_count" :
-      eventType === "view" ? "view_count" :
-      "click_count";
-
-    const { data: offer, error: readError } = await supabase
-      .from("affiliate_offers")
-      .select(`id,${metricColumn}`)
-      .eq("id", couponId)
-      .maybeSingle();
-
-    if (!readError && offer) {
-      const current = Number((offer as Record<string, unknown>)[metricColumn] ?? 0);
-      await supabase
-        .from("affiliate_offers")
-        .update({ [metricColumn]: current + 1 })
-        .eq("id", couponId);
-    }
+    await supabase.rpc("increment_offer_metric", {
+      p_offer_id: couponId,
+      p_event_type: eventType,
+    });
 
     return new Response(null, { status: 204, headers: corsHeaders });
   } catch {
