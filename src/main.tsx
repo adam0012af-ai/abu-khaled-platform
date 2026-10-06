@@ -1,6 +1,6 @@
 import React,{useEffect,useMemo,useState}from"react";
 import{createRoot}from"react-dom/client";
-import{supabase}from"./supabase";
+import{supabase,SUPABASE_URL}from"./supabase";
 import AutomationDashboard from"./AutomationDashboard";
 import"./style.css";
 
@@ -219,6 +219,10 @@ function isOAuthCallbackDocument(){
 
 function isAutomationDocument(){
   return window.location.hash==="#automation";
+}
+
+function productImageUrl(coupon:Coupon){
+  return coupon.gallery[0] || `${SUPABASE_URL}/functions/v1/product-image?id=${encodeURIComponent(coupon.id)}`;
 }
 
 function App(){
@@ -498,6 +502,11 @@ function App(){
       <section id="coupons" className="couponSection modernDealsSection">
         <div className="couponSectionHead"><div><span>CURATED DEALS</span><h2>صفقات وكوبونات مختارة</h2></div><small>{visibleCoupons.length} عرض متاح</small></div>
         {visibleCoupons.length?<div className="couponGrid modernVoucherGrid">{visibleCoupons.map(coupon=><article className="couponCard modernVoucherCard" key={coupon.id} onClick={()=>openQuickView(coupon)}>
+          <div className="voucherProductImage">
+            <img src={productImageUrl(coupon)} alt={coupon.title} loading="lazy" onError={e=>{const img=e.currentTarget;img.style.display="none";img.parentElement?.classList.add("imageFailed")}}/>
+            <div className="voucherImageFallback"><img src={coupon.store_logo} alt={coupon.store_name}/><span>{coupon.store_name}</span></div>
+            {coupon.discount_label&&<b>{coupon.discount_label}</b>}
+          </div>
           <div className="couponCardTop">
             <div className="couponStore">
               <span><img src={coupon.store_logo} alt={coupon.store_name}/></span>
@@ -539,7 +548,7 @@ function App(){
       </section>
     </main>
 
-    {quickView&&<div className="quickViewBack" onClick={()=>setQuickView(null)}><section className="quickViewModal" role="dialog" aria-modal="true" aria-label={quickView.title} onClick={e=>e.stopPropagation()}><button className="quickViewClose" aria-label="إغلاق المعاينة" onClick={()=>setQuickView(null)}>×</button><div className="quickGallery"><div className={"quickMainImage "+(!quickView.gallery.length?"quickImageFallback":"")}>{quickView.gallery.length?<img src={quickView.gallery[Math.min(galleryIndex,quickView.gallery.length-1)]} alt={quickView.title}/>:<div className="quickFallbackInner"><img src={quickView.store_logo} alt={quickView.store_name}/><b>{quickView.store_name}</b><span>صورة المنتج ستُحدَّث من المصدر عند توفرها</span></div>}{quickView.discount_label&&<span className="quickSaveBadge">وفر {quickView.discount_label.replace("خصم ","")}</span>}</div>{quickView.gallery.length>1&&<div className="quickThumbs">{quickView.gallery.map((img,i)=><button key={img} className={galleryIndex===i?"active":""} onClick={()=>setGalleryIndex(i)}><img src={img} alt=""/></button>)}</div>}</div><div className="quickContent"><div className="quickStore"><span><img src={quickView.store_logo} alt={quickView.store_name}/></span><div><b>{quickView.store_name}</b><small>متجر موثوق ✓ · {quickView.view_count} مشاهدة · {quickView.click_count} انتقال</small></div></div><h2>{quickView.title}</h2><div className="quickPrice"><strong>{quickView.deal_price}</strong><del>{quickView.original_price}</del><span>{quickView.discount_label}</span></div><div className="quickHighlights"><b>مميزات الصفقة</b><ul>{quickView.highlights.map(x=><li key={x}>{x}</li>)}</ul></div>{quickView.coupon_code&&<div className="smartCouponBox"><div><span>كود الخصم</span><strong>{quickView.coupon_code}</strong></div><button className={copied===quickView.id?"copied":""} onClick={()=>copyCouponOnly(quickView)}>{copied===quickView.id?"تم النسخ ✓":"نسخ الكود"}</button><small>سيتم تطبيق الخصم تلقائياً عند لصقه في صفحة الدفع بالمتجر.</small></div>}<a className="quickPrimaryCta" href={quickView.affiliate_link} target="_blank" rel="sponsored noopener noreferrer" onClick={()=>recordAffiliateClick(quickView)}>متابعة الشراء من {quickView.store_name} <span>↗</span></a><small className="quickDisclosure">سيتم فتح المتجر في نافذة جديدة. قد يكون الرابط رابط تسويق بالعمولة وقد نحصل على عمولة من عملية شراء مؤهلة دون تكلفة إضافية عليك.</small></div></section></div>}
+    {quickView&&<div className="quickViewBack" onClick={()=>setQuickView(null)}><section className="quickViewModal" role="dialog" aria-modal="true" aria-label={quickView.title} onClick={e=>e.stopPropagation()}><button className="quickViewClose" aria-label="إغلاق المعاينة" onClick={()=>setQuickView(null)}>×</button><div className="quickGallery"><div className={"quickMainImage "+(!quickView.gallery.length?"quickImageFallback":"")}><img src={quickView.gallery.length?quickView.gallery[Math.min(galleryIndex,quickView.gallery.length-1)]:productImageUrl(quickView)} alt={quickView.title} onError={e=>{e.currentTarget.style.display="none";e.currentTarget.nextElementSibling?.classList.add("show")}}/><div className="quickFallbackInner"><img src={quickView.store_logo} alt={quickView.store_name}/><b>{quickView.store_name}</b><span>صورة المنتج غير متاحة من المصدر حاليًا</span></div>{quickView.discount_label&&<span className="quickSaveBadge">وفر {quickView.discount_label.replace("خصم ","")}</span>}</div>{quickView.gallery.length>1&&<div className="quickThumbs">{quickView.gallery.map((img,i)=><button key={img} className={galleryIndex===i?"active":""} onClick={()=>setGalleryIndex(i)}><img src={img} alt=""/></button>)}</div>}</div><div className="quickContent"><div className="quickStore"><span><img src={quickView.store_logo} alt={quickView.store_name}/></span><div><b>{quickView.store_name}</b><small>متجر موثوق ✓ · {quickView.view_count} مشاهدة · {quickView.click_count} انتقال</small></div></div><h2>{quickView.title}</h2><div className="quickPrice"><strong>{quickView.deal_price}</strong><del>{quickView.original_price}</del><span>{quickView.discount_label}</span></div><div className="quickHighlights"><b>مميزات الصفقة</b><ul>{quickView.highlights.map(x=><li key={x}>{x}</li>)}</ul></div>{quickView.coupon_code&&<div className="smartCouponBox"><div><span>كود الخصم</span><strong>{quickView.coupon_code}</strong></div><button className={copied===quickView.id?"copied":""} onClick={()=>copyCouponOnly(quickView)}>{copied===quickView.id?"تم النسخ ✓":"نسخ الكود"}</button><small>سيتم تطبيق الخصم تلقائياً عند لصقه في صفحة الدفع بالمتجر.</small></div>}<a className="quickPrimaryCta" href={quickView.affiliate_link} target="_blank" rel="sponsored noopener noreferrer" onClick={()=>recordAffiliateClick(quickView)}>متابعة الشراء من {quickView.store_name} <span>↗</span></a><small className="quickDisclosure">سيتم فتح المتجر في نافذة جديدة. قد يكون الرابط رابط تسويق بالعمولة وقد نحصل على عمولة من عملية شراء مؤهلة دون تكلفة إضافية عليك.</small></div></section></div>}
 
     {copied&&<div className="copyToast" role="status">✓ تم نسخ الكود!</div>}
 
