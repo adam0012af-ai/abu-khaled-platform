@@ -24,16 +24,16 @@ type EventRow={
 };
 
 const tools=[
-  ["إضافة منتج من رابط","URL → استخراج بيانات → حفظ المنتج","جاهز"],
-  ["تحديث الأسعار","مراجعة المنتجات كل 12 ساعة","جاهز"],
-  ["إدارة من Telegram","/add رابط لإضافة أو تحديث منتج","جاهز"],
-  ["تنبيه انتهاء العروض","تنبيه قبل انتهاء العرض بـ3 أيام","جاهز"],
-  ["تنبيهات GitHub","نجاح أو فشل الـBuild على Telegram","جاهز"],
-  ["فرز دعم العملاء","تصنيف رسائل الدعم والأولوية","جاهز"],
-  ["تقييم العملاء المحتملين","HOT / WARM / COLD تلقائيًا","جاهز"],
-  ["مراجعة المحتوى","قائمة انتظار للمحتوى قبل النشر","جاهز"],
-  ["طلبات Shopify","تنبيه فوري عند وصول طلب جديد","جاهز"],
-  ["تقرير يومي","العروض والتغييرات وأحداث الأتمتة","جاهز"]
+  ["إضافة منتج من رابط","استخراج بيانات المنتج وحفظها في Supabase","فعال"],
+  ["فحص السعر الآن","تحديث المنتج يدويًا مع حفظ السعر السابق","فعال"],
+  ["إدارة من Telegram","/add رابط لإضافة أو تحديث منتج","جاهز للربط"],
+  ["تنبيه انتهاء العروض","تنبيه قبل انتهاء العرض بـ3 أيام","جاهز للربط"],
+  ["تنبيهات GitHub","نجاح أو فشل الـBuild على Telegram","جاهز للربط"],
+  ["فرز دعم العملاء","تصنيف رسائل الدعم والأولوية","جاهز للربط"],
+  ["تقييم العملاء المحتملين","HOT / WARM / COLD تلقائيًا","جاهز للربط"],
+  ["مراجعة المحتوى","قائمة انتظار للمحتوى قبل النشر","جاهز للربط"],
+  ["طلبات Shopify","تنبيه فوري عند وصول طلب جديد","جاهز للربط"],
+  ["تقرير يومي","العروض والتغييرات وأحداث الأتمتة","جاهز للربط"]
 ];
 
 export default function AutomationDashboard(){
@@ -80,7 +80,7 @@ export default function AutomationDashboard(){
       body:{url:clean,provider:"manual",verified:true}
     });
     if(error){
-      setMsg("تعذر الإضافة الآن: "+error.message+" — لو الـEdge Function لسه غير منشورة سيتم تفعيلها من Supabase.");
+      setMsg("تعذر الإضافة الآن: "+error.message);
     }else{
       setMsg(data?.offer_id?"تمت إضافة/تحديث المنتج: "+data.offer_id:"تم تنفيذ الطلب.");
       setUrl("");
@@ -121,12 +121,12 @@ export default function AutomationDashboard(){
           <h1>إدارة المنتجات والأتمتة من مكان واحد</h1>
           <p>أضف منتجًا بالرابط، راقب الأسعار، تابع الأحداث، وشغّل الأدوات الجاهزة بدون الحاجة لمكتبة مدفوعة.</p>
         </div>
-        <div className="automationLive"><i/> نظام GitHub جاهز <small>الربط الحي يعتمد على تفعيل Supabase Functions</small></div>
+        <div className="automationLive"><i/> Supabase مباشر <small>قاعدة البيانات و3 Edge Functions فعالة الآن. الأدوات الخارجية تحتاج فقط ربط حساباتها.</small></div>
       </section>
 
       <section className="automationStats">
         <article><span>منتجات حية</span><b>{loading?"—":stats.offers}</b><small>من Supabase</small></article>
-        <article><span>أدوات جاهزة</span><b>{stats.ready}</b><small>Workflows</small></article>
+        <article><span>أدوات المشروع</span><b>{stats.ready}</b><small>2 فعالة الآن · 8 جاهزة للربط</small></article>
         <article><span>تم فحصها</span><b>{stats.updated}</b><small>منتجات</small></article>
         <article><span>أحداث حديثة</span><b>{loading?"—":stats.events}</b><small>آخر سجل</small></article>
       </section>
@@ -163,7 +163,7 @@ export default function AutomationDashboard(){
 
       <section className="automationPanel">
         <div className="automationPanelHead"><div><span>EVENTS</span><h2>آخر أحداث الأتمتة</h2></div><small>{events.length} حدث</small></div>
-        {events.length?<div className="automationEvents">{events.map(e=><article key={e.id}><i className={e.status==="ok"?"ok":""}/><div><b>{e.event_type}</b><small>{e.offer_id||"عام"} · {new Date(e.created_at).toLocaleString("ar-EG")}</small></div><span>{e.status}</span></article>)}</div>:<div className="automationEmpty">سجل الأحداث سيظهر هنا بمجرد تفعيل وظيفة automation-event في Supabase.</div>}
+        {events.length?<div className="automationEvents">{events.map(e=><article key={e.id}><i className={e.status==="ok"?"ok":""}/><div><b>{e.event_type}</b><small>{e.offer_id||"عام"} · {new Date(e.created_at).toLocaleString("ar-EG")}</small></div><span>{e.status}</span></article>)}</div>:<div className="automationEmpty">لا توجد أحداث أتمتة مسجلة حتى الآن.</div>}
       </section>
     </main>
   </div>;
