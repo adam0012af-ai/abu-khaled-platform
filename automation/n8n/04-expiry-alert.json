@@ -1,0 +1,123 @@
+{
+  "name": "Abu Khaled - Offer Expiry Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/affiliate_offers?select=id,title,store_name,expires_at&active=eq.true&expires_at=not.is.null",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_PUBLISHABLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_PUBLISHABLE_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "list",
+      "name": "Load Expiring Offers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows=Array.isArray($json)?$json:($json.body??[]); const now=Date.now(); const max=now+3*86400000; const due=rows.filter(x=>{const t=Date.parse(x.expires_at);return Number.isFinite(t)&&t>=now&&t<=max}); if(!due.length)return[]; const text='عروض ستنتهي خلال 3 أيام:\\n'+due.map(x=>'• '+x.store_name+' — '+x.title+' — '+x.expires_at).join('\\n'); return [{json:{text}}];"
+      },
+      "id": "format",
+      "name": "Build Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ {chat_id:$env.TELEGRAM_CHAT_ID,text:$json.text} }}",
+        "options": {}
+      },
+      "id": "telegram",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "Load Expiring Offers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Expiring Offers": {
+      "main": [
+        [
+          {
+            "node": "Build Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
