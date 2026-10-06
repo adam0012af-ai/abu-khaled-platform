@@ -4496,3 +4496,155 @@ header{
 }
 .quickFallbackInner b{font-size:16px;color:#0F172A}
 .quickFallbackInner span{max-width:250px;color:#64748B;font-size:10px;line-height:1.7}
+
+
+/* v13: stronger coupon-platform discovery inspired by modern coupon marketplaces */
+.referenceCategories{margin-top:26px}
+.referenceCategoryGrid{
+  display:grid;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:10px;
+}
+.referenceCategoryGrid button{
+  min-width:0;
+  min-height:116px;
+  padding:14px 9px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  border:1px solid #E2E8F0;
+  border-radius:16px;
+  background:#fff;
+  color:#0F172A;
+  box-shadow:0 8px 26px rgba(15,23,42,.035);
+  transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+.referenceCategoryGrid button:hover{transform:translateY(-2px);border-color:#CBD5E1;box-shadow:0 14px 34px rgba(15,23,42,.07)}
+.referenceCategoryGrid button.active{border-color:#0F172A;background:#0F172A;color:#fff;box-shadow:0 16px 36px rgba(15,23,42,.18)}
+.referenceCategoryGrid i{
+  width:42px;height:42px;display:grid;place-items:center;border-radius:13px;
+  background:#F1F5F9;color:#0F172A;font-style:normal;font-size:18px;
+}
+.referenceCategoryGrid button.active i{background:rgba(255,255,255,.12);color:#fff}
+.referenceCategoryGrid b{font-size:11px;text-align:center;line-height:1.5}
+.referenceCategoryGrid small{font-size:8px;color:#94A3B8}
+.referenceCategoryGrid button.active small{color:#CBD5E1}
+
+.specialOffersSection{margin-top:30px}
+.specialOffersRail{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.specialOffersRail article{
+  position:relative;
+  min-width:0;
+  min-height:210px;
+  padding:18px;
+  display:grid;
+  grid-template-columns:58px 1fr;
+  gap:14px;
+  align-items:start;
+  border:1px solid #E2E8F0;
+  border-radius:20px;
+  background:linear-gradient(145deg,#fff,#F8FAFC);
+  box-shadow:0 12px 35px rgba(15,23,42,.045);
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+.specialOffersRail article:before{
+  content:"";
+  position:absolute;
+  width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,rgba(200,155,60,.15),transparent 70%);
+  inset-inline-end:-40px;bottom:-58px;
+}
+.specialOffersRail article:hover{transform:translateY(-3px);box-shadow:0 20px 45px rgba(15,23,42,.08);border-color:#CBD5E1}
+.specialOfferLogo{
+  width:58px;height:58px;display:grid;place-items:center;border:1px solid #E2E8F0;border-radius:16px;background:#fff;
+}
+.specialOfferLogo img{width:32px;height:32px;object-fit:contain}
+.specialOfferBody{min-width:0;display:flex;flex-direction:column;gap:7px}
+.specialOfferBody>small{color:#64748B;font-size:9px}
+.specialOfferBody h3{margin:0;font-size:15px;line-height:1.5;color:#0F172A}
+.specialOfferBody p{margin:0;color:#64748B;font-size:10px;line-height:1.7;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.specialOfferBody>div{margin-top:auto;display:flex;align-items:center;gap:9px}
+.specialOfferBody strong{font-size:15px;color:#0F172A}
+.specialOfferBody del{font-size:9px;color:#94A3B8}
+.specialOfferArrow{
+  position:absolute;inset-inline-end:14px;top:14px;width:30px;height:30px;display:grid;place-items:center;
+  border:1px solid #E2E8F0;border-radius:10px;background:#fff;font-size:13px;color:#0F172A;
+}
+
+.dealMeta{
+  margin-top:11px;
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:6px;
+  color:#64748B;
+  font-size:8px;
+}
+.dealMeta span{
+  padding:4px 7px;border:1px solid #E2E8F0;border-radius:999px;background:#F8FAFC;
+}
+
+.couponCodesSection{margin-top:30px}
+.couponCodeRail{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+.couponCodeRail article{
+  min-width:0;padding:15px;border:1px solid #E2E8F0;border-radius:16px;background:#fff;
+  display:grid;gap:11px;box-shadow:0 8px 24px rgba(15,23,42,.035);
+}
+.couponCodeStore{display:flex;align-items:center;gap:9px;min-width:0}
+.couponCodeStore img{width:34px;height:34px;padding:6px;object-fit:contain;border:1px solid #E2E8F0;border-radius:10px;background:#F8FAFC}
+.couponCodeStore>div{min-width:0;display:grid;gap:2px}
+.couponCodeStore b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.couponCodeStore small{font-size:8px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.couponCodeRail article>button{
+  width:100%;min-height:44px;border:1px dashed #94A3B8;border-radius:11px;background:#F8FAFC;color:#0F172A;
+  font-size:15px;font-weight:700;letter-spacing:.6px;
+}
+.couponCodeRail article>small{text-align:center;color:#94A3B8;font-size:8px}
+
+.successPartners{margin-top:30px}
+.partnerLogoRail{
+  display:grid;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:9px;
+}
+.partnerLogoRail button{
+  min-height:92px;padding:11px 7px;border:1px solid #E2E8F0;border-radius:14px;background:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+}
+.partnerLogoRail img{width:34px;height:34px;object-fit:contain}
+.partnerLogoRail b{font-size:10px;text-align:center}
+
+@media(max-width:1100px){
+  .referenceCategoryGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .specialOffersRail{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .couponCodeRail{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .partnerLogoRail{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .referenceCategories,.specialOffersSection,.couponCodesSection,.successPartners{margin-top:22px}
+  .referenceCategoryGrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .referenceCategoryGrid button{min-height:94px;padding:10px 5px;border-radius:13px}
+  .referenceCategoryGrid i{width:34px;height:34px;border-radius:10px;font-size:15px}
+  .referenceCategoryGrid b{font-size:9px}.referenceCategoryGrid small{font-size:7px}
+  .specialOffersRail{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px;scrollbar-width:none}
+  .specialOffersRail::-webkit-scrollbar{display:none}
+  .specialOffersRail article{flex:0 0 86%;min-height:190px;scroll-snap-align:start;padding:15px;border-radius:16px}
+  .couponCodeRail{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+  .couponCodeRail::-webkit-scrollbar{display:none}
+  .couponCodeRail article{flex:0 0 72%;scroll-snap-align:start}
+  .partnerLogoRail{display:flex;overflow-x:auto;scrollbar-width:none}
+  .partnerLogoRail::-webkit-scrollbar{display:none}
+  .partnerLogoRail button{flex:0 0 92px}
+}
