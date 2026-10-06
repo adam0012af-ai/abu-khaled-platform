@@ -1,0 +1,115 @@
+{
+  "name": "Reusable - Shopify Order Notify",
+  "nodes": [
+    {
+      "parameters": {
+        "topic": "orders/create"
+      },
+      "id": "shopify",
+      "name": "Shopify Order Created",
+      "type": "n8n-nodes-base.shopifyTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const o=$json; const order=o.name??o.order_number??o.id??'order'; const total=o.total_price??''; const currency=o.currency??''; const customer=[o.customer?.first_name,o.customer?.last_name].filter(Boolean).join(' ')||o.email||'عميل'; return [{json:{event_type:'shopify_order',status:'new',payload:{order_id:o.id,order_name:order,total,currency,customer,email:o.email??''},text:'🛒 طلب Shopify جديد\\n'+order+'\\n'+customer+'\\n'+total+' '+currency}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/functions/v1/automation-event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-key",
+              "value": "={{$env.AUTOMATION_WEBHOOK_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({event_type:$json.event_type,status:$json.status,payload:$json.payload}) }}",
+        "options": {}
+      },
+      "id": "log",
+      "name": "Log Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ {chat_id:$env.TELEGRAM_CHAT_ID,text:$('Prepare Order').item.json.text} }}",
+        "options": {}
+      },
+      "id": "telegram",
+      "name": "Notify Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Shopify Order Created": {
+      "main": [
+        [
+          {
+            "node": "Prepare Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Order": {
+      "main": [
+        [
+          {
+            "node": "Log Order",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
