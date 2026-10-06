@@ -16,3 +16,13 @@ Required for Telegram notifications:
 Start with 01 manually. Only enable 02 and 04 after the database migration and Edge Function are live. Configure the Telegram webhook to point to workflow 03 only after the n8n URL is stable. Configure a GitHub workflow_run webhook for 05 if build alerts are wanted.
 
 Never put SUPABASE_SERVICE_ROLE_KEY in a browser-facing workflow or public repository.
+
+
+Additional reusable workflows:
+6. customer support triage;
+7. lead intake scoring;
+8. content approval queue;
+9. Shopify order notification;
+10. daily KPI digest.
+
+The support/lead/content/order workflows log events through the trusted `automation-event` Edge Function. The KPI digest reads aggregate counts from `automation-stats`.

@@ -1,0 +1,119 @@
+{
+  "name": "Reusable - Daily KPI Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/functions/v1/automation-stats",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-key",
+              "value": "={{$env.AUTOMATION_WEBHOOK_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "stats",
+      "name": "Load Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$json; const types=Object.entries(s.events_by_type??{}).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,8).map(([k,v])=>'• '+k+': '+v).join('\\n'); return [{json:{text:'📊 ملخص آخر 24 ساعة\\nالعروض النشطة: '+(s.active_offers??0)+'\\nأحداث الأتمتة: '+(s.automation_events??0)+'\\nتغييرات الأسعار: '+(s.price_changes??0)+(types?'\\n\\n'+types:'')}}];"
+      },
+      "id": "format",
+      "name": "Format Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ {chat_id:$env.TELEGRAM_CHAT_ID,text:$json.text} }}",
+        "options": {}
+      },
+      "id": "telegram",
+      "name": "Send Digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Daily": {
+      "main": [
+        [
+          {
+            "node": "Load Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Stats": {
+      "main": [
+        [
+          {
+            "node": "Format Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Digest": {
+      "main": [
+        [
+          {
+            "node": "Send Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

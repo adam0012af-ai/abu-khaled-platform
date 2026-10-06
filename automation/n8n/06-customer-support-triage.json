@@ -1,0 +1,118 @@
+{
+  "name": "Reusable - Customer Support Triage",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-triage",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Support Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$json.body??$json; const message=String(b.message??'').trim(); const urgent=/(دفع|خصم|استرداد|refund|payment|urgent|لا يعمل|مش شغال|خطأ)/i.test(message); const priority=urgent?'high':'normal'; return [{json:{event_type:'support_ticket',status:'new',payload:{name:b.name??'',phone:b.phone??'',email:b.email??'',channel:b.channel??'web',message,priority},text:(urgent?'🚨':'💬')+' دعم جديد ['+priority+']\\n'+(b.name??'عميل')+'\\n'+message}}];"
+      },
+      "id": "triage",
+      "name": "Triage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/functions/v1/automation-event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-key",
+              "value": "={{$env.AUTOMATION_WEBHOOK_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({event_type:$json.event_type,status:$json.status,payload:$json.payload}) }}",
+        "options": {}
+      },
+      "id": "log",
+      "name": "Log Support Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ {chat_id:$env.TELEGRAM_CHAT_ID,text:$('Triage').item.json.text} }}",
+        "options": {}
+      },
+      "id": "telegram",
+      "name": "Notify Support",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Support Webhook": {
+      "main": [
+        [
+          {
+            "node": "Triage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Triage": {
+      "main": [
+        [
+          {
+            "node": "Log Support Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Support",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}

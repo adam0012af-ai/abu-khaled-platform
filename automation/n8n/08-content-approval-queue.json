@@ -1,0 +1,118 @@
+{
+  "name": "Reusable - Content Approval Queue",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-approval",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Content Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const b=$json.body??$json; const payload={title:b.title??'',body:b.body??'',channel:b.channel??'social',url:b.url??'',status:'pending'}; const text='📝 محتوى بانتظار المراجعة\\n['+payload.channel+'] '+payload.title+'\\n'+String(payload.body).slice(0,800)+(payload.url?'\\n'+payload.url:''); return [{json:{event_type:'content_approval',status:'pending',payload,text}}];"
+      },
+      "id": "prepare",
+      "name": "Prepare Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/functions/v1/automation-event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-key",
+              "value": "={{$env.AUTOMATION_WEBHOOK_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({event_type:$json.event_type,status:$json.status,payload:$json.payload}) }}",
+        "options": {}
+      },
+      "id": "log",
+      "name": "Log Content Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ {chat_id:$env.TELEGRAM_CHAT_ID,text:$('Prepare Review').item.json.text} }}",
+        "options": {}
+      },
+      "id": "telegram",
+      "name": "Send For Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Content Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Review": {
+      "main": [
+        [
+          {
+            "node": "Log Content Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send For Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
