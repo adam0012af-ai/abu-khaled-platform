@@ -4804,3 +4804,80 @@ header{
 
   .couponCodesSection,.successPartners{padding-top:24px!important;padding-bottom:24px!important}
 }
+
+
+/* v15 real product imagery */
+.voucherProductImage{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/10;
+  margin-bottom:13px;
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  border:1px solid #EEF2F7;
+  border-radius:16px;
+  background:linear-gradient(145deg,#FFFFFF,#F8FAFC);
+}
+.voucherProductImage>img{
+  position:relative;
+  z-index:2;
+  width:100%;
+  height:100%;
+  padding:10px;
+  object-fit:contain;
+  background:#fff;
+}
+.voucherProductImage>b{
+  position:absolute;
+  z-index:4;
+  top:9px;
+  inset-inline-start:9px;
+  padding:5px 8px;
+  border-radius:999px;
+  background:#ECFDF5;
+  color:#047857;
+  font-size:9px;
+  line-height:1;
+}
+.voucherImageFallback{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  color:#64748B;
+  font-size:9px;
+}
+.voucherImageFallback img{
+  width:46px;
+  height:46px;
+  padding:9px;
+  object-fit:contain;
+  border:1px solid #E2E8F0;
+  border-radius:13px;
+  background:#fff;
+}
+.voucherProductImage.imageFailed>img{display:none!important}
+.quickFallbackInner{display:none!important}
+.quickFallbackInner.show{display:flex!important}
+.quickImageFallback>img{
+  width:100%;
+  height:100%;
+  padding:18px;
+  object-fit:contain;
+  background:#fff;
+}
+
+@media(max-width:700px){
+  .voucherProductImage{
+    aspect-ratio:16/9;
+    margin-bottom:10px;
+    border-radius:13px;
+  }
+  .voucherProductImage>img{padding:7px}
+  .voucherProductImage>b{top:7px;inset-inline-start:7px;padding:4px 7px;font-size:8px}
+}
