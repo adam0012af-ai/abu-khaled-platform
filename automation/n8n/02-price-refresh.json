@@ -1,0 +1,137 @@
+{
+  "name": "Abu Khaled - Scheduled Price Refresh",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "schedule",
+      "name": "Every 12 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/affiliate_offers?select=id,product_url,affiliate_link,provider,store_id,store_name,country,category,coupon_code,featured,verified&active=eq.true",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_PUBLISHABLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_PUBLISHABLE_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "list",
+      "name": "List Active Offers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = Array.isArray($json) ? $json : ($json.body ?? []); return rows.map(row => ({json: row}));"
+      },
+      "id": "split",
+      "name": "One Item Per Offer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/functions/v1/offer-import",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-key",
+              "value": "={{$env.AUTOMATION_WEBHOOK_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({url:$json.product_url,offer_id:$json.id,affiliate_link:$json.affiliate_link,provider:$json.provider,store_id:$json.store_id,store_name:$json.store_name,country:$json.country,category:$json.category,coupon_code:$json.coupon_code,featured:$json.featured,verified:$json.verified}) }}",
+        "options": {}
+      },
+      "id": "refresh",
+      "name": "Refresh Offer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Every 12 Hours": {
+      "main": [
+        [
+          {
+            "node": "List Active Offers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Active Offers": {
+      "main": [
+        [
+          {
+            "node": "One Item Per Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Item Per Offer": {
+      "main": [
+        [
+          {
+            "node": "Refresh Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
