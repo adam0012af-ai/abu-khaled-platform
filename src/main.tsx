@@ -131,6 +131,7 @@ function App(){
   const[touchX,setTouchX]=useState<number|null>(null);
   const[copied,setCopied]=useState("");
   const[quickView,setQuickView]=useState<Coupon|null>(null);
+  const[catalogCoupons,setCatalogCoupons]=useState<Coupon[]>(coupons);
   const[galleryIndex,setGalleryIndex]=useState(0);
   const t=L[lang];
 
@@ -168,6 +169,40 @@ function App(){
       subscription.unsubscribe();
     };
   },[]);
+  useEffect(()=>{
+    let alive=true;
+    supabase
+      .from("affiliate_offers")
+      .select("id,title,store_id,store_name,store_logo,country,category,discount_label,coupon_code,affiliate_link,description,verified,featured,expires,original_price,deal_price,gallery,highlights")
+      .eq("active",true)
+      .order("featured",{ascending:false})
+      .order("updated_at",{ascending:false})
+      .then(({data,error})=>{
+        if(!alive||error||!data?.length)return;
+        const live=data.map((row:any):Coupon=>({
+          id:String(row.id),
+          title:String(row.title||""),
+          store_id:String(row.store_id||""),
+          store_name:String(row.store_name||""),
+          store_logo:String(row.store_logo||""),
+          country:String(row.country||""),
+          category:String(row.category||""),
+          discount_label:String(row.discount_label||""),
+          coupon_code:String(row.coupon_code||""),
+          affiliate_link:String(row.affiliate_link||""),
+          description:String(row.description||""),
+          verified:Boolean(row.verified),
+          featured:Boolean(row.featured),
+          expires:row.expires?String(row.expires):undefined,
+          original_price:String(row.original_price||""),
+          deal_price:String(row.deal_price||""),
+          gallery:Array.isArray(row.gallery)?row.gallery.filter((x:any)=>typeof x==="string"):[],
+          highlights:Array.isArray(row.highlights)?row.highlights.filter((x:any)=>typeof x==="string"):[],
+        })).filter((x:Coupon)=>x.title&&x.affiliate_link);
+        if(live.length)setCatalogCoupons(live);
+      });
+    return()=>{alive=false};
+  },[]);
   useEffect(()=>{const id=window.setInterval(()=>setBanner(v=>(v+1)%heroSlides.length),5000);return()=>window.clearInterval(id)},[]);
 
   const submitAuth=async()=>{setAuthBusy(true);setAuthMsg("");if(!authEmail||authPassword.length<6){setAuthMsg("أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.");setAuthBusy(false);return}const result=authMode==="signup"?await supabase.auth.signUp({email:authEmail,password:authPassword,options:{data:{full_name:authName}}}):await supabase.auth.signInWithPassword({email:authEmail,password:authPassword});if(result.error)setAuthMsg(result.error.message);else{setAuthMsg(authMode==="signup"&&!result.data.session?"تم إنشاء الحساب. راجع بريدك لتأكيد الحساب.":"تم تسجيل الدخول بنجاح.");if(result.data.session)setTimeout(()=>setAuthOpen(false),500)}setAuthBusy(false)};
@@ -192,7 +227,7 @@ function App(){
 
   const visibleCoupons=useMemo(()=>{
     const q=searchTerm.trim().toLowerCase();
-    let list=coupons.filter(c=>
+    let list=catalogCoupons.filter(c=>
       (country==="الكل"||c.country===country)&&
       (storeFilter==="الكل"||c.store_id===storeFilter)&&
       (!q||c.title.toLowerCase().includes(q)||c.store_name.toLowerCase().includes(q)||c.coupon_code.toLowerCase().includes(q))
@@ -209,7 +244,7 @@ function App(){
     }
 
     return list;
-  },[country,storeFilter,searchTerm,dealChip]);
+  },[catalogCoupons,country,storeFilter,searchTerm,dealChip]);
 
   const copyCode=(code:string)=>{
     const fallback=()=>{const ta=document.createElement("textarea");ta.value=code;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove()};
