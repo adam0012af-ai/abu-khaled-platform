@@ -1,0 +1,81 @@
+{
+  "name": "Reusable - GitHub Build Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "github-build-alert",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "GitHub Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const p=$json.body??$json; const r=p.workflow_run??{}; if(!r.name)return[]; const icon=r.conclusion==='success'?'✅':'❌'; return [{json:{text:icon+' '+(p.repository?.full_name??'GitHub')+' — '+r.name+' — '+(r.conclusion??r.status??'unknown')+'\\n'+(r.html_url??'')}}];"
+      },
+      "id": "format",
+      "name": "Format Build",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ {chat_id:$env.TELEGRAM_CHAT_ID,text:$json.text} }}",
+        "options": {}
+      },
+      "id": "telegram",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "GitHub Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Build",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Build": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
