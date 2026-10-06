@@ -264,7 +264,7 @@ Deno.serve(async (req: Request) => {
     images[0] ?? "",
   ].join("|"));
 
-  const row = {
+  const row: any = {
     id,
     provider,
     provider_product_id: productId,
@@ -308,9 +308,26 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
   const { data: previous } = await admin
     .from("affiliate_offers")
-    .select("id,price,currency,source_hash")
+    .select("id,price,old_price,currency,source_hash,gallery,discount_percent,discount_label,original_price,deal_price")
     .eq("id", id)
     .maybeSingle();
+
+  if (previous) {
+    if (row.price === null && previous.price !== null) {
+      row.price = previous.price;
+      row.currency = row.currency || previous.currency;
+      row.deal_price = previous.deal_price || [previous.price, previous.currency].filter(Boolean).join(" ");
+    }
+    if (row.old_price === null && previous.old_price !== null) {
+      row.old_price = previous.old_price;
+      row.original_price = previous.original_price || [previous.old_price, previous.currency].filter(Boolean).join(" ");
+      row.discount_percent = previous.discount_percent;
+      row.discount_label = previous.discount_label || "";
+    }
+    if ((!Array.isArray(row.gallery) || row.gallery.length === 0) && Array.isArray(previous.gallery)) {
+      row.gallery = previous.gallery;
+    }
+  }
 
   const changed = !!previous && String(previous.source_hash ?? "") !== sourceHash;
   const priceChanged = !!previous && previous.price !== null && price !== null &&
