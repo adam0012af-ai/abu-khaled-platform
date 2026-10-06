@@ -4648,3 +4648,159 @@ header{
   .partnerLogoRail::-webkit-scrollbar{display:none}
   .partnerLogoRail button{flex:0 0 92px}
 }
+
+
+/* v14 mobile density pass — keep discovery rich without turning the home page into a long wall */
+@media(max-width:700px){
+  .couponSection{padding-top:28px!important;padding-bottom:28px!important}
+  .referenceCategories{margin-top:10px!important;padding-top:26px!important;padding-bottom:20px!important}
+  .referenceCategories .couponSectionHead{margin-bottom:12px!important}
+
+  .referenceCategoryGrid{
+    display:grid!important;
+    grid-template-columns:none!important;
+    grid-template-rows:repeat(2,82px)!important;
+    grid-auto-flow:column!important;
+    grid-auto-columns:96px!important;
+    gap:7px!important;
+    width:calc(100% + 28px)!important;
+    margin-inline:-14px!important;
+    padding:2px 14px 8px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scroll-snap-type:x proximity!important;
+    scroll-padding-inline:14px!important;
+    scrollbar-width:none!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  .referenceCategoryGrid::-webkit-scrollbar{display:none!important}
+  .referenceCategoryGrid button{
+    width:96px!important;
+    min-width:96px!important;
+    min-height:82px!important;
+    height:82px!important;
+    padding:7px 5px!important;
+    gap:4px!important;
+    border-radius:12px!important;
+    box-shadow:0 4px 14px rgba(15,23,42,.035)!important;
+    scroll-snap-align:start!important;
+  }
+  .referenceCategoryGrid i{
+    width:29px!important;height:29px!important;
+    border-radius:9px!important;
+    font-size:13px!important;
+  }
+  .referenceCategoryGrid b{
+    max-width:86px!important;
+    font-size:8.5px!important;
+    line-height:1.3!important;
+    display:-webkit-box!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow:hidden!important;
+  }
+  .referenceCategoryGrid small{font-size:6.5px!important;line-height:1!important}
+
+  .specialOffersSection{margin-top:6px!important;padding-top:26px!important;padding-bottom:24px!important}
+  .specialOffersSection .couponSectionHead{margin-bottom:12px!important}
+  .specialOffersRail{width:calc(100% + 28px)!important;margin-inline:-14px!important;padding:0 14px 5px!important}
+  .specialOffersRail article{
+    flex-basis:78%!important;
+    min-height:154px!important;
+    padding:13px!important;
+    grid-template-columns:44px 1fr!important;
+    gap:10px!important;
+    border-radius:15px!important;
+  }
+  .specialOfferLogo{width:44px!important;height:44px!important;border-radius:12px!important}
+  .specialOfferLogo img{width:27px!important;height:27px!important}
+  .specialOfferBody{gap:4px!important}
+  .specialOfferBody>small{font-size:7.5px!important}
+  .specialOfferBody h3{
+    font-size:12px!important;
+    line-height:1.45!important;
+    display:-webkit-box!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow:hidden!important;
+  }
+  .specialOfferBody p{
+    font-size:8.5px!important;
+    line-height:1.55!important;
+    -webkit-line-clamp:2!important;
+  }
+  .specialOfferBody strong{font-size:12px!important}
+  .specialOfferArrow{width:26px!important;height:26px!important;border-radius:8px!important;top:10px!important;inset-inline-end:10px!important}
+
+  .modernStores{padding-top:24px!important;padding-bottom:18px!important}
+  .modernStores .couponSectionHead{margin-bottom:12px!important}
+  .modernStoreSlider{
+    width:calc(100% + 28px)!important;
+    margin-inline:-14px!important;
+    padding-inline:14px!important;
+  }
+  .modernStoreSlider button{
+    min-width:94px!important;
+    min-height:50px!important;
+    padding:6px 9px!important;
+    gap:7px!important;
+  }
+  .modernStoreSlider .storeLogoWrap{
+    width:31px!important;height:31px!important;flex-basis:31px!important;
+  }
+  .modernStoreSlider .storeLogoWrap img{width:27px!important;height:27px!important}
+  .modernStoreSlider b{font-size:9.5px!important}
+
+  .dealChipsWrap{margin:0 0 4px!important;padding:5px 0!important}
+  .dealChips{
+    width:calc(100% + 28px)!important;
+    margin-inline:-14px!important;
+    padding-inline:14px!important;
+    overflow-x:auto!important;
+    flex-wrap:nowrap!important;
+    scrollbar-width:none!important;
+  }
+  .dealChips::-webkit-scrollbar{display:none!important}
+  .dealChips button{
+    flex:0 0 auto!important;
+    min-height:32px!important;
+    padding:7px 11px!important;
+    font-size:8px!important;
+  }
+
+  .modernDealsSection{padding-top:22px!important}
+  .modernDealsSection .couponSectionHead{margin-bottom:12px!important}
+  .modernVoucherGrid{gap:9px!important}
+  .modernVoucherCard{
+    min-height:0!important;
+    padding:14px!important;
+    border-radius:15px!important;
+  }
+  .modernVoucherCard .couponStore>span{width:38px!important;height:38px!important;border-radius:11px!important}
+  .modernVoucherCard .couponStore img{width:23px!important;height:23px!important}
+  .modernDiscount{margin-top:10px!important;font-size:11px!important}
+  .modernVoucherCard h3{
+    margin-top:9px!important;
+    font-size:14px!important;
+    line-height:1.5!important;
+    display:-webkit-box!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow:hidden!important;
+  }
+  .voucherDescription{
+    margin-top:6px!important;
+    font-size:9px!important;
+    line-height:1.6!important;
+    display:-webkit-box!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow:hidden!important;
+  }
+  .voucherPriceBox{margin-top:10px!important;padding:10px 11px!important;border-radius:11px!important}
+  .voucherPriceBox strong{font-size:16px!important}
+  .voucherPreviewBtn{margin-top:10px!important;min-height:38px!important}
+  .dealMeta{margin-top:8px!important}
+
+  .couponCodesSection,.successPartners{padding-top:24px!important;padding-bottom:24px!important}
+}
