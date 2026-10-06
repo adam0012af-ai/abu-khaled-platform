@@ -28,3 +28,22 @@ create index if not exists affiliate_clicks_event_type_created_idx
 create index if not exists affiliate_offers_popular_idx
   on public.affiliate_offers((click_count + copy_count * 2) desc)
   where active = true;
+
+create or replace function public.increment_offer_metric(p_offer_id text, p_event_type text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_event_type = 'copy' then
+    update public.affiliate_offers set copy_count = copy_count + 1 where id = p_offer_id;
+  elsif p_event_type = 'view' then
+    update public.affiliate_offers set view_count = view_count + 1 where id = p_offer_id;
+  else
+    update public.affiliate_offers set click_count = click_count + 1 where id = p_offer_id;
+  end if;
+end;
+$$;
+
+revoke all on function public.increment_offer_metric(text,text) from public, anon, authenticated;
