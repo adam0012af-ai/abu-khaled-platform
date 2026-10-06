@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useState}from"react";
 import{createRoot}from"react-dom/client";
 import{supabase}from"./supabase";
+import AutomationDashboard from"./AutomationDashboard";
 import"./style.css";
 
 type Lang="ar"|"tr"|"en"|"fr"|"de";
@@ -45,24 +46,99 @@ const countries=["الكل","مصر","السعودية","الإمارات","تر
 const categories=["الكل","إلكترونيات","أزياء","عطور وجمال","منزل"];
 
 const partnerStores:PartnerStore[]=[
-  {id:"amazon",name:"Amazon",logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128"},
   {id:"noon",name:"نون",logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128"},
-  {id:"shein",name:"SHEIN",logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128"},
-  {id:"aliexpress",name:"AliExpress",logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128"},
-  {id:"namshi",name:"نمشي",logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128"}
+  {id:"samsung",name:"Samsung",logo:"https://www.google.com/s2/favicons?domain=samsung.com&sz=128"}
 ];
 
 const coupons:Coupon[]=[
-  {id:"amazon-tech-25",title:"خصم على مختارات الإلكترونيات والأجهزة الذكية",store_id:"amazon",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128",country:"السعودية",category:"إلكترونيات",discount_label:"خصم 25%",coupon_code:"TECH25",affiliate_link:"https://www.amazon.sa/",description:"خصم على على منتجات مختارة من قسم الإلكترونيات.",verified:true,featured:true,expires:"لفترة محدودة",original_price:"399 ر.س",deal_price:"299 ر.س",gallery:["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=92"],highlights:["منتجات إلكترونية مختارة من المتجر الرسمي","خصم يصل إلى 25% على المنتجات المؤهلة","إمكانية استخدام الكود أثناء إتمام الطلب"]},
-  {id:"noon-save-20",title:"كوبون توفير على آلاف المنتجات المختارة",store_id:"noon",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",country:"مصر",category:"إلكترونيات",discount_label:"خصم 20%",coupon_code:"SAVE20",affiliate_link:"https://www.noon.com/egypt-en/",description:"استخدم الكود على المنتجات المؤهلة وفق شروط المتجر.",verified:true,featured:true,expires:"اليوم",original_price:"2,499 ج.م",deal_price:"1,999 ج.م",gallery:["https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1200&q=92"],highlights:["عرض على آلاف المنتجات المؤهلة","الشراء والدفع يتمان داخل نون","الكود متاح لفترة محدودة"]},
-  {id:"shein-style-15",title:"خصم إضافي على الأزياء والموضة",store_id:"shein",store_name:"SHEIN",store_logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128",country:"الإمارات",category:"أزياء",discount_label:"خصم 15%",coupon_code:"STYLE15",affiliate_link:"https://ar.shein.com/",description:"كوبون للموضة للموضة والإكسسوارات المختارة.",verified:true,featured:true,expires:"هذا الأسبوع",original_price:"320 د.إ",deal_price:"272 د.إ",gallery:["https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم إضافي على تشكيلات الموضة المؤهلة","يطبق الكود عند صفحة الدفع","إتمام الطلب مباشرة على متجر SHEIN"]},
-  {id:"ali-big-30",title:"تخفيضات موسمية على منتجات مختارة",store_id:"aliexpress",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128",country:"مصر",category:"إلكترونيات",discount_label:"حتى 30%",coupon_code:"ALI30",affiliate_link:"https://www.aliexpress.com/",description:"صفقات موسمية على فئات متعددة.",verified:true,featured:true,expires:"لفترة محدودة",original_price:"1,000 ج.م",deal_price:"700 ج.م",gallery:["https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1498049794561-7780e7231661?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=1200&q=92"],highlights:["تخفيضات موسمية على فئات متعددة","العرض يختلف حسب المنتج المؤهل","الشراء يتم من AliExpress مباشرة"]},
-  {id:"namshi-fashion-20",title:"خصم على السنيكرز والملابس المختارة",store_id:"namshi",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128",country:"السعودية",category:"أزياء",discount_label:"خصم 20%",coupon_code:"NM20",affiliate_link:"https://www.namshi.com/saudi-en/",description:"كوبون للموضة على مختارات الموضة والأحذية.",verified:true,featured:true,expires:"قريباً",original_price:"450 ر.س",deal_price:"360 ر.س",gallery:["https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=92"],highlights:["عروض على السنيكرز والملابس المختارة","خصم يصل إلى 20% حسب المنتج","الدفع والشحن من خلال نمشي"]},
-  {id:"amazon-beauty-18",title:"عروض على العطور ومنتجات العناية",store_id:"amazon",store_name:"Amazon",store_logo:"https://www.google.com/s2/favicons?domain=amazon.com&sz=128",country:"الإمارات",category:"عطور وجمال",discount_label:"خصم 18%",coupon_code:"BEAUTY18",affiliate_link:"https://www.amazon.ae/?tag=abu-khaled-demo-21",description:"خصم على على منتجات الجمال والعطور المؤهلة.",verified:true,featured:true,expires:"هذا الأسبوع",original_price:"280 د.إ",deal_price:"230 د.إ",gallery:["https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1523293182086-7651a899d37f?auto=format&fit=crop&w=1200&q=92"],highlights:["عروض على العطور ومنتجات العناية","خصم على المنتجات المؤهلة فقط","إتمام الشراء من Amazon الإمارات"]},
-  {id:"noon-home-12",title:"خصم على المنزل والمطبخ",store_id:"noon",store_name:"نون",store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",country:"السعودية",category:"منزل",discount_label:"خصم 12%",coupon_code:"HOME12",affiliate_link:"https://www.noon.com/saudi-en/?utm_source=abu_khaled_demo",description:"عروض مختارة على مستلزمات المنزل والأجهزة الصغيرة.",verified:true,expires:"لفترة محدودة",original_price:"699 ر.س",deal_price:"615 ر.س",gallery:["https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم على المنزل والمطبخ","يشمل منتجات مختارة وفق شروط المتجر","الطلب والشحن من خلال نون"]},
-  {id:"shein-new-10",title:"خصم للطلبات الجديدة على الموضة",store_id:"shein",store_name:"SHEIN",store_logo:"https://www.google.com/s2/favicons?domain=shein.com&sz=128",country:"السعودية",category:"أزياء",discount_label:"خصم 10%",coupon_code:"NEW10",affiliate_link:"https://ar.shein.com/",description:"كوبون للموضة للطلبات المؤهلة للمستخدمين الجدد.",verified:true,expires:"قريباً",original_price:"300 ر.س",deal_price:"270 ر.س",gallery:["https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم مخصص للطلبات المؤهلة","مناسب للمستخدمين الجدد حسب الشروط","الشراء يتم من SHEIN مباشرة"]},
-  {id:"ali-home-22",title:"خصم على الإكسسوارات المنزلية",store_id:"aliexpress",store_name:"AliExpress",store_logo:"https://www.google.com/s2/favicons?domain=aliexpress.com&sz=128",country:"تركيا",category:"منزل",discount_label:"خصم 22%",coupon_code:"HOME22",affiliate_link:"https://www.aliexpress.com/",description:"عروض تجريبية على إكسسوارات الديكور والمنزل.",verified:true,expires:"هذا الشهر",original_price:"1,250 ₺",deal_price:"975 ₺",gallery:["https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم على إكسسوارات الديكور والمنزل","قد تختلف قيمة الخصم حسب المنتج","الدفع يتم على AliExpress"]},
-  {id:"namshi-extra-15",title:"خصم إضافي على تشكيلات مختارة",store_id:"namshi",store_name:"نمشي",store_logo:"https://www.google.com/s2/favicons?domain=namshi.com&sz=128",country:"الإمارات",category:"أزياء",discount_label:"خصم 15%",coupon_code:"EXTRA15",affiliate_link:"https://www.namshi.com/uae-en/?utm_source=abu_khaled_demo",description:"كود تجريبي لعروض إضافية على منتجات مختارة.",verified:true,expires:"هذا الأسبوع",original_price:"400 د.إ",deal_price:"340 د.إ",gallery:["https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=1200&q=92","https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=1200&q=92"],highlights:["خصم إضافي على تشكيلات مختارة","الكود يطبق على المنتجات المؤهلة","إتمام الطلب من متجر نمشي الرسمي"]}
+  {
+    id:"noon-iphone16pm-256-desert",
+    title:"Apple iPhone 16 Pro Max 256GB Desert Titanium - Middle East Version",
+    store_id:"noon",
+    store_name:"نون",
+    store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",
+    country:"السعودية",
+    category:"إلكترونيات",
+    discount_label:"خصم 17%",
+    coupon_code:"",
+    affiliate_link:"https://www.noon.com/saudi-en/iphone-16-pro-max-256gb-desert-titanium-5g-with-facetime-middle-east-version/N70105592V/p/",
+    description:"منتج حقيقي معروض على نون السعودية. السعر والخصم قابلان للتغير حسب المتجر والمخزون.",
+    verified:true,
+    featured:true,
+    expires:"السعر متغير",
+    original_price:"5,699 ر.س",
+    deal_price:"4,709 ر.س",
+    gallery:[
+      "https://www.apple.com/newsroom/images/2024/09/apple-debuts-iphone-16-pro-and-iphone-16-pro-max/article/Apple-iPhone-16-Pro-hero-geo-240909_inline.jpg.large.jpg"
+    ],
+    highlights:["سعة 256GB","شاشة Super Retina XDR مقاس 6.9 بوصة","شريحة A18 Pro وإصدار الشرق الأوسط"]
+  },
+  {
+    id:"samsung-s25-ultra-256-black",
+    title:"Samsung Galaxy S25 Ultra 256GB 12GB Titanium Black",
+    store_id:"samsung",
+    store_name:"Samsung",
+    store_logo:"https://www.google.com/s2/favicons?domain=samsung.com&sz=128",
+    country:"السعودية",
+    category:"إلكترونيات",
+    discount_label:"خصم 31%",
+    coupon_code:"",
+    affiliate_link:"https://www.samsung.com/sa_en/smartphones/galaxy-s25-ultra/buy/?modelCode=SM-S938BZKIMEA",
+    description:"منتج حقيقي من متجر Samsung السعودية الرسمي، بسعة 256GB وذاكرة 12GB.",
+    verified:true,
+    featured:true,
+    expires:"حسب توفر المتجر",
+    original_price:"5,099 ر.س",
+    deal_price:"3,499 ر.س",
+    gallery:[
+      "https://images.samsung.com/sa_en/smartphones/galaxy-s25-ultra/buy/kv_global_PC_v2.jpg?imbypass=true"
+    ],
+    highlights:["سعة 256GB وRAM 12GB","كاميرا رئيسية 200MP","شاشة 6.9 بوصة مع S Pen"]
+  },
+  {
+    id:"noon-redmi-note15-5g-256",
+    title:"Xiaomi Redmi Note 15 5G 8GB RAM 256GB Glacier Blue",
+    store_id:"noon",
+    store_name:"نون",
+    store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",
+    country:"السعودية",
+    category:"إلكترونيات",
+    discount_label:"خصم 7%",
+    coupon_code:"",
+    affiliate_link:"https://www.noon.com/saudi-en/product/N70262990V/p/",
+    description:"منتج حقيقي على نون السعودية. بيانات المواصفات من Xiaomi والسعر يتغير حسب نون.",
+    verified:true,
+    featured:true,
+    expires:"السعر متغير",
+    original_price:"1,099 ر.س",
+    deal_price:"1,017 ر.س",
+    gallery:[
+      "https://i02.appmifile.com/870_operator_sg/13/01/2026/ffb4d5d717ef678ea5a7bebc2ec0a69e.png"
+    ],
+    highlights:["8GB RAM و256GB","Snapdragon 6 Gen 3","شاشة AMOLED 6.77 بوصة 120Hz"]
+  },
+  {
+    id:"noon-galaxy-a36-128-black",
+    title:"Samsung Galaxy A36 5G 6GB RAM 128GB Awesome Black",
+    store_id:"noon",
+    store_name:"نون",
+    store_logo:"https://www.google.com/s2/favicons?domain=noon.com&sz=128",
+    country:"السعودية",
+    category:"إلكترونيات",
+    discount_label:"خصم 24%",
+    coupon_code:"",
+    affiliate_link:"https://supermall.noon.com/saudi-en/~samsung/galaxy-a36-5g-dual-sim-awesome-black-6gb-ram-128gb-middle-east-version/N70357593V/p/?store=STD2DU",
+    description:"منتج حقيقي من نون السعودية، إصدار الشرق الأوسط مع ضمان مُصنّع حسب صفحة المتجر.",
+    verified:true,
+    expires:"السعر متغير",
+    original_price:"1,299 ر.س",
+    deal_price:"979 ر.س",
+    gallery:[
+      "https://f.nooncdn.com/p/pzsku/Z3EC309197ADF6CC17CC0Z/45/_/1778052211/26683d40-6b1f-4e30-b39d-c960baa2569e.jpg",
+      "https://f.nooncdn.com/p/pzsku/Z3EC309197ADF6CC17CC0Z/45/_/1778052211/a531419f-dd43-4441-9949-41939aa40308.jpg"
+    ],
+    highlights:["شاشة AMOLED 6.7 بوصة","بطارية 5000mAh","دعم 5G وتحديثات أمان ممتدة"]
+  }
 ];
 
 const heroSlides=[
@@ -109,6 +185,10 @@ function isOAuthCallbackDocument(){
   return url.searchParams.has("code")||
     url.searchParams.has("error")||
     window.location.hash.includes("access_token");
+}
+
+function isAutomationDocument(){
+  return window.location.hash==="#automation";
 }
 
 function App(){
@@ -290,7 +370,7 @@ function App(){
       </div>
     </header>
 
-    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small>COUPONS & DEALS</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#stores" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◎</span><span>{t.stores}</span><i>›</i></a><a href="#coupons" onClick={()=>setMenu(false)}><span className="drawerNavIcon">%</span><span>{t.coupons}</span><i>›</i></a></div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.country}</label><small>{country}</small></div><div className="countryChoices">{countries.map(x=><button key={x} className={country===x?"active":""} onClick={()=>setCountry(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>chooseLang(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
+    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small>COUPONS & DEALS</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#stores" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◎</span><span>{t.stores}</span><i>›</i></a><a href="#coupons" onClick={()=>setMenu(false)}><span className="drawerNavIcon">%</span><span>{t.coupons}</span><i>›</i></a>{user&&<a href="#automation" onClick={()=>window.setTimeout(()=>window.location.reload(),20)}><span className="drawerNavIcon">⚙</span><span>لوحة الأتمتة</span><i>›</i></a>}</div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.country}</label><small>{country}</small></div><div className="countryChoices">{countries.map(x=><button key={x} className={country===x?"active":""} onClick={()=>setCountry(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>chooseLang(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
 
     <main>
       <section className="promoBanner couponHero" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>finishSwipe(e.changedTouches[0].clientX)}>
@@ -340,10 +420,10 @@ function App(){
           <div className="couponDiscount modernDiscount">{coupon.discount_label}</div>
           <h3>{coupon.title}</h3>
           <p className="voucherDescription">{coupon.description}</p>
-          <div className="voucherCodeBox" onClick={e=>e.stopPropagation()}>
+          {coupon.coupon_code?<div className="voucherCodeBox" onClick={e=>e.stopPropagation()}>
             <div><small>كود الخصم</small><strong>{coupon.coupon_code}</strong></div>
             <button className={copied===coupon.id?"copied":""} onClick={()=>copyCouponOnly(coupon)}>{copied===coupon.id?"تم النسخ ✓":"نسخ الكود"}</button>
-          </div>
+          </div>:<div className="voucherPriceBox"><div><small>السعر الحالي</small><strong>{coupon.deal_price}</strong></div>{coupon.original_price&&<del>{coupon.original_price}</del>}</div>}
           <button className="voucherPreviewBtn" onClick={e=>{e.stopPropagation();openQuickView(coupon)}}>عرض التفاصيل <span>↗</span></button>
         </article>)}</div>:<div className="emptyDeals">لا توجد عروض مطابقة لهذا الاختيار الآن.</div>}
       </section>
@@ -365,4 +445,4 @@ function App(){
   </div>
 }
 
-createRoot(document.getElementById("root")!).render(isOAuthCallbackDocument()?<OAuthCallbackBridge/>:<App/>);
+createRoot(document.getElementById("root")!).render(isOAuthCallbackDocument()?<OAuthCallbackBridge/>:isAutomationDocument()?<AutomationDashboard/>:<App/>);
