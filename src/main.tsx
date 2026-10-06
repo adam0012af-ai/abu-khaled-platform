@@ -31,6 +31,10 @@ type Coupon={
   deal_price:string;
   gallery:string[];
   highlights:string[];
+  click_count:number;
+  copy_count:number;
+  view_count:number;
+  last_verified_at?:string;
 };
 
 const L:{[k in Lang]:any}={
@@ -43,7 +47,24 @@ const L:{[k in Lang]:any}={
 
 const langs=(Object.keys(L) as Lang[]);
 const countries=["الكل","مصر","السعودية","الإمارات","تركيا"];
-const categories=["الكل","إلكترونيات","أزياء","عطور وجمال","منزل"];
+const categoryCatalog=[
+  ["الكل","✦"],
+  ["إلكترونيات","⌁"],
+  ["أزياء","◐"],
+  ["عطور وجمال","✧"],
+  ["منزل","⌂"],
+  ["القهوة وأدواتها","☕"],
+  ["الصحة والجمال","♡"],
+  ["العسل","⬡"],
+  ["مستلزمات الأطفال","◌"],
+  ["الهدايا والإكسسوارات","◇"],
+  ["أغذية وتموين","◫"],
+  ["النظارات والعدسات","◉"],
+  ["الأجهزة والمعدات","⚙"],
+  ["الألعاب والترفيه","△"],
+  ["الكافيهات والمطاعم","◍"],
+  ["مستلزمات السيارات","◆"]
+] as const;
 
 const partnerStores:PartnerStore[]=[];
 
@@ -68,7 +89,10 @@ const coupons:Coupon[]=[
     gallery:[
       "https://www.apple.com/newsroom/images/2024/09/apple-debuts-iphone-16-pro-and-iphone-16-pro-max/article/Apple-iPhone-16-Pro-hero-geo-240909_inline.jpg.large.jpg"
     ],
-    highlights:["سعة 256GB","شاشة Super Retina XDR مقاس 6.9 بوصة","شريحة A18 Pro وإصدار الشرق الأوسط"]
+    highlights:["سعة 256GB","شاشة Super Retina XDR مقاس 6.9 بوصة","شريحة A18 Pro وإصدار الشرق الأوسط"],
+    click_count:0,
+    copy_count:0,
+    view_count:0
   },
   {
     id:"samsung-s25-ultra-256-black",
@@ -90,7 +114,10 @@ const coupons:Coupon[]=[
     gallery:[
       "https://images.samsung.com/sa_en/smartphones/galaxy-s25-ultra/buy/kv_global_PC_v2.jpg?imbypass=true"
     ],
-    highlights:["سعة 256GB وRAM 12GB","كاميرا رئيسية 200MP","شاشة 6.9 بوصة مع S Pen"]
+    highlights:["سعة 256GB وRAM 12GB","كاميرا رئيسية 200MP","شاشة 6.9 بوصة مع S Pen"],
+    click_count:0,
+    copy_count:0,
+    view_count:0
   },
   {
     id:"noon-redmi-note15-5g-256",
@@ -112,7 +139,10 @@ const coupons:Coupon[]=[
     gallery:[
       "https://i02.appmifile.com/870_operator_sg/13/01/2026/ffb4d5d717ef678ea5a7bebc2ec0a69e.png"
     ],
-    highlights:["8GB RAM و256GB","Snapdragon 6 Gen 3","شاشة AMOLED 6.77 بوصة 120Hz"]
+    highlights:["8GB RAM و256GB","Snapdragon 6 Gen 3","شاشة AMOLED 6.77 بوصة 120Hz"],
+    click_count:0,
+    copy_count:0,
+    view_count:0
   },
   {
     id:"noon-galaxy-a36-128-black",
@@ -134,7 +164,10 @@ const coupons:Coupon[]=[
       "https://f.nooncdn.com/p/pzsku/Z3EC309197ADF6CC17CC0Z/45/_/1778052211/26683d40-6b1f-4e30-b39d-c960baa2569e.jpg",
       "https://f.nooncdn.com/p/pzsku/Z3EC309197ADF6CC17CC0Z/45/_/1778052211/a531419f-dd43-4441-9949-41939aa40308.jpg"
     ],
-    highlights:["شاشة AMOLED 6.7 بوصة","بطارية 5000mAh","دعم 5G وتحديثات أمان ممتدة"]
+    highlights:["شاشة AMOLED 6.7 بوصة","بطارية 5000mAh","دعم 5G وتحديثات أمان ممتدة"],
+    click_count:0,
+    copy_count:0,
+    view_count:0
   }
 ];
 
@@ -203,7 +236,8 @@ function App(){
   const[country,setCountry]=useState("الكل");
   const[storeFilter,setStoreFilter]=useState("الكل");
   const[searchTerm,setSearchTerm]=useState("");
-  const[dealChip,setDealChip]=useState<"best"|"discount"|"tech"|"fashion"|"home">("best");
+  const[categoryFilter,setCategoryFilter]=useState("الكل");
+  const[dealChip,setDealChip]=useState<"best"|"popular"|"discount"|"tech"|"fashion"|"home">("best");
   const[banner,setBanner]=useState(0);
   const[touchX,setTouchX]=useState<number|null>(null);
   const[copied,setCopied]=useState("");
@@ -219,6 +253,19 @@ function App(){
     }
     return [...map.values()];
   },[catalogCoupons]);
+  const categoryCounts=useMemo(()=>{
+    const counts=new Map<string,number>();
+    for(const item of catalogCoupons)counts.set(item.category,(counts.get(item.category)||0)+1);
+    return counts;
+  },[catalogCoupons]);
+  const specialOffers=useMemo(()=>[...catalogCoupons]
+    .filter(x=>x.featured)
+    .sort((a,b)=>(b.click_count+b.copy_count*2)-(a.click_count+a.copy_count*2))
+    .slice(0,6),[catalogCoupons]);
+  const couponOnly=useMemo(()=>[...catalogCoupons]
+    .filter(x=>Boolean(x.coupon_code))
+    .sort((a,b)=>b.copy_count-a.copy_count)
+    .slice(0,8),[catalogCoupons]);
 
   useEffect(()=>{
     let alive=true;
@@ -258,7 +305,7 @@ function App(){
     let alive=true;
     supabase
       .from("affiliate_offers")
-      .select("id,title,store_id,store_name,store_logo,country,category,discount_label,coupon_code,affiliate_link,description,verified,featured,expires,original_price,deal_price,gallery,highlights")
+      .select("id,title,store_id,store_name,store_logo,country,category,discount_label,coupon_code,affiliate_link,description,verified,featured,expires,original_price,deal_price,gallery,highlights,click_count,copy_count,view_count,last_verified_at")
       .eq("active",true)
       .order("featured",{ascending:false})
       .order("updated_at",{ascending:false})
@@ -283,6 +330,10 @@ function App(){
           deal_price:String(row.deal_price||""),
           gallery:Array.isArray(row.gallery)?row.gallery.filter((x:any)=>typeof x==="string"):[],
           highlights:Array.isArray(row.highlights)?row.highlights.filter((x:any)=>typeof x==="string"):[],
+          click_count:Number(row.click_count||0),
+          copy_count:Number(row.copy_count||0),
+          view_count:Number(row.view_count||0),
+          last_verified_at:row.last_verified_at?String(row.last_verified_at):undefined,
         })).filter((x:Coupon)=>x.title&&x.affiliate_link);
         if(live.length)setCatalogCoupons(live);
       });
@@ -315,6 +366,7 @@ function App(){
     let list=catalogCoupons.filter(c=>
       (country==="الكل"||c.country===country)&&
       (storeFilter==="الكل"||c.store_id===storeFilter)&&
+      (categoryFilter==="الكل"||c.category===categoryFilter)&&
       (!q||c.title.toLowerCase().includes(q)||c.store_name.toLowerCase().includes(q)||c.coupon_code.toLowerCase().includes(q))
     );
 
@@ -336,13 +388,7 @@ function App(){
     if(navigator.clipboard?.writeText)navigator.clipboard.writeText(code).catch(fallback);else fallback();
   };
 
-  const copyCouponOnly=(coupon:Coupon)=>{
-    copyCode(coupon.coupon_code);
-    setCopied(coupon.id);
-    window.setTimeout(()=>setCopied(v=>v===coupon.id?"":v),1800);
-  };
-  const openQuickView=(coupon:Coupon)=>{setQuickView(coupon);setGalleryIndex(0)};
-  const recordAffiliateClick=(coupon:Coupon)=>{
+  const recordEngagement=(coupon:Coupon,event_type:"click"|"copy"|"view")=>{
     let destinationDomain="unknown";
     try{destinationDomain=new URL(coupon.affiliate_link).hostname}catch{}
     void supabase.functions.invoke("affiliate-click",{
@@ -350,10 +396,25 @@ function App(){
         coupon_id:coupon.id,
         store_id:coupon.store_id,
         destination_domain:destinationDomain,
-        source:"web"
+        source:"web",
+        event_type
       }
     });
+    setCatalogCoupons(items=>items.map(item=>item.id!==coupon.id?item:{
+      ...item,
+      click_count:item.click_count+(event_type==="click"?1:0),
+      copy_count:item.copy_count+(event_type==="copy"?1:0),
+      view_count:item.view_count+(event_type==="view"?1:0)
+    }));
   };
+  const copyCouponOnly=(coupon:Coupon)=>{
+    copyCode(coupon.coupon_code);
+    recordEngagement(coupon,"copy");
+    setCopied(coupon.id);
+    window.setTimeout(()=>setCopied(v=>v===coupon.id?"":v),1800);
+  };
+  const openQuickView=(coupon:Coupon)=>{setQuickView(coupon);setGalleryIndex(0);recordEngagement(coupon,"view")};
+  const recordAffiliateClick=(coupon:Coupon)=>recordEngagement(coupon,"click");
 
   const selectStore=(storeId:string)=>{
     setStoreFilter(storeId);
@@ -367,7 +428,7 @@ function App(){
 
     <header>
       <a className="brand">أبو خالد</a>
-      <nav><a>{t.home}</a><a href="#stores">{t.stores}</a><a href="#coupons">{t.coupons}</a></nav>
+      <nav><a>{t.home}</a><a href="#categories">التصنيفات</a><a href="#special">العروض الخاصة</a><a href="#stores">{t.stores}</a><a href="#coupons">{t.coupons}</a></nav>
       <div className="actions">
         <div className="langWrap"><button className="lang" onClick={()=>setLangOpen(!langOpen)}>{t.flag}<span>{t.name}</span>⌄</button>{langOpen&&<div className="langMenu">{langs.map(x=><button key={x} onClick={()=>chooseLang(x)}>{L[x].flag} {L[x].name}</button>)}</div>}</div>
         {user?<button className="authHeader iconButton" aria-label="الحساب" onClick={()=>setMenu(true)}>{(user.user_metadata?.avatar_url||user.user_metadata?.picture)?<img className="headerAvatar" src={user.user_metadata.avatar_url||user.user_metadata.picture} alt="" referrerPolicy="no-referrer"/>:<svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>}<span>حسابي</span></button>:<button className="authHeader iconButton" aria-label="تسجيل الدخول" onClick={()=>setAuthOpen(true)}><svg className="headerIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg><span>دخول</span></button>}
@@ -375,7 +436,7 @@ function App(){
       </div>
     </header>
 
-    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small>COUPONS & DEALS</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#stores" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◎</span><span>{t.stores}</span><i>›</i></a><a href="#coupons" onClick={()=>setMenu(false)}><span className="drawerNavIcon">%</span><span>{t.coupons}</span><i>›</i></a>{user&&<a href="#automation" onClick={()=>window.setTimeout(()=>window.location.reload(),20)}><span className="drawerNavIcon">⚙</span><span>لوحة الأتمتة</span><i>›</i></a>}</div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.country}</label><small>{country}</small></div><div className="countryChoices">{countries.map(x=><button key={x} className={country===x?"active":""} onClick={()=>setCountry(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>chooseLang(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
+    {menu&&<><div className="drawerBackdrop" onClick={()=>setMenu(false)}/><aside className="sideDrawer"><div className="drawerHead"><div><b>أبو خالد</b><small>COUPONS & DEALS</small></div><button className="drawerClose" aria-label="إغلاق القائمة" onClick={()=>setMenu(false)}>×</button></div>{user&&<div className="accountCard"><b>{user.user_metadata?.full_name||"حسابي"}</b><small>{user.email}</small><button onClick={logout}>تسجيل الخروج</button></div>}<div className="drawerNav"><a onClick={()=>setMenu(false)}><span className="drawerNavIcon">⌂</span><span>{t.home}</span><i>›</i></a><a href="#categories" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◫</span><span>التصنيفات</span><i>›</i></a><a href="#special" onClick={()=>setMenu(false)}><span className="drawerNavIcon">★</span><span>العروض الخاصة</span><i>›</i></a><a href="#stores" onClick={()=>setMenu(false)}><span className="drawerNavIcon">◎</span><span>{t.stores}</span><i>›</i></a><a href="#coupons" onClick={()=>setMenu(false)}><span className="drawerNavIcon">%</span><span>{t.coupons}</span><i>›</i></a>{user&&<a href="#automation" onClick={()=>window.setTimeout(()=>window.location.reload(),20)}><span className="drawerNavIcon">⚙</span><span>لوحة الأتمتة</span><i>›</i></a>}</div><div className="drawerSettings"><div className="drawerSettingHead"><label>{t.country}</label><small>{country}</small></div><div className="countryChoices">{countries.map(x=><button key={x} className={country===x?"active":""} onClick={()=>setCountry(x)}>{x}</button>)}</div><div className="drawerSettingHead"><label>{t.language}</label><small>{t.flag} {t.name}</small></div><div className="languageSelectWrap"><span>{t.flag}</span><select value={lang} aria-label={t.language} onChange={e=>chooseLang(e.target.value as Lang)}>{langs.map(x=><option key={x} value={x}>{L[x].flag} {L[x].name}</option>)}</select><i>⌄</i></div></div></aside></>}
 
     <main>
       <section className="promoBanner couponHero" onTouchStart={e=>setTouchX(e.touches[0].clientX)} onTouchEnd={e=>finishSwipe(e.changedTouches[0].clientX)}>
@@ -394,6 +455,26 @@ function App(){
         <form className="couponSearch" onSubmit={e=>{e.preventDefault();document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}}><span>⌕</span><input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder={t.search}/><button>{t.searchBtn}</button></form>
       </section>
 
+      <section id="categories" className="couponSection referenceCategories">
+        <div className="couponSectionHead"><div><span>DISCOVER</span><h2>التصنيفات</h2></div><small>تصفح العروض حسب ما تبحث عنه</small></div>
+        <div className="referenceCategoryGrid">
+          {categoryCatalog.map(([name,icon])=><button key={name} className={categoryFilter===name?"active":""} onClick={()=>{setCategoryFilter(name);document.getElementById("coupons")?.scrollIntoView({behavior:"smooth"})}}>
+            <i>{icon}</i><b>{name}</b><small>{name==="الكل"?catalogCoupons.length:(categoryCounts.get(name)||0)} عرض</small>
+          </button>)}
+        </div>
+      </section>
+
+      {specialOffers.length>0&&<section id="special" className="couponSection specialOffersSection">
+        <div className="couponSectionHead"><div><span>FEATURED NOW</span><h2>العروض الخاصة</h2></div><small>مختارة حسب الجودة والتفاعل</small></div>
+        <div className="specialOffersRail">
+          {specialOffers.map(coupon=><article key={coupon.id} onClick={()=>openQuickView(coupon)}>
+            <div className="specialOfferLogo"><img src={coupon.store_logo} alt={coupon.store_name}/></div>
+            <div className="specialOfferBody"><small>{coupon.store_name} · {coupon.country}</small><h3>{coupon.title}</h3><p>{coupon.description}</p><div><strong>{coupon.deal_price||coupon.discount_label||"عرض خاص"}</strong>{coupon.original_price&&<del>{coupon.original_price}</del>}</div></div>
+            <span className="specialOfferArrow">↗</span>
+          </article>)}
+        </div>
+      </section>}
+
       <section id="stores" className="couponSection storesSection modernStores">
         <div className="couponSectionHead"><div><span>STORES</span><h2>المتاجر</h2></div><small>اختر متجراً لعرض كوبوناته</small></div>
         <div className="storeGrid modernStoreSlider">
@@ -405,12 +486,13 @@ function App(){
       <section className="dealChipsWrap" aria-label="تصنيفات سريعة">
         <div className="dealChips">
           <button className={dealChip==="best"?"active":""} onClick={()=>setDealChip("best")}>الأفضل</button>
+          <button className={dealChip==="popular"?"active":""} onClick={()=>setDealChip("popular")}>الأكثر رواجًا</button>
           <button className={dealChip==="discount"?"active":""} onClick={()=>setDealChip("discount")}>أقوى خصم</button>
           <button className={dealChip==="tech"?"active":""} onClick={()=>setDealChip("tech")}>تقنية</button>
           <button className={dealChip==="fashion"?"active":""} onClick={()=>setDealChip("fashion")}>أزياء</button>
           <button className={dealChip==="home"?"active":""} onClick={()=>setDealChip("home")}>المنزل</button>
         </div>
-        {(storeFilter!=="الكل"||country!=="الكل"||searchTerm)&&<button className="clearDealFilters" onClick={()=>{setStoreFilter("الكل");setCountry("الكل");setSearchTerm("");setDealChip("best")}}>مسح التحديد</button>}
+        {(storeFilter!=="الكل"||country!=="الكل"||categoryFilter!=="الكل"||searchTerm)&&<button className="clearDealFilters" onClick={()=>{setStoreFilter("الكل");setCountry("الكل");setCategoryFilter("الكل");setSearchTerm("");setDealChip("best")}}>مسح التحديد</button>}
       </section>
 
       <section id="coupons" className="couponSection modernDealsSection">
@@ -429,8 +511,25 @@ function App(){
             <div><small>كود الخصم</small><strong>{coupon.coupon_code}</strong></div>
             <button className={copied===coupon.id?"copied":""} onClick={()=>copyCouponOnly(coupon)}>{copied===coupon.id?"تم النسخ ✓":"نسخ الكود"}</button>
           </div>:<div className="voucherPriceBox"><div><small>السعر الحالي</small><strong>{coupon.deal_price}</strong></div>{coupon.original_price&&<del>{coupon.original_price}</del>}</div>}
+          <div className="dealMeta"><span>{coupon.verified?"✓ موثق":"قيد التحقق"}</span><span>↗ {coupon.click_count}</span>{coupon.coupon_code&&<span>نسخ {coupon.copy_count}</span>}</div>
           <button className="voucherPreviewBtn" onClick={e=>{e.stopPropagation();openQuickView(coupon)}}>عرض التفاصيل <span>↗</span></button>
         </article>)}</div>:<div className="emptyDeals">لا توجد عروض مطابقة لهذا الاختيار الآن.</div>}
+      </section>
+
+      {couponOnly.length>0&&<section className="couponSection couponCodesSection">
+        <div className="couponSectionHead"><div><span>COUPON CODES</span><h2>أكواد الخصم</h2></div><small>الأكثر استخدامًا أولًا</small></div>
+        <div className="couponCodeRail">
+          {couponOnly.map(coupon=><article key={coupon.id}>
+            <div className="couponCodeStore"><img src={coupon.store_logo} alt={coupon.store_name}/><div><b>{coupon.store_name}</b><small>{coupon.discount_label||coupon.title}</small></div></div>
+            <button onClick={()=>copyCouponOnly(coupon)}>{copied===coupon.id?"تم النسخ ✓":coupon.coupon_code}</button>
+            <small>تم النسخ {coupon.copy_count} مرة</small>
+          </article>)}
+        </div>
+      </section>}
+
+      <section className="couponSection successPartners">
+        <div className="couponSectionHead"><div><span>PARTNERS</span><h2>المتاجر المتاحة</h2></div><small>{catalogStores.length} متجر في الكتالوج الحالي</small></div>
+        <div className="partnerLogoRail">{catalogStores.map(store=><button key={store.id} onClick={()=>selectStore(store.id)}><img src={store.logo} alt={store.name}/><b>{store.name}</b></button>)}</div>
       </section>
 
       <section className="couponTrust">
@@ -440,13 +539,13 @@ function App(){
       </section>
     </main>
 
-    {quickView&&<div className="quickViewBack" onClick={()=>setQuickView(null)}><section className="quickViewModal" role="dialog" aria-modal="true" aria-label={quickView.title} onClick={e=>e.stopPropagation()}><button className="quickViewClose" aria-label="إغلاق المعاينة" onClick={()=>setQuickView(null)}>×</button><div className="quickGallery"><div className={"quickMainImage "+(!quickView.gallery.length?"quickImageFallback":"")}>{quickView.gallery.length?<img src={quickView.gallery[Math.min(galleryIndex,quickView.gallery.length-1)]} alt={quickView.title}/>:<div className="quickFallbackInner"><img src={quickView.store_logo} alt={quickView.store_name}/><b>{quickView.store_name}</b><span>صورة المنتج ستُحدَّث من المصدر عند توفرها</span></div>}{quickView.discount_label&&<span className="quickSaveBadge">وفر {quickView.discount_label.replace("خصم ","")}</span>}</div>{quickView.gallery.length>1&&<div className="quickThumbs">{quickView.gallery.map((img,i)=><button key={img} className={galleryIndex===i?"active":""} onClick={()=>setGalleryIndex(i)}><img src={img} alt=""/></button>)}</div>}</div><div className="quickContent"><div className="quickStore"><span><img src={quickView.store_logo} alt={quickView.store_name}/></span><div><b>{quickView.store_name}</b><small>متجر موثوق ✓</small></div></div><h2>{quickView.title}</h2><div className="quickPrice"><strong>{quickView.deal_price}</strong><del>{quickView.original_price}</del><span>{quickView.discount_label}</span></div><div className="quickHighlights"><b>مميزات الصفقة</b><ul>{quickView.highlights.map(x=><li key={x}>{x}</li>)}</ul></div>{quickView.coupon_code&&<div className="smartCouponBox"><div><span>كود الخصم</span><strong>{quickView.coupon_code}</strong></div><button className={copied===quickView.id?"copied":""} onClick={()=>copyCouponOnly(quickView)}>{copied===quickView.id?"تم النسخ ✓":"نسخ الكود"}</button><small>سيتم تطبيق الخصم تلقائياً عند لصقه في صفحة الدفع بالمتجر.</small></div>}<a className="quickPrimaryCta" href={quickView.affiliate_link} target="_blank" rel="sponsored noopener noreferrer" onClick={()=>recordAffiliateClick(quickView)}>متابعة الشراء من {quickView.store_name} <span>↗</span></a><small className="quickDisclosure">سيتم فتح المتجر في نافذة جديدة. قد يكون الرابط رابط تسويق بالعمولة وقد نحصل على عمولة من عملية شراء مؤهلة دون تكلفة إضافية عليك.</small></div></section></div>}
+    {quickView&&<div className="quickViewBack" onClick={()=>setQuickView(null)}><section className="quickViewModal" role="dialog" aria-modal="true" aria-label={quickView.title} onClick={e=>e.stopPropagation()}><button className="quickViewClose" aria-label="إغلاق المعاينة" onClick={()=>setQuickView(null)}>×</button><div className="quickGallery"><div className={"quickMainImage "+(!quickView.gallery.length?"quickImageFallback":"")}>{quickView.gallery.length?<img src={quickView.gallery[Math.min(galleryIndex,quickView.gallery.length-1)]} alt={quickView.title}/>:<div className="quickFallbackInner"><img src={quickView.store_logo} alt={quickView.store_name}/><b>{quickView.store_name}</b><span>صورة المنتج ستُحدَّث من المصدر عند توفرها</span></div>}{quickView.discount_label&&<span className="quickSaveBadge">وفر {quickView.discount_label.replace("خصم ","")}</span>}</div>{quickView.gallery.length>1&&<div className="quickThumbs">{quickView.gallery.map((img,i)=><button key={img} className={galleryIndex===i?"active":""} onClick={()=>setGalleryIndex(i)}><img src={img} alt=""/></button>)}</div>}</div><div className="quickContent"><div className="quickStore"><span><img src={quickView.store_logo} alt={quickView.store_name}/></span><div><b>{quickView.store_name}</b><small>متجر موثوق ✓ · {quickView.view_count} مشاهدة · {quickView.click_count} انتقال</small></div></div><h2>{quickView.title}</h2><div className="quickPrice"><strong>{quickView.deal_price}</strong><del>{quickView.original_price}</del><span>{quickView.discount_label}</span></div><div className="quickHighlights"><b>مميزات الصفقة</b><ul>{quickView.highlights.map(x=><li key={x}>{x}</li>)}</ul></div>{quickView.coupon_code&&<div className="smartCouponBox"><div><span>كود الخصم</span><strong>{quickView.coupon_code}</strong></div><button className={copied===quickView.id?"copied":""} onClick={()=>copyCouponOnly(quickView)}>{copied===quickView.id?"تم النسخ ✓":"نسخ الكود"}</button><small>سيتم تطبيق الخصم تلقائياً عند لصقه في صفحة الدفع بالمتجر.</small></div>}<a className="quickPrimaryCta" href={quickView.affiliate_link} target="_blank" rel="sponsored noopener noreferrer" onClick={()=>recordAffiliateClick(quickView)}>متابعة الشراء من {quickView.store_name} <span>↗</span></a><small className="quickDisclosure">سيتم فتح المتجر في نافذة جديدة. قد يكون الرابط رابط تسويق بالعمولة وقد نحصل على عمولة من عملية شراء مؤهلة دون تكلفة إضافية عليك.</small></div></section></div>}
 
     {copied&&<div className="copyToast" role="status">✓ تم نسخ الكود!</div>}
 
     {authOpen&&<div className="modalBack authBack" onClick={()=>setAuthOpen(false)}><section className="authExperience" onClick={e=>e.stopPropagation()}><button className="authClose" onClick={()=>setAuthOpen(false)}>×</button><aside className="authStory"><div className="authBrand"><i>%</i><b>ABU <em>KHALED</em></b><small>منصة كوبونات وعروض</small></div><div className="authStoryCopy"><h2>اكتشف العروض<br/><em>بشكل أذكى</em></h2><div className="benefit"><i>%</i><div><b>كوبونات حصرية</b><small>أكواد خصم مرتبة حسب المتجر</small></div></div><div className="benefit"><i>◎</i><div><b>متاجر متعددة</b><small>قارن بين العروض في مكان واحد</small></div></div><div className="benefit"><i>↗</i><div><b>انتقال مباشر</b><small>إتمام الشراء داخل المتجر الرسمي</small></div></div></div><small className="authStoryFoot">منصة واحدة للمقارنة والتوفير</small></aside><div className="authPanel"><small>ABU KHALED · SECURE ACCOUNT</small><h2>{authMode==="login"?"مرحبًا بعودتك":"أنشئ حسابك"}</h2><p>{authMode==="login"?"سجل الدخول إلى حسابك":"ابدأ تجربة عروض مخصصة وآمنة"}</p><div className="authTabs"><button className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setAuthMsg("")}}>تسجيل الدخول</button><button className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setAuthMsg("")}}>حساب جديد</button></div>{authMode==="signup"&&<label className="authField"><span>👤</span><input value={authName} onChange={e=>setAuthName(e.target.value)} placeholder="الاسم الكامل"/></label>}<label className="authField"><span>✉</span><input type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} placeholder="البريد الإلكتروني"/></label><label className="authField"><span>▣</span><input type="password" value={authPassword} onChange={e=>setAuthPassword(e.target.value)} placeholder="كلمة المرور"/></label>{authMode==="login"&&<div className="authHelpers"><span>تسجيل دخول آمن</span><button onClick={resetPassword}>نسيت كلمة المرور؟</button></div>}{authMsg&&<div className="authMsg">{authMsg}</div>}<button className="authSubmit" disabled={authBusy} onClick={submitAuth}>{authBusy?"جاري التنفيذ...":authMode==="login"?"تسجيل الدخول  ←":"إنشاء الحساب  ←"}</button><div className="authDivider"><span>أو</span></div><div className="socialDemo"><button className="googleLogin" disabled={authBusy} onClick={googleLogin}>G&nbsp;&nbsp; المتابعة باستخدام Google</button><button disabled>●&nbsp;&nbsp; Apple</button></div><div className="authSwitch"><span>{authMode==="login"?"ليس لديك حساب؟":"لديك حساب بالفعل؟"}</span><button onClick={()=>{setAuthMode(authMode==="login"?"signup":"login");setAuthMsg("")}}>{authMode==="login"?"إنشاء حساب جديد":"تسجيل الدخول"}</button></div><div className="authSecure">🔒 الحساب مؤمّن عبر Supabase Auth.</div></div></section></div>}
 
-    <footer className="siteFooter couponFooter"><div className="footerTop"><div className="footerIdentity"><b>أبو خالد</b><p>منصة ذكية لتجميع الكوبونات والعروض ومقارنة الصفقات من المتاجر.</p><small>TTV4K — Abo Adam</small></div><div className="footerLinks"><b>روابط سريعة</b><a href="#stores">المتاجر</a><a href="#coupons">الكوبونات</a><a href="#privacy">سياسة الخصوصية</a><a href="#terms">الشروط والأحكام</a></div><div className="footerPayments"><b>الشفافية</b><p className="transparencyText">نوفر لك أفضل العروض الموثوقة بروابط تسوق آمنة ومباشرة من المتاجر الرسمية.</p><small>قد تحتوي بعض الروابط على روابط تسويق بالعمولة. عند إتمام شراء مؤهل قد نحصل على عمولة دون أي تكلفة إضافية عليك.</small></div></div><div className="footerBottom"><span>© 2026 أبو خالد. جميع الحقوق محفوظة.</span><span>كوبونات • عروض • روابط مباشرة</span></div></footer>
+    <footer className="siteFooter couponFooter"><div className="footerTop"><div className="footerIdentity"><b>أبو خالد</b><p>منصة ذكية لتجميع الكوبونات والعروض ومقارنة الصفقات من المتاجر.</p><small>TTV4K — Abo Adam</small></div><div className="footerLinks"><b>روابط سريعة</b><a href="#categories">التصنيفات</a><a href="#special">العروض الخاصة</a><a href="#stores">المتاجر</a><a href="#coupons">العروض والكوبونات</a><a href="#privacy">سياسة الخصوصية</a><a href="#terms">الشروط والأحكام</a></div><div className="footerPayments"><b>الشفافية</b><p className="transparencyText">نوفر لك أفضل العروض الموثوقة بروابط تسوق آمنة ومباشرة من المتاجر الرسمية.</p><small>قد تحتوي بعض الروابط على روابط تسويق بالعمولة. عند إتمام شراء مؤهل قد نحصل على عمولة دون أي تكلفة إضافية عليك.</small></div></div><div className="footerBottom"><span>© 2026 أبو خالد. جميع الحقوق محفوظة.</span><span>كوبونات • عروض • روابط مباشرة</span></div></footer>
   </div>
 }
 
