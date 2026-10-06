@@ -4467,3 +4467,32 @@ header{
   .automationTools{grid-template-columns:1fr}.automationTools article{grid-template-columns:40px 1fr auto}.automationToolIcon{width:38px;height:38px}.automationTools p{font-size:9px}
   .automationTableWrap{margin:0 -3px}.automationPanelHead>small{display:none}
 }
+
+.quickImageFallback{
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,#FFFFFF,#F1F5F9);
+  border:1px solid #E2E8F0;
+}
+.quickFallbackInner{
+  width:100%;
+  height:100%;
+  padding:32px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  text-align:center;
+}
+.quickFallbackInner img{
+  width:72px;
+  height:72px;
+  object-fit:contain;
+  padding:14px;
+  border:1px solid #E2E8F0;
+  border-radius:18px;
+  background:#fff;
+}
+.quickFallbackInner b{font-size:16px;color:#0F172A}
+.quickFallbackInner span{max-width:250px;color:#64748B;font-size:10px;line-height:1.7}

@@ -145,8 +145,9 @@ function safeId(value: string) {
 }
 
 async function authorize(req: Request) {
-  const url = Deno.env.get("SUPABASE_URL") ?? "";
-  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const configuredAutomationKey = Deno.env.get("AUTOMATION_WEBHOOK_KEY") ?? "";
   const suppliedAutomationKey = req.headers.get("x-automation-key") ?? "";
 
@@ -155,26 +156,29 @@ async function authorize(req: Request) {
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
-  if (!url || !anon || !authHeader) {
+  if (!supabaseUrl || !anonKey || !serviceRoleKey || !authHeader) {
     return { ok: false, mode: "", status: 401, reason: "Authentication required" };
   }
 
-  const client = createClient(url, anon, {
+  const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
     auth: { persistSession: false },
   });
-  const { data, error } = await client.auth.getUser();
+  const { data, error } = await userClient.auth.getUser();
   const user = data.user;
   if (error || !user) return { ok: false, mode: "", status: 401, reason: "Invalid session" };
 
-  const adminEmails = (Deno.env.get("ADMIN_EMAILS") ?? "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  const isAdmin = user.app_metadata?.role === "admin" ||
-    (!!user.email && adminEmails.includes(user.email.toLowerCase()));
+  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const { data: allowed, error: adminError } = await admin
+    .from("automation_admins")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  if (!isAdmin) return { ok: false, mode: "", status: 403, reason: "Admin access required" };
+  if (adminError || !allowed) {
+    return { ok: false, mode: "", status: 403, reason: "Admin access required" };
+  }
+
   return { ok: true, mode: "user", status: 200, reason: "" };
 }
 
@@ -260,7 +264,7 @@ Deno.serve(async (req: Request) => {
     images[0] ?? "",
   ].join("|"));
 
-  const row = {
+  const row: any = {
     id,
     provider,
     provider_product_id: productId,
@@ -304,9 +308,26 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
   const { data: previous } = await admin
     .from("affiliate_offers")
-    .select("id,price,currency,source_hash")
+    .select("id,price,old_price,currency,source_hash,gallery,discount_percent,discount_label,original_price,deal_price")
     .eq("id", id)
     .maybeSingle();
+
+  if (previous) {
+    if (row.price === null && previous.price !== null) {
+      row.price = previous.price;
+      row.currency = row.currency || previous.currency;
+      row.deal_price = previous.deal_price || [previous.price, previous.currency].filter(Boolean).join(" ");
+    }
+    if (row.old_price === null && previous.old_price !== null) {
+      row.old_price = previous.old_price;
+      row.original_price = previous.original_price || [previous.old_price, previous.currency].filter(Boolean).join(" ");
+      row.discount_percent = previous.discount_percent;
+      row.discount_label = previous.discount_label || "";
+    }
+    if ((!Array.isArray(row.gallery) || row.gallery.length === 0) && Array.isArray(previous.gallery)) {
+      row.gallery = previous.gallery;
+    }
+  }
 
   const changed = !!previous && String(previous.source_hash ?? "") !== sourceHash;
   const priceChanged = !!previous && previous.price !== null && price !== null &&
